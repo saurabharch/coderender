@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { VERTICALS } from "@/lib/site";
+import { CONTACT, VERTICALS } from "@/lib/site";
 import { LeadForm } from "@/components/lead-form";
+import { Reveal } from "@/components/reveal";
 
 export function generateStaticParams() {
   return VERTICALS.map((v) => ({ slug: v.slug }));
@@ -20,26 +22,70 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
   const { slug } = await params;
   const v = VERTICALS.find((x) => x.slug === slug);
   if (!v) notFound();
+  const related = VERTICALS.filter((x) => x.slug !== v.slug).slice(0, 3);
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
-      <p className="text-xs font-semibold uppercase tracking-widest text-brand-deep">Coderender for</p>
-      <h1 className="mt-2 text-3xl font-extrabold md:text-5xl">{v.label}</h1>
-      <p className="mt-3 max-w-2xl text-zinc-600 dark:text-zinc-400">{v.blurb}</p>
-      <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
-          <h2 className="font-bold">What you get</h2>
-          <ul className="mt-2 list-disc pl-5 text-sm">
-            <li>Google profile tuned to rank on Maps + Search</li>
-            <li>Posts + review replies handled weekly</li>
-            <li>WhatsApp instant replies in your tone + prices</li>
-            <li>Offer broadcasts to past customers</li>
-          </ul>
+    <>
+      <section className="hero-glow">
+        <div className="wrap pb-8 pt-12 text-center md:pt-16">
+          <Reveal>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Coderender for</p>
+            <h1 className="mx-auto mt-3 max-w-3xl text-balance text-4xl font-extrabold leading-[1.02] tracking-tight md:text-5xl">{v.label}</h1>
+            <p className="mx-auto mt-3 max-w-xl text-zinc-600 dark:text-zinc-400">{v.blurb}</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <a href={CONTACT.whatsapp} className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">Free GBP Booster →</a>
+              <a href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 text-sm font-semibold dark:border-white/20">Book Free Demo</a>
+            </div>
+          </Reveal>
         </div>
-        <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
-          <h2 className="font-bold">Request a callback</h2>
-          <div className="mt-3"><LeadForm source={`industry:${v.slug}`} /></div>
+      </section>
+
+      <section>
+        <div className="wrap section grid gap-4 !py-12 md:grid-cols-2">
+          <div className="rounded-2xl border border-black/10 p-6 dark:border-white/10">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Sound familiar?</p>
+            <ul className="mt-3 space-y-2 text-sm">
+              {v.pains.map((p) => <li key={p} className="flex gap-2"><span aria-hidden>·</span>{p}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-black/10 bg-brand-soft/40 p-6 dark:border-white/10 dark:bg-white/5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">What changes</p>
+            <ul className="mt-3 space-y-2 text-sm">
+              {v.wins.map((w) => <li key={w} className="flex gap-2"><span aria-hidden>✓</span>{w}</li>)}
+            </ul>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section className="border-y border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
+        <div className="wrap section !py-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">It answers like you do</p>
+          <div className="mx-auto mt-4 max-w-md rounded-2xl border border-black/10 p-4 dark:border-white/10">
+            <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-white dark:text-zinc-900">{v.chatQ}</p>
+            <p className="mt-2 w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-4 py-2 text-sm dark:bg-zinc-800">{v.chatA}</p>
+            <p className="mt-2 text-right text-xs text-zinc-500">Answered in seconds, 24/7 — in your tone, with your prices.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="wrap section grid gap-8 !py-12 md:grid-cols-2">
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight">Also built for</h2>
+            <div className="mt-4 grid gap-3">
+              {related.map((r) => (
+                <Link key={r.slug} href={`/industries/${r.slug}`} className="rounded-2xl border border-black/10 p-4 hover:border-brand dark:border-white/10">
+                  <p className="font-bold">{r.label}</p>
+                  <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{r.blurb}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
+            <h2 className="font-bold">Request a callback</h2>
+            <div className="mt-3"><LeadForm source={`industry:${v.slug}`} /></div>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }
