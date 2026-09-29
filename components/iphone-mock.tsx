@@ -1,5 +1,6 @@
 import { BrandIcon } from "./brand-icon";
 import { Logo } from "./logo";
+import { WhatsAppSim } from "./whatsapp-sim";
 
 // Realistic titanium iPhone (chassis per provided spec), screen showing the
 // live hero content + the current WhatsApp thread. Pure CSS, no images.
@@ -44,9 +45,8 @@ export function IPhoneMock() {
                 </span>
               ))}
             </div>
-            <div className="mt-3 rounded-2xl bg-[#e7ffdb] p-2.5">
-              <p className="ml-auto w-fit max-w-[90%] rounded-2xl rounded-br-sm bg-white px-2.5 py-1.5 text-[11px] shadow-sm">Price for the bridal package?</p>
-              <p className="mt-1.5 w-fit max-w-[90%] rounded-2xl rounded-bl-sm bg-[#d9fdd3] px-2.5 py-1.5 text-[11px] shadow-sm">₹8,999 all-inclusive — slots open this weekend ✅</p>
+            <div className="mt-3">
+              <WhatsAppSim />
             </div>
             <div className="mt-auto rounded-2xl border border-black/10 bg-white p-2.5">
               <p className="text-[12px] font-bold">Your Business #1</p>
