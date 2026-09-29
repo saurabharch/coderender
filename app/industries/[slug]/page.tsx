@@ -5,6 +5,7 @@ import { CONTACT, VERTICALS } from "@/lib/site";
 import { SERVICES } from "@/lib/services";
 import { SERVICE_ICONS } from "@/lib/nav-icons";
 import { VERTICAL_ICONS } from "@/lib/nav-icons";
+import { PhoneMock } from "@/components/phone-mock";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
 
@@ -38,6 +39,7 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
               <a href={CONTACT.whatsapp} className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">Free GBP Booster →</a>
               <a href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 text-sm font-semibold dark:border-white/20">Book Free Demo</a>
             </div>
+            <div className="mt-8 flex justify-center"><PhoneMock /></div>
           </Reveal>
         </div>
       </section>

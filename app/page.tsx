@@ -232,9 +232,11 @@ export default function Home() {
       </section>
 
       <section className="border-y border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
-        <div className="wrap section grid gap-8 !py-12 md:grid-cols-2">
+        <div className="wrap section !py-12">
+          <Reveal>
+          <div className="grid gap-8 md:grid-cols-2">
           <div>
-            <h2 className="text-2xl font-extrabold md:text-3xl">Start with a fixed-price audit</h2>
+            <h2 className="display-2">Start with a fixed-price audit</h2>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               GBP audit + rank report + next-3-moves plan. DRAFT ₹2,999, credited toward your growth pack.
             </p>
@@ -249,6 +251,8 @@ export default function Home() {
             <h3 className="font-bold">Request a callback</h3>
             <div className="mt-3"><LeadForm source="home" /></div>
           </div>
+          </div>
+          </Reveal>
         </div>
       </section>
 
