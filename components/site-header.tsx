@@ -112,14 +112,14 @@ export function SiteHeader() {
             <Link href="/contact" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-2 hover:bg-black/5 dark:hover:bg-white/10"><NavIcon of="contact" />Contact</Link>
           </nav>
           <div className="flex items-center gap-2">
-            <MobileMenu sections={sections} />
-            <ThemeToggle />
             <a
               href={CONTACT.whatsapp}
               className="inline-flex min-h-[44px] items-center rounded-xl bg-brand px-4 text-sm font-semibold text-white"
             >
               Book Free Demo
             </a>
+            <ThemeToggle />
+            <MobileMenu sections={sections} />
           </div>
         </div>
       </header>

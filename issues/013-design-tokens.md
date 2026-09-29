@@ -15,7 +15,7 @@ Labels: design
 | Button | radius full, padding 0.75rem–1.5rem (min-h 44px), weight 600 |
 | Card | radius 16px, 1px `black/10` border, shadow none (xl on hero mock only) |
 | Section padding | `clamp(72px,10vw,140px)`; container `max-w-6xl`, inline ≥24px |
-| Marquee | 40s linear infinite, 1rem gap, cards w-56–w-80, snap, pause on hover |
+| Marquee | 50s linear infinite reverse (glides left-to-right), 1rem gap, cards w-56–w-80, snap, pause on hover |
 | Header | banner + 64px bar, sticky, backdrop-blur, border-b, shadow after 8px scroll |
 
 ## Screenshot shot-list (human pass — no screenshot browser reaches device localhost)

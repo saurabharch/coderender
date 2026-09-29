@@ -50,8 +50,8 @@ export default function Home() {
           </div>
           <ul aria-label="Channels we automate" className="mt-6 flex flex-wrap justify-center gap-2">
             {CHANNELS.map(({ icon, label }) => (
-              <li key={label} className="flex min-h-[44px] items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-medium dark:border-white/15 dark:bg-black">
-                <BrandIcon name={icon} size={18} /> {label}
+              <li key={label} title={label} aria-label={label} className="flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-white dark:border-white/15 dark:bg-black">
+                <BrandIcon name={icon} size={20} />
               </li>
             ))}
           </ul>

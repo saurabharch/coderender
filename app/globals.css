@@ -49,7 +49,7 @@ body {
 .marquee::-webkit-scrollbar { display: none; }
 .marquee > * { scroll-snap-align: start; flex: 0 0 auto; }
 @media (prefers-reduced-motion: no-preference) {
-  .marquee-auto { display: inline-flex; animation: marquee-x 40s linear infinite; width: max-content; }
+  .marquee-auto { display: inline-flex; animation: marquee-x 50s linear infinite reverse; width: max-content; will-change: transform; }
   .marquee-auto:hover { animation-play-state: paused; }
 }
 

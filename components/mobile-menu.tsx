@@ -16,7 +16,7 @@ export function MobileMenu({ sections, links }: { sections?: MenuSection[]; link
       <summary aria-label="Open menu" className="flex min-h-[44px] min-w-[44px] cursor-pointer list-none items-center justify-center rounded-xl border border-black/10 dark:border-white/15 [&::-webkit-details-marker]:hidden">
         <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
       </summary>
-      <div className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-72 overflow-y-auto rounded-2xl border border-black/10 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-900">
+      <div className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-black/10 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-900">
         {groups.map((g) => (
           <div key={g.title}>
             <p className="px-3 pb-1 pt-2 text-xs font-extrabold uppercase tracking-[0.18em] text-zinc-500">{g.title}</p>
