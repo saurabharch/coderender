@@ -133,6 +133,7 @@ export default function Home() {
                 </ul>
                 <p className="mt-2 text-xs font-semibold">{s.timeline}</p>
                 <p className="text-xs text-zinc-500">{s.priceHint}</p>
+                <Link href={`/services/${s.slug}`} className="mt-3 inline-flex min-h-[44px] items-center text-sm font-semibold text-brand-deep">Full briefing →</Link>
               </article>
             ))}
           </div>

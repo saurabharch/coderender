@@ -53,7 +53,12 @@ export function SiteFooter() {
         <div>
           <p className="font-semibold">Contact</p>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">{CONTACT.address}</p>
-          <p className="mt-4 text-xs text-zinc-500">© 2026 Coderender. Prices marked DRAFT until verified.</p>
+          <p className="mt-3 space-x-3 text-xs">
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+            <Link href="/refund">Refunds</Link>
+          </p>
+          <p className="mt-2 text-xs text-zinc-500">© 2026 Coderender. Prices marked DRAFT until verified.</p>
         </div>
       </div>
     </footer>
