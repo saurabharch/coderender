@@ -20,6 +20,7 @@ pnpm dlx shadcn@latest add <component>  # only where pnpm works; else hand-add i
 ```
 
 Single test: `npx vitest run <file>`. Single page check: `npm run build && npm start`.
+Never `pm2 restart` unless the build just went green — a failed build leaves `.next` unservable and the restart takes the demo down (seen 2026-09-30). Always `curl localhost:3100` after a restart.
 Stop dev with `pkill -f "[n]ext dev"` — a bare `pkill -f "next dev"` matches and kills your own shell.
 Next 15: route `params` is `Promise` — `await` it in pages + `generateMetadata`.
 Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).

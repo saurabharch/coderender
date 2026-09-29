@@ -5,7 +5,7 @@ import { INTEGRATIONS, integrationInitial } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
 import { PhoneMock } from "@/components/phone-mock";
-import { MessageCircle, Facebook, Instagram, Send, Phone } from "lucide-react";
+import { MessageCircle, Facebook, Instagram, Send, Phone, Star } from "lucide-react";
 
 const CHANNELS = [
   { icon: MessageCircle, label: "WhatsApp" },
