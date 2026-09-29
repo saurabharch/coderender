@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
-import { SERVICES } from "@/lib/services";
+import { ServicesShowcase } from "@/components/services-showcase";
 import { INTEGRATIONS } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
@@ -180,24 +180,9 @@ export default function Home() {
       <section id="services" className="border-y border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
         <div className="wrap section !py-12">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Our services</p>
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Digital services we offer</h2>
-          <div className="marquee mt-6 pb-2">
-            <div className="marquee-auto">
-            {[...SERVICES, ...SERVICES].map((s, i) => (
-              <article key={`${s.slug}-${i}`} className="w-80 rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-black">
-                <p className="text-xs font-bold text-brand-deep">{s.n} / 06</p>
-                <h3 className="mt-1 font-bold">{s.title}</h3>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
-                <ul className="mt-2 list-disc pl-5 text-sm">
-                  {s.includes.map((p) => <li key={p}>{p}</li>)}
-                </ul>
-                <p className="mt-2 text-xs font-semibold">{s.timeline}</p>
-                <p className="text-xs text-zinc-500">{s.priceHint}</p>
-                <Link href={`/services/${s.slug}`} className="mt-3 inline-flex min-h-[44px] items-center text-sm font-semibold text-brand-deep">Full briefing →</Link>
-              </article>
-            ))}
-            </div>
-          </div>
+          <h2 className="display-2 mt-2">Digital services we offer</h2>
+          <p className="mt-2 max-w-xl text-zinc-600 dark:text-zinc-400">Six fixed-scope services that cover the whole local funnel. Pick one to see its briefing.</p>
+          <div className="mt-6"><ServicesShowcase /></div>
         </div>
       </section>
 
