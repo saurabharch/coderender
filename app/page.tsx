@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
 import { SERVICES } from "@/lib/services";
-import { INTEGRATIONS, integrationInitial } from "@/lib/integrations";
+import { INTEGRATIONS } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
 import { PhoneMock } from "@/components/phone-mock";
-import { MessageCircle, Facebook, Instagram, Send, Phone, Star } from "lucide-react";
+import { Star } from "lucide-react";
+import { BrandIcon } from "@/components/brand-icon";
 
 const CHANNELS = [
-  { icon: MessageCircle, label: "WhatsApp" },
-  { icon: Facebook, label: "Facebook" },
-  { icon: Instagram, label: "Instagram" },
-  { icon: Send, label: "Telegram" },
-  { icon: Phone, label: "Calls" },
+  { icon: "whatsapp", label: "WhatsApp" },
+  { icon: "facebook", label: "Facebook" },
+  { icon: "instagram", label: "Instagram" },
+  { icon: "messenger", label: "Messenger" },
+  { icon: "telegram", label: "Telegram" },
 ];
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -47,9 +48,9 @@ export default function Home() {
             <a href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 font-semibold dark:border-white/20">Book Free Demo</a>
           </div>
           <ul aria-label="Channels we automate" className="mt-6 flex flex-wrap justify-center gap-2">
-            {CHANNELS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex min-h-[44px] items-center gap-2 rounded-full border border-black/10 px-4 text-sm font-medium dark:border-white/15">
-                <Icon size={16} /> {label}
+            {CHANNELS.map(({ icon, label }) => (
+              <li key={label} className="flex min-h-[44px] items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-medium dark:border-white/15 dark:bg-black">
+                <BrandIcon name={icon} size={18} /> {label}
               </li>
             ))}
           </ul>
@@ -148,7 +149,7 @@ export default function Home() {
             <div className="marquee-auto">
             {[...INTEGRATIONS, ...INTEGRATIONS].map((g, i) => (
               <div key={`${g.name}-${i}`} className="flex w-56 items-center gap-3 rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
-                <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-deep dark:bg-white/10">{integrationInitial(g.name)}</span>
+                <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-white/10"><BrandIcon name={g.icon} size={22} /></span>
                 <div>
                   <p className="text-sm font-bold">{g.name}</p>
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">{g.blurb}</p>
