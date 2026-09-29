@@ -2,7 +2,11 @@
 
 Marketing site for the **coderender** agency: Google Business Profile growth, WhatsApp automation, local SEO, and fast websites for 10 local-business verticals. Rewritten copy, rebuilt assets — pixel-adapted from `mbgcard.in` / `grexa.ai` rhythms, never copied.
 
-Live demo (after one-time DNS step below): **https://demo.optyx.com**
+Live demo (on the shared `termux` mayo tunnel `de25d1cf…`): **https://coderender.optyx.shop**
+
+> The raw `<tunnel-id>.cfargotunnel.com` address carries no DNS and cannot serve
+> traffic directly — the tunnel routes by hostname, so the demo lives on a routed
+> hostname. `demo.optyx.com` takes over once that zone moves to Cloudflare.
 
 ## Stack
 
