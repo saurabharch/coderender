@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Phone, Mail, MessageCircle, QrCode, Type, Calculator } from "lucide-react";
 import { CONTACT, VERTICALS } from "@/lib/site";
 import { Logo } from "./logo";
 
@@ -11,10 +12,9 @@ export function SiteFooter() {
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
             Marketing that delivers revenue. No stress, no guesswork, just growth.
           </p>
-          <p className="mt-3">
-            <a href={`tel:${CONTACT.phone}`}>{CONTACT.phone}</a>
-            <br />
-            <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
+          <p className="mt-3 space-y-1.5">
+            <a href={`tel:${CONTACT.phone}`} className="flex items-center gap-2"><Phone size={15} />{CONTACT.phone}</a>
+            <a href={`mailto:${CONTACT.email}`} className="flex items-center gap-2"><Mail size={15} />{CONTACT.email}</a>
           </p>
         </div>
         <nav aria-label="Industries">
@@ -29,15 +29,18 @@ export function SiteFooter() {
         </nav>
         <nav aria-label="Featured tool">
           <p className="font-semibold">Featured Tool</p>
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-2 space-y-1.5">
             <li>
-              <Link href="/tools/gbp-booster-whatsapp-ai-agent">GBP Booster — WhatsApp AI Agent</Link>
+              <Link href="/tools/gbp-booster-whatsapp-ai-agent" className="flex items-center gap-2"><MessageCircle size={15} />GBP Booster — WhatsApp AI Agent</Link>
             </li>
             <li>
-              <Link href="/tools/whatsapp-qr-generator">WhatsApp QR Generator</Link>
+              <Link href="/tools/whatsapp-qr-generator" className="flex items-center gap-2"><QrCode size={15} />WhatsApp QR Generator</Link>
             </li>
             <li>
-              <Link href="/tools/whatsapp-template-composer">Template Composer</Link>
+              <Link href="/tools/whatsapp-template-composer" className="flex items-center gap-2"><Type size={15} />Template Composer</Link>
+            </li>
+            <li>
+              <Link href="/tools/pricing-calculator" className="flex items-center gap-2"><Calculator size={15} />Pricing Calculator</Link>
             </li>
           </ul>
           <p className="mt-4 font-semibold">Company</p>
