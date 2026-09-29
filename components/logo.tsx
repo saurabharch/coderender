@@ -1,4 +1,4 @@
-export function Logo({ size = 28 }: { size?: number }) {
+export function Logo({ size = 28, wordmark = "full" }: { size?: number; wordmark?: "full" | "desktop" }) {
   return (
     <span className="inline-flex items-center gap-2" aria-label="coderender home">
       <svg width={size} height={size} viewBox="0 0 32 32" role="img" aria-hidden>
@@ -7,7 +7,7 @@ export function Logo({ size = 28 }: { size?: number }) {
         <path d="M14 21l6-10" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" />
         <circle cx="23" cy="21" r="2.4" fill="white" />
       </svg>
-      <span className="text-lg font-extrabold tracking-tight">coderender</span>
+      <span className={`text-lg font-extrabold tracking-tight ${wordmark === "desktop" ? "hidden lg:inline" : ""}`}>coderender</span>
     </span>
   );
 }

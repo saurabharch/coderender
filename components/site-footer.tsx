@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Phone, Mail, MessageCircle, QrCode, Type, Calculator } from "lucide-react";
 import { CONTACT, VERTICALS } from "@/lib/site";
-import { NAV_ICONS, VERTICAL_ICONS } from "@/lib/nav-icons";
+import { NAV_ICONS, VERTICAL_ICONS, palette } from "@/lib/nav-icons";
 import { Logo } from "./logo";
 
 function FootIcon({ of, size = 15 }: { of: keyof typeof NAV_ICONS; size?: number }) {
@@ -26,11 +26,11 @@ export function SiteFooter() {
         <nav aria-label="Industries">
           <p className="font-semibold">Coderender For</p>
           <ul className="mt-2 space-y-1.5">
-            {VERTICALS.map((v) => {
+            {VERTICALS.map((v, i) => {
               const VI = VERTICAL_ICONS[v.slug];
               return (
                 <li key={v.slug}>
-                  <Link href={`/industries/${v.slug}`} className="flex items-center gap-2">{VI && <VI size={15} className="shrink-0 text-brand-deep" />}{v.label}</Link>
+                  <Link href={`/industries/${v.slug}`} className="flex items-center gap-2">{VI && <VI size={15} className={`shrink-0 ${palette(i)}`} />}{v.label}</Link>
                 </li>
               );
             })}
