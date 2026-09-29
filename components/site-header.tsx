@@ -83,10 +83,12 @@ export function SiteHeader() {
   });
   return (
     <>
-      <div className="bg-brand-deep text-center text-xs text-white">
-        <a href={`tel:${CONTACT.phone}`} className="block px-4 py-3 font-medium">
-          Boost sales and customer engagement with CodeRender! Call {CONTACT.phone} or{" "}
-          <span className="underline">Request a Call</span>
+      <div className="overflow-hidden bg-brand-deep text-white">
+        <a href={`tel:${CONTACT.phone}`} className="block px-4 py-3 text-center text-xs font-medium">
+          <span className="marquee-auto items-center gap-8 whitespace-nowrap" aria-hidden={false}>
+            <span>Boost sales and customer engagement with CodeRender! Call {CONTACT.phone} or <span className="underline">Request a Call</span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+            <span aria-hidden>Boost sales and customer engagement with CodeRender! Call {CONTACT.phone} or <span className="underline">Request a Call</span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+          </span>
         </a>
       </div>
       <header className={`sticky top-0 z-40 border-b border-black/10 bg-white/90 backdrop-blur transition-shadow dark:border-white/10 dark:bg-black/80 ${scrolled ? "shadow-lg" : ""}`}>
