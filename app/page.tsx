@@ -5,7 +5,15 @@ import { INTEGRATIONS, integrationInitial } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
 import { PhoneMock } from "@/components/phone-mock";
-import { Star } from "lucide-react";
+import { MessageCircle, Facebook, Instagram, Send, Phone } from "lucide-react";
+
+const CHANNELS = [
+  { icon: MessageCircle, label: "WhatsApp" },
+  { icon: Facebook, label: "Facebook" },
+  { icon: Instagram, label: "Instagram" },
+  { icon: Send, label: "Telegram" },
+  { icon: Phone, label: "Calls" },
+];
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const FAQS = [
@@ -25,7 +33,9 @@ export default function Home() {
       <section className="hero-glow">
         <div className="wrap pb-10 pt-14 text-center md:pt-20">
           <Reveal>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Marketing platform for local businesses</p>
+          <p className="inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep dark:border-white/15">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden /> Powered by the official WhatsApp Business API
+          </p>
           <h1 className="mx-auto mt-4 max-w-3xl text-balance text-4xl font-extrabold leading-[1.02] tracking-tight md:text-6xl">
             Your all-in-one growth team that delivers real revenue
           </h1>
@@ -36,6 +46,13 @@ export default function Home() {
             <a href={CONTACT.whatsapp} className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 font-semibold text-white dark:bg-white dark:text-zinc-900">Free GBP Booster →</a>
             <a href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 font-semibold dark:border-white/20">Book Free Demo</a>
           </div>
+          <ul aria-label="Channels we automate" className="mt-6 flex flex-wrap justify-center gap-2">
+            {CHANNELS.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex min-h-[44px] items-center gap-2 rounded-full border border-black/10 px-4 text-sm font-medium dark:border-white/15">
+                <Icon size={16} /> {label}
+              </li>
+            ))}
+          </ul>
           <div className="mt-8 flex justify-center"><PhoneMock /></div>
           <dl className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-2 text-center">
             {[["10", "local verticals"], ["06", "core services"], ["24/7", "reply coverage"]].map(([n, l]) => (
@@ -50,6 +67,27 @@ export default function Home() {
             Trusted by owners in 10 local verticals · Salons · Clinics · Gyms · Restaurants · and more
           </p>
           </Reveal>
+        </div>
+      </section>
+
+      <section aria-label="Capabilities gallery">
+        <div className="wrap section !pb-0 !pt-12">
+          <div className="marquee pb-2">
+            {[
+              ["AI replies", "Every question answered in your tone", "from-brand/50 to-brand-soft"],
+              ["AI training", "Flows retrained on your real chats", "from-amber-200 to-amber-50 dark:from-amber-900 dark:to-black"],
+              ["Multichannel", "WhatsApp, Instagram, Messenger, calls", "from-sky-200 to-sky-50 dark:from-sky-900 dark:to-black"],
+              ["Growth loop", "Reviews and broadcasts compound weekly", "from-emerald-200 to-emerald-50 dark:from-emerald-900 dark:to-black"],
+            ].map(([t, d, g]) => (
+              <figure key={t} className="w-64 overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
+                <div aria-hidden className={`h-28 bg-gradient-to-br ${g}`} />
+                <figcaption className="p-4">
+                  <p className="font-bold">{t}</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">{d}</p>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -82,6 +120,17 @@ export default function Home() {
             </div>
           </div>
           </Reveal>
+        </div>
+      </section>
+
+      <section aria-label="Platforms">
+        <div className="wrap section !py-10">
+          <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Built on official platforms</p>
+          <ul className="mt-4 flex flex-wrap justify-center gap-2">
+            {["WhatsApp Business API", "Google Business Profile", "Meta", "Google Maps", "Instagram"].map((p) => (
+              <li key={p} className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">{p}</li>
+            ))}
+          </ul>
         </div>
       </section>
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CONTACT } from "@/lib/site";
+import { CONTACT, VERTICALS } from "@/lib/site";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
 
@@ -17,7 +17,14 @@ export function SiteHeader() {
           <Link href="/" aria-label="coderender home"><Logo /></Link>
           <nav className="hidden items-center gap-5 text-sm md:flex" aria-label="Primary">
             <Link href="/#services">Services</Link>
-            <Link href="/#verticals">Industries</Link>
+            <div className="group relative">
+              <Link href="/#verticals" aria-haspopup="true" className="inline-flex min-h-[44px] items-center">Industries ▾</Link>
+              <div className="invisible absolute left-0 top-full z-50 w-64 rounded-2xl border border-black/10 bg-white p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:border-white/10 dark:bg-zinc-900">
+                {VERTICALS.map((v) => (
+                  <Link key={v.slug} href={`/industries/${v.slug}`} className="block rounded-xl px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10">{v.label}</Link>
+                ))}
+              </div>
+            </div>
             <Link href="/tools/gbp-booster-whatsapp-ai-agent">GBP Booster</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/contact">Contact</Link>
