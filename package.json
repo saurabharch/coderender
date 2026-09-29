@@ -12,7 +12,9 @@
     "test": "vitest run",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "demo": "bash scripts/demo.sh",
+    "demo:stop": "bash scripts/demo-stop.sh"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -37,6 +39,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.0",
     "eslint-config-next": "^15.1.0",
+    "pm2": "^7.0.4",
     "postcss": "^8.4.49",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.14",
