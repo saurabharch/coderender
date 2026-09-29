@@ -4,6 +4,7 @@ import { SERVICES } from "@/lib/services";
 import { INTEGRATIONS } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
+import { CountUp } from "@/components/count-up";
 import { PhoneMock } from "@/components/phone-mock";
 import { Star } from "lucide-react";
 import { BrandIcon } from "@/components/brand-icon";
@@ -56,10 +57,10 @@ export default function Home() {
           </ul>
           <div className="mt-8 flex justify-center"><PhoneMock /></div>
           <dl className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-2 text-center">
-            {[["10", "local verticals"], ["06", "core services"], ["24/7", "reply coverage"]].map(([n, l]) => (
+            {[{ v: <CountUp to={10} />, l: "local verticals" }, { v: <CountUp to={6} />, l: "core services" }, { v: <>24/7</>, l: "reply coverage" }].map(({ v, l }) => (
               <div key={l} className="rounded-2xl border border-black/10 px-2 py-3 dark:border-white/10">
                 <dt className="sr-only">{l}</dt>
-                <dd className="text-2xl font-extrabold tracking-tight">{n}</dd>
+                <dd className="text-2xl font-extrabold tracking-tight">{v}</dd>
                 <dd className="text-xs text-zinc-600 dark:text-zinc-400">{l}</dd>
               </div>
             ))}
@@ -270,7 +271,7 @@ export default function Home() {
         <div className="wrap section">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">FAQ</p>
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Frequently asked questions</h2>
-          <Accordion type="single" collapsible className="mt-6">
+          <Accordion type="single" collapsible defaultValue={FAQS[0].q} className="mt-6">
             {FAQS.map((f) => (
               <AccordionItem key={f.q} value={f.q}>
                 <AccordionTrigger>{f.q}</AccordionTrigger>
