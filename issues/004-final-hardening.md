@@ -1,6 +1,6 @@
 # Final hardening (unused deps, SEO, repo init)
 
-Status: doing
+Status: done
 Labels: chore
 
 ## Question

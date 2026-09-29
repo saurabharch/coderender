@@ -20,6 +20,7 @@ pnpm dlx shadcn@latest add <component>  # only where pnpm works; else hand-add i
 ```
 
 Single test: `npx vitest run <file>`. Single page check: `npm run build && npm start`.
+Stop dev with `pkill -f "[n]ext dev"` — a bare `pkill -f "next dev"` matches and kills your own shell.
 Next 15: route `params` is `Promise` — `await` it in pages + `generateMetadata`.
 Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
 
