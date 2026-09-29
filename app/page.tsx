@@ -1,17 +1,11 @@
 import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
+import { SERVICES } from "@/lib/services";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
+import { PhoneMock } from "@/components/phone-mock";
+import { Star } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-
-const SERVICES = [
-  { n: "01", title: "Google Business Profile", desc: "Profile tune-up, Maps visibility, reviews handled daily.", points: ["Accurate listings", "Near-me visibility", "Review replies"] },
-  { n: "02", title: "Website Development", desc: "Fast, mobile-first pages that turn visits into calls.", points: ["Custom design", "Responsive layouts", "SEO-ready speed"] },
-  { n: "03", title: "Local Business SEO", desc: "Show up first when locals search for what you do.", points: ["Local keywords", "Citations + NAP", "Local links"] },
-  { n: "04", title: "SEO Marketing", desc: "Steady organic growth from content that answers real queries.", points: ["Content plan", "Authority links", "Technical audits"] },
-  { n: "05", title: "Lead Generation", desc: "Campaigns and funnels that fill your pipeline.", points: ["Targeted ads", "High-converting funnels", "CRM-ready capture"] },
-  { n: "06", title: "Chat Automation", desc: "WhatsApp + Instagram replies in seconds, in your tone.", points: ["WhatsApp Business API", "Trained flows", "24/7 qualification"] },
-];
 
 const FAQS = [
   { q: "What does CodeRender do?", a: "We run your local growth: Google profile, posts, reviews, WhatsApp replies, ads, and a fast website — so enquiries arrive while you focus on customers." },
@@ -38,6 +32,16 @@ export default function Home() {
             <a href={CONTACT.whatsapp} className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 font-semibold text-white dark:bg-white dark:text-zinc-900">Free GBP Booster →</a>
             <a href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 font-semibold dark:border-white/20">Book Free Demo</a>
           </div>
+          <div className="mt-8 flex justify-center"><PhoneMock /></div>
+          <dl className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-2 text-center">
+            {[["10", "local verticals"], ["06", "core services"], ["24/7", "reply coverage"]].map(([n, l]) => (
+              <div key={l} className="rounded-2xl border border-black/10 px-2 py-3 dark:border-white/10">
+                <dt className="sr-only">{l}</dt>
+                <dd className="text-2xl font-extrabold tracking-tight">{n}</dd>
+                <dd className="text-xs text-zinc-600 dark:text-zinc-400">{l}</dd>
+              </div>
+            ))}
+          </dl>
           <p className="mt-7 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
             Trusted by owners in 10 local verticals · Salons · Clinics · Gyms · Restaurants · and more
           </p>
@@ -98,16 +102,38 @@ export default function Home() {
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Digital services we offer</h2>
           <div className="marquee mt-6 pb-2">
             {SERVICES.map((s) => (
-              <article key={s.n} className="w-72 rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-black">
+              <article key={s.n} className="w-80 rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-black">
                 <p className="text-xs font-bold text-brand-deep">{s.n} / 06</p>
                 <h3 className="mt-1 font-bold">{s.title}</h3>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.desc}</p>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
                 <ul className="mt-2 list-disc pl-5 text-sm">
-                  {s.points.map((p) => <li key={p}>{p}</li>)}
+                  {s.includes.map((p) => <li key={p}>{p}</li>)}
                 </ul>
+                <p className="mt-2 text-xs font-semibold">{s.timeline}</p>
+                <p className="text-xs text-zinc-500">{s.priceHint}</p>
               </article>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/10 dark:border-white/10">
+        <div className="wrap section !py-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Features briefing</p>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">How a week looks on retainer</h2>
+          <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Mon", "Posts go live on GBP, Instagram, Facebook — scheduled, not scrambled."],
+              ["Wed", "Review replies + WhatsApp training tune-up from real chats."],
+              ["Fri", "Offer broadcast to past customers ahead of the weekend."],
+              ["Sun", "One-page report: calls, messages, reviews, rank movement."],
+            ].map(([d, t]) => (
+              <li key={d} className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
+                <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-brand-deep">{d}</p>
+                <p className="mt-1 text-sm">{t}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
@@ -117,13 +143,19 @@ export default function Home() {
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Loved by local owners</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {[
-            ["Salon owner", "From word-of-mouth only to 20+ calls a week after the local tune-up."],
-            ["Clinic owner", "New practice, full calendar in 3 months. Reviews do the talking now."],
-            ["Gym owner", "Trials doubled once Maps rank and instant replies went live."],
-          ].map(([t, d]) => (
+            ["PS", "Salon owner", "Word-of-mouth only", "20+ calls a week after the tune-up"],
+            ["DK", "Clinic owner", "Empty new calendar", "Full books in 3 months on reviews"],
+            ["GR", "Gym owner", "Quiet trial desk", "Trials doubled with instant replies"],
+          ].map(([ini, t, before, after]) => (
             <figure key={t} className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
-              <blockquote className="text-sm">“{d}”</blockquote>
-              <figcaption className="mt-2 text-sm font-semibold">— {t} (placeholder)</figcaption>
+              <div className="flex items-center gap-3">
+                <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-deep dark:bg-white/10">{ini}</span>
+                <div>
+                  <figcaption className="text-sm font-semibold">— {t} (placeholder)</figcaption>
+                  <p aria-label="5 out of 5 stars" className="flex gap-0.5">{[0,1,2,3,4].map((i) => <Star key={i} size={12} className="fill-amber-400 text-amber-400" />)}</p>
+                </div>
+              </div>
+              <blockquote className="mt-3 text-sm">Before: {before}. After: {after}.</blockquote>
             </figure>
           ))}
         </div>

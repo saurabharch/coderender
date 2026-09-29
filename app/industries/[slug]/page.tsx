@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CONTACT, VERTICALS } from "@/lib/site";
+import { SERVICES } from "@/lib/services";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
 
@@ -63,6 +64,23 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
             <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-white dark:text-zinc-900">{v.chatQ}</p>
             <p className="mt-2 w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-4 py-2 text-sm dark:bg-zinc-800">{v.chatA}</p>
             <p className="mt-2 text-right text-xs text-zinc-500">Answered in seconds, 24/7 — in your tone, with your prices.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="wrap section !py-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Your monthly stack</p>
+          <h2 className="mt-2 text-2xl font-extrabold tracking-tight">What a month includes for {v.label}</h2>
+          <div className="marquee mt-5 pb-2">
+            {[SERVICES[0], SERVICES[5], SERVICES[2]].map((s) => (
+              <article key={s.n} className="w-72 rounded-2xl border border-black/10 p-5 dark:border-white/10">
+                <p className="text-xs font-bold text-brand-deep">{s.n} / 06</p>
+                <h3 className="mt-1 font-bold">{s.title}</h3>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
+                <p className="mt-2 text-xs font-semibold">{s.timeline}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
