@@ -46,13 +46,13 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
 
       <section>
         <div className="wrap section grid gap-4 !py-12 md:grid-cols-2">
-          <div className="rounded-2xl border border-black/10 p-6 dark:border-white/10">
+          <div className="glass rounded-2xl p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Sound familiar?</p>
             <ul className="mt-3 space-y-2 text-sm">
               {v.pains.map((p) => <li key={p} className="flex gap-2"><span aria-hidden>·</span>{p}</li>)}
             </ul>
           </div>
-          <div className="rounded-2xl border border-black/10 bg-brand-soft/40 p-6 dark:border-white/10 dark:bg-white/5">
+          <div className="glass rounded-2xl p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">What changes</p>
             <ul className="mt-3 space-y-2 text-sm">
               {v.wins.map((w) => <li key={w} className="flex gap-2"><span aria-hidden>✓</span>{w}</li>)}
@@ -81,7 +81,7 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
             {[SERVICES[0], SERVICES[5], SERVICES[2], SERVICES[0], SERVICES[5], SERVICES[2]].map((s, i) => {
               const SI = SERVICE_ICONS[s.slug];
               return (
-              <article key={`${s.slug}-${i}`} className="w-72 rounded-2xl border border-black/10 p-5 dark:border-white/10">
+              <article key={`${s.slug}-${i}`} className="glass w-72 rounded-2xl p-5">
                 <p className="flex items-center gap-2 text-xs font-bold text-brand-deep">{SI && <SI size={15} />}{s.n} / 06</p>
                 <h3 className="mt-1 font-bold">{s.title}</h3>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
@@ -102,7 +102,7 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
               {related.map((r) => {
                 const RI = VERTICAL_ICONS[r.slug];
                 return (
-                  <Link key={r.slug} href={`/industries/${r.slug}`} className="rounded-2xl border border-black/10 p-4 hover:border-brand dark:border-white/10">
+                  <Link key={r.slug} href={`/industries/${r.slug}`} className="glass rounded-2xl p-4 hover:border-brand">
                     <p className="flex items-center gap-2 font-bold">{RI && <RI size={16} className="shrink-0 text-brand-deep" />}{r.label}</p>
                     <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{r.blurb}</p>
                   </Link>
@@ -110,7 +110,7 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
               })}
             </div>
           </div>
-          <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
+          <div className="glass rounded-2xl p-5">
             <h2 className="font-bold">Request a callback</h2>
             <div className="mt-3"><LeadForm source={`industry:${v.slug}`} /></div>
           </div>

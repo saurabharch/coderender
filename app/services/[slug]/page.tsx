@@ -43,7 +43,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
             <p className="mt-4 text-sm"><span className="font-semibold">Timeline:</span> {s.timeline}</p>
             <p className="text-sm"><span className="font-semibold">Guide price:</span> {s.priceHint}</p>
           </div>
-          <div className="rounded-2xl border border-black/10 p-6 dark:border-white/10">
+          <div className="glass rounded-2xl p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Not included</p>
             <ul className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
               {s.excludes.map((e) => <li key={e} className="flex gap-2"><span aria-hidden>×</span>{e}</li>)}
@@ -60,7 +60,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
               {related.map((r) => {
                 const RI = SERVICE_ICONS[r.slug];
                 return (
-                  <Link key={r.slug} href={`/services/${r.slug}`} className="rounded-2xl border border-black/10 p-4 hover:border-brand dark:border-white/10">
+                  <Link key={r.slug} href={`/services/${r.slug}`} className="glass rounded-2xl p-4 hover:border-brand">
                     <p className="flex items-center gap-2 font-bold">{RI && <RI size={16} className="shrink-0 text-brand-deep" />}{r.title}</p>
                     <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{r.tagline}</p>
                   </Link>

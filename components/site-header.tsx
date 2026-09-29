@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { CONTACT, VERTICALS } from "@/lib/site";
 import { SERVICES } from "@/lib/services";
-import { NAV_ICONS, VERTICAL_ICONS, SERVICE_ICONS, TOOL_ICONS, palette } from "@/lib/nav-icons";
+import { NAV_ICONS, VERTICAL_ICONS, SERVICE_ICONS, TOOL_ICONS, palette, orb } from "@/lib/nav-icons";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileMenu, type MenuSection } from "./mobile-menu";
 import { Logo } from "./logo";
@@ -60,6 +60,14 @@ function NavIcon({ of, className }: { of: keyof typeof NAV_ICONS; className?: st
   return <I size={16} className={className} />;
 }
 
+function OrbIcon({ xi, Icon }: { xi: number; Icon: React.ComponentType<{ size?: number; className?: string }> }) {
+  return (
+    <span className="orb flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: orb(xi) }}>
+      <Icon size={15} />
+    </span>
+  );
+}
+
 export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -71,7 +79,7 @@ export function SiteHeader() {
   const menus = buildMenus();
   const sections: MenuSection[] = menus.map((m) => ({
     title: m.label,
-    links: m.items.map((x) => ({ h: x.h, l: x.l, icon: <x.Icon size={16} className={x.color} /> })),
+    links: m.items.map((x, xi) => ({ h: x.h, l: x.l, icon: <OrbIcon xi={xi} Icon={x.Icon} /> })),
   }));
   sections.push({
     title: "Company",
@@ -99,9 +107,9 @@ export function SiteHeader() {
               <div key={m.label} className="group relative">
                 <Link href={m.href} aria-haspopup="true" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-2 hover:bg-black/5 dark:hover:bg-white/10"><NavIcon of={m.icon} />{m.label} ▾</Link>
                 <div className="invisible absolute left-0 top-full z-50 w-80 rounded-2xl border border-black/10 bg-white p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:border-white/10 dark:bg-zinc-900">
-                  {m.items.map((x) => (
+                  {m.items.map((x, xi) => (
                     <Link key={x.h} href={x.h} className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10">
-                      <x.Icon size={18} className={`shrink-0 ${x.color}`} />
+                      <span className="orb flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: orb(xi) }}><x.Icon size={17} /></span>
                       <span><span className="block font-semibold">{x.l}</span><span className="block text-xs text-zinc-500">{x.d}</span></span>
                     </Link>
                   ))}

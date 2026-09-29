@@ -64,3 +64,20 @@ const PALETTE = [
 export function palette(i: number): string {
   return PALETTE[i % PALETTE.length];
 }
+
+const ORB_BG = [
+  "linear-gradient(135deg,#5eead4,#0d9488)",
+  "linear-gradient(135deg,#fde68a,#d97706)",
+  "linear-gradient(135deg,#7dd3fc,#0284c7)",
+  "linear-gradient(135deg,#6ee7b7,#059669)",
+  "linear-gradient(135deg,#c4b5fd,#7c3aed)",
+  "linear-gradient(135deg,#fda4af,#e11d48)",
+  "linear-gradient(135deg,#a5b4fc,#4f46e5)",
+  "linear-gradient(135deg,#fdba74,#ea580c)",
+  "linear-gradient(135deg,#67e8f9,#0891b2)",
+  "linear-gradient(135deg,#f9a8d4,#db2777)",
+];
+
+export function orb(i: number): string {
+  return ORB_BG[i % ORB_BG.length];
+}

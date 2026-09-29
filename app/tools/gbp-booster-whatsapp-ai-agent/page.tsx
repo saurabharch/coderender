@@ -45,8 +45,8 @@ export default function GbpPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {AGENTS.map((a, i) => (
                 <div key={a.tag} className={i === 0
-                  ? "rounded-2xl border border-black/10 bg-brand-soft/40 p-8 dark:border-white/10 dark:bg-white/5 md:col-span-2 md:row-span-2"
-                  : "rounded-2xl border border-black/10 p-6 dark:border-white/10"}>
+                  ? "beam glass rounded-2xl p-8 md:col-span-2 md:row-span-2"
+                  : "glass rounded-2xl p-6"}>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">{a.tag}</p>
                   <p className={`mt-3 font-extrabold tracking-tight ${i === 0 ? "text-3xl md:text-4xl" : "text-xl"}`}>{a.title}</p>
                   <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{a.desc}</p>

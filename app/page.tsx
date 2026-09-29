@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
 import { StackedServices } from "@/components/stacked-services";
 import { CampaignCalendar } from "@/components/campaign-calendar";
-import { VERTICAL_ICONS, palette } from "@/lib/nav-icons";
+import { VERTICAL_ICONS, orb } from "@/lib/nav-icons";
 import { INTEGRATIONS } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
@@ -105,7 +105,7 @@ export default function Home() {
         <div className="wrap section !py-12">
           <Reveal>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-black/10 bg-[#fbf8f3] p-8 dark:border-white/10 dark:bg-black md:col-span-2 md:row-span-2">
+            <div className="beam glass rounded-2xl p-8 md:col-span-2 md:row-span-2">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Lead agent</p>
               <p className="mt-4 max-w-[18ch] text-4xl font-extrabold leading-none tracking-tight md:text-5xl">
                 More calls from Google, every week.
@@ -114,17 +114,17 @@ export default function Home() {
                 Keywords, SEO posts, and review replies tuned for Maps + Search — the profile becomes your hardest-working salesperson.
               </p>
             </div>
-            <div className="rounded-2xl border border-black/10 bg-[#fbf8f3] p-6 dark:border-white/10 dark:bg-black">
+            <div className="glass rounded-2xl p-6 dark:border-white/10 dark:bg-black">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Chat agent</p>
               <p className="mt-3 text-2xl font-extrabold tracking-tight">24/7</p>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Every WhatsApp + DM answered in seconds, in your tone.</p>
             </div>
-            <div className="rounded-2xl border border-black/10 bg-[#fbf8f3] p-6 dark:border-white/10 dark:bg-black">
+            <div className="glass rounded-2xl p-6 dark:border-white/10 dark:bg-black">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Marketing agent</p>
               <p className="mt-3 text-2xl font-extrabold tracking-tight">Repeat</p>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Offers and reminders sent to the right past customers.</p>
             </div>
-            <div className="rounded-2xl border border-black/10 bg-[#fbf8f3] p-6 dark:border-white/10 dark:bg-black md:col-span-3">
+            <div className="glass rounded-2xl p-6 dark:border-white/10 dark:bg-black md:col-span-3">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Shared brain</p>
               <p className="mt-3 text-2xl font-extrabold tracking-tight">Leads, sales, and chats in one place for all agents.</p>
             </div>
@@ -172,8 +172,8 @@ export default function Home() {
           {VERTICALS.map((v, i) => {
             const VI = VERTICAL_ICONS[v.slug];
             return (
-              <Link key={v.slug} href={`/industries/${v.slug}`} className="group rounded-2xl border border-black/10 bg-white p-5 transition hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-black">
-                <span className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-white/10 ${palette(i)}`}>
+              <Link key={v.slug} href={`/industries/${v.slug}`} className="group beam glass rounded-2xl p-5 transition hover:-translate-y-1">
+                <span className="orb flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ background: orb(i) }}>
                   {VI && <VI size={24} />}
                 </span>
                 <p className="mt-3 font-bold">{v.label} <span aria-hidden className="inline-block transition group-hover:translate-x-1">→</span></p>
@@ -213,7 +213,7 @@ export default function Home() {
             ["DK", "Clinic owner", "Empty new calendar", "Full books in 3 months on reviews"],
             ["GR", "Gym owner", "Quiet trial desk", "Trials doubled with instant replies"],
           ].map(([ini, t, before, after]) => (
-            <figure key={t} className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
+            <figure key={t} className="glass rounded-2xl p-5">
               <div className="flex items-center gap-3">
                 <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-deep dark:bg-white/10">{ini}</span>
                 <div>
