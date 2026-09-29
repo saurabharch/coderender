@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
-import { ServicesShowcase } from "@/components/services-showcase";
+import { StackedServices } from "@/components/stacked-services";
+import { CampaignCalendar } from "@/components/campaign-calendar";
+import { VERTICAL_ICONS, palette } from "@/lib/nav-icons";
 import { INTEGRATIONS } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
 import { CountUp } from "@/components/count-up";
-import { PhoneMock } from "@/components/phone-mock";
+import { IPhoneMock } from "@/components/iphone-mock";
 import { Star } from "lucide-react";
 import { BrandIcon } from "@/components/brand-icon";
 
@@ -55,7 +57,7 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          <div className="mt-8 flex justify-center"><PhoneMock /></div>
+          <div className="mt-8 flex justify-center"><IPhoneMock /></div>
           <dl className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-2 text-center">
             {[{ v: <CountUp to={10} />, l: "local verticals" }, { v: <CountUp to={6} />, l: "core services" }, { v: <>24/7</>, l: "reply coverage" }].map(({ v, l }) => (
               <div key={l} className="rounded-2xl border border-black/10 px-2 py-3 dark:border-white/10">
@@ -167,12 +169,18 @@ export default function Home() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Industries</p>
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Built for businesses like yours</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {VERTICALS.map((v) => (
-            <Link key={v.slug} href={`/industries/${v.slug}`} className="rounded-2xl border border-black/10 p-5 hover:border-brand dark:border-white/10">
-              <p className="font-bold">{v.label}</p>
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{v.blurb}</p>
-            </Link>
-          ))}
+          {VERTICALS.map((v, i) => {
+            const VI = VERTICAL_ICONS[v.slug];
+            return (
+              <Link key={v.slug} href={`/industries/${v.slug}`} className="group rounded-2xl border border-black/10 bg-white p-5 transition hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-black">
+                <span className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-white/10 ${palette(i)}`}>
+                  {VI && <VI size={24} />}
+                </span>
+                <p className="mt-3 font-bold">{v.label} <span aria-hidden className="inline-block transition group-hover:translate-x-1">→</span></p>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{v.blurb}</p>
+              </Link>
+            );
+          })}
         </div>
         </div>
       </section>
@@ -182,27 +190,16 @@ export default function Home() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Our services</p>
           <h2 className="display-2 mt-2">Digital services we offer</h2>
           <p className="mt-2 max-w-xl text-zinc-600 dark:text-zinc-400">Six fixed-scope services that cover the whole local funnel. Pick one to see its briefing.</p>
-          <div className="mt-6"><ServicesShowcase /></div>
+          <div className="mt-6"><StackedServices /></div>
         </div>
       </section>
 
       <section className="border-b border-black/10 dark:border-white/10">
         <div className="wrap section !py-12">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Features briefing</p>
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">How a week looks on retainer</h2>
-          <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["Mon", "Posts go live on GBP, Instagram, Facebook — scheduled, not scrambled."],
-              ["Wed", "Review replies + WhatsApp training tune-up from real chats."],
-              ["Fri", "Offer broadcast to past customers ahead of the weekend."],
-              ["Sun", "One-page report: calls, messages, reviews, rank movement."],
-            ].map(([d, t]) => (
-              <li key={d} className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
-                <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-brand-deep">{d}</p>
-                <p className="mt-1 text-sm">{t}</p>
-              </li>
-            ))}
-          </ol>
+          <h2 className="display-2 mt-2">Your month, scheduled twice over</h2>
+          <p className="mt-2 max-w-xl text-zinc-600 dark:text-zinc-400">Live calendar: this month and next, posts auto-placed every Monday, Wednesday, Friday.</p>
+          <div className="mt-6"><CampaignCalendar /></div>
         </div>
       </section>
 
