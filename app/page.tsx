@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
 import { SERVICES } from "@/lib/services";
+import { INTEGRATIONS, integrationInitial } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
 import { PhoneMock } from "@/components/phone-mock";
@@ -13,6 +14,9 @@ const FAQS = [
   { q: "Do I need to be tech-savvy?", a: "No. If you can use WhatsApp, you can work with us. We handle setup and send you a simple weekly summary." },
   { q: "Is my customer data safe?", a: "Yes. We use least-access credentials, never store secrets in files, and work on client-owned accounts by default." },
   { q: "What does it cost?", a: "Start with a fixed-price GBP audit (DRAFT ₹2,999), then a per-vertical growth pack or a capped monthly retainer. All prices stay DRAFT until verified with you." },
+  { q: "Is there a free trial?", a: "Yes — start with the fixed-price audit, credited toward your growth pack if you continue. No lock-in." },
+  { q: "How fast do we go live?", a: "Reply flows and profile tune-up in week 1–2; the full weekly rhythm from week 2. Retainer momentum compounds from month 2–3." },
+  { q: "Does it connect to my CRM?", a: "Yes — Sheets out of the box, Zoho/HubSpot-style CRMs on project plans: contacts sync, event-triggered messages, delivery stats logged back." },
 ];
 
 export default function Home() {
@@ -78,6 +82,24 @@ export default function Home() {
             </div>
           </div>
           </Reveal>
+        </div>
+      </section>
+
+      <section aria-label="Integrations">
+        <div className="wrap section">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Integrations</p>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Plays well with your stack</h2>
+          <div className="marquee mt-6 pb-2">
+            {[...INTEGRATIONS, ...INTEGRATIONS].map((g, i) => (
+              <div key={`${g.name}-${i}`} className="flex w-56 items-center gap-3 rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
+                <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-deep dark:bg-white/10">{integrationInitial(g.name)}</span>
+                <div>
+                  <p className="text-sm font-bold">{g.name}</p>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">{g.blurb}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

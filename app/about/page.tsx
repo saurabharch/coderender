@@ -24,6 +24,19 @@ export default function AboutPage() {
         <li>We promise deliverables and time saved, never rankings or revenue.</li>
         <li>Weekly proof: posts live, reviews answered, calls and messages counted.</li>
       </ul>
+      <h2 className="mt-8 text-xl font-extrabold">What we optimize for</h2>
+      <div className="mt-3 grid gap-4 sm:grid-cols-3">
+        {[
+          ["Trust first", "Least-access credentials, client-owned accounts, no surprises in billing."],
+          ["Your success is the metric", "We count calls, bookings, and renewals — not impressions."],
+          ["Boring reliability", "Same rhythm every week: posts, replies, broadcasts, report."],
+        ].map(([t, d]) => (
+          <div key={t} className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
+            <p className="font-bold">{t}</p>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{d}</p>
+          </div>
+        ))}
+      </div>
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href="/pricing" className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">See pricing →</Link>
         <Link href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 text-sm font-semibold dark:border-white/20">Talk to us</Link>

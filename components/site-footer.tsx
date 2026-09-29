@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
+import { Logo } from "./logo";
 
 export function SiteFooter() {
   return (
     <footer className="border-t border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm md:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm sm:grid-cols-2 md:grid-cols-4">
         <div>
-          <p className="text-lg font-extrabold">coderender</p>
+          <Logo />
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
             Marketing that delivers revenue. No stress, no guesswork, just growth.
           </p>
@@ -32,6 +33,12 @@ export function SiteFooter() {
             <li>
               <Link href="/tools/gbp-booster-whatsapp-ai-agent">GBP Booster — WhatsApp AI Agent</Link>
             </li>
+            <li>
+              <Link href="/tools/whatsapp-qr-generator">WhatsApp QR Generator</Link>
+            </li>
+            <li>
+              <Link href="/tools/whatsapp-template-composer">Template Composer</Link>
+            </li>
           </ul>
           <p className="mt-4 font-semibold">Company</p>
           <ul className="mt-2 space-y-1">
@@ -39,6 +46,8 @@ export function SiteFooter() {
             <li><Link href="/careers">Careers</Link></li>
             <li><Link href="/pricing">Pricing</Link></li>
             <li><Link href="/contact">Contact us</Link></li>
+            <li><Link href="/partner">Become a Partner</Link></li>
+            <li><Link href="/docs">Docs</Link></li>
           </ul>
         </nav>
         <div>

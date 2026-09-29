@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CONTACT } from "@/lib/site";
 import { ThemeToggle } from "./theme-toggle";
+import { Logo } from "./logo";
 
 export function SiteHeader() {
   return (
@@ -13,9 +14,7 @@ export function SiteHeader() {
       </div>
       <header className="sticky top-0 z-40 border-b border-black/10 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-black/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <Link href="/" className="text-lg font-extrabold tracking-tight">
-            coderender
-          </Link>
+          <Link href="/" aria-label="coderender home"><Logo /></Link>
           <nav className="hidden items-center gap-5 text-sm md:flex" aria-label="Primary">
             <Link href="/#services">Services</Link>
             <Link href="/#verticals">Industries</Link>
