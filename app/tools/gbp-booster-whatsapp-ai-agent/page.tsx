@@ -29,7 +29,7 @@ export default function GbpPage() {
         <div className="wrap pb-8 pt-12 text-center md:pt-16">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Featured tool</p>
-            <h1 className="mx-auto mt-3 max-w-3xl text-balance text-4xl font-extrabold leading-[1.02] tracking-tight md:text-5xl">GBP Booster — WhatsApp AI Agent</h1>
+            <h1 className="display-1 mx-auto mt-3 max-w-3xl text-balance">GBP Booster — WhatsApp AI Agent</h1>
             <p className="mx-auto mt-3 max-w-xl text-zinc-600 dark:text-zinc-400">More calls from Google: keywords, SEO posts, review replies, review generation, and instant WhatsApp answers.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <a href={CONTACT.whatsapp} className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">Try on WhatsApp →</a>

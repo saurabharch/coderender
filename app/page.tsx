@@ -36,7 +36,7 @@ export default function Home() {
           <p className="inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep dark:border-white/15">
             <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden /> Powered by the official WhatsApp Business API
           </p>
-          <h1 className="mx-auto mt-4 max-w-3xl text-balance text-4xl font-extrabold leading-[1.02] tracking-tight md:text-6xl">
+          <h1 className="display-1 mx-auto mt-4 max-w-3xl text-balance">
             Your all-in-one growth team that delivers real revenue
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-zinc-600 dark:text-zinc-400">
@@ -73,13 +73,18 @@ export default function Home() {
       <section aria-label="Capabilities gallery">
         <div className="wrap section !pb-0 !pt-12">
           <div className="marquee pb-2">
+            <div className="marquee-auto">
             {[
               ["AI replies", "Every question answered in your tone", "from-brand/50 to-brand-soft"],
               ["AI training", "Flows retrained on your real chats", "from-amber-200 to-amber-50 dark:from-amber-900 dark:to-black"],
               ["Multichannel", "WhatsApp, Instagram, Messenger, calls", "from-sky-200 to-sky-50 dark:from-sky-900 dark:to-black"],
               ["Growth loop", "Reviews and broadcasts compound weekly", "from-emerald-200 to-emerald-50 dark:from-emerald-900 dark:to-black"],
-            ].map(([t, d, g]) => (
-              <figure key={t} className="w-64 overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
+              ["AI replies", "Every question answered in your tone", "from-brand/50 to-brand-soft"],
+              ["AI training", "Flows retrained on your real chats", "from-amber-200 to-amber-50 dark:from-amber-900 dark:to-black"],
+              ["Multichannel", "WhatsApp, Instagram, Messenger, calls", "from-sky-200 to-sky-50 dark:from-sky-900 dark:to-black"],
+              ["Growth loop", "Reviews and broadcasts compound weekly", "from-emerald-200 to-emerald-50 dark:from-emerald-900 dark:to-black"],
+            ].map(([t, d, g], i) => (
+              <figure key={`${t}-${i}`} className="w-64 overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
                 <div aria-hidden className={`h-28 bg-gradient-to-br ${g}`} />
                 <figcaption className="p-4">
                   <p className="font-bold">{t}</p>
@@ -87,6 +92,7 @@ export default function Home() {
                 </figcaption>
               </figure>
             ))}
+            </div>
           </div>
         </div>
       </section>
@@ -139,6 +145,7 @@ export default function Home() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Integrations</p>
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Plays well with your stack</h2>
           <div className="marquee mt-6 pb-2">
+            <div className="marquee-auto">
             {[...INTEGRATIONS, ...INTEGRATIONS].map((g, i) => (
               <div key={`${g.name}-${i}`} className="flex w-56 items-center gap-3 rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
                 <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-deep dark:bg-white/10">{integrationInitial(g.name)}</span>
@@ -148,6 +155,7 @@ export default function Home() {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </div>
       </section>
@@ -172,8 +180,9 @@ export default function Home() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Our services</p>
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Digital services we offer</h2>
           <div className="marquee mt-6 pb-2">
-            {SERVICES.map((s) => (
-              <article key={s.n} className="w-80 rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-black">
+            <div className="marquee-auto">
+            {[...SERVICES, ...SERVICES].map((s, i) => (
+              <article key={`${s.slug}-${i}`} className="w-80 rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-black">
                 <p className="text-xs font-bold text-brand-deep">{s.n} / 06</p>
                 <h3 className="mt-1 font-bold">{s.title}</h3>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
@@ -185,6 +194,7 @@ export default function Home() {
                 <Link href={`/services/${s.slug}`} className="mt-3 inline-flex min-h-[44px] items-center text-sm font-semibold text-brand-deep">Full briefing →</Link>
               </article>
             ))}
+            </div>
           </div>
         </div>
       </section>

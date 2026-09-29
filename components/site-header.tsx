@@ -1,9 +1,19 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
 
 export function SiteHeader() {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   return (
     <>
       <div className="bg-brand-deep text-center text-xs text-white">
@@ -12,8 +22,8 @@ export function SiteHeader() {
           <span className="underline">Request a Call</span>
         </a>
       </div>
-      <header className="sticky top-0 z-40 border-b border-black/10 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-black/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+      <header className={`sticky top-0 z-40 border-b border-black/10 bg-white/90 backdrop-blur transition-shadow dark:border-white/10 dark:bg-black/80 ${scrolled ? "shadow-lg" : ""}`}>
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
           <Link href="/" aria-label="coderender home"><Logo /></Link>
           <nav className="hidden items-center gap-5 text-sm md:flex" aria-label="Primary">
             <Link href="/#services">Services</Link>

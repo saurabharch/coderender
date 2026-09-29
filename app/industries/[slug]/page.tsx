@@ -30,7 +30,7 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
         <div className="wrap pb-8 pt-12 text-center md:pt-16">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Coderender for</p>
-            <h1 className="mx-auto mt-3 max-w-3xl text-balance text-4xl font-extrabold leading-[1.02] tracking-tight md:text-5xl">{v.label}</h1>
+            <h1 className="display-1 mx-auto mt-3 max-w-3xl text-balance">{v.label}</h1>
             <p className="mx-auto mt-3 max-w-xl text-zinc-600 dark:text-zinc-400">{v.blurb}</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <a href={CONTACT.whatsapp} className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">Free GBP Booster →</a>
@@ -73,14 +73,16 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Your monthly stack</p>
           <h2 className="mt-2 text-2xl font-extrabold tracking-tight">What a month includes for {v.label}</h2>
           <div className="marquee mt-5 pb-2">
-            {[SERVICES[0], SERVICES[5], SERVICES[2]].map((s) => (
-              <article key={s.n} className="w-72 rounded-2xl border border-black/10 p-5 dark:border-white/10">
+            <div className="marquee-auto">
+            {[SERVICES[0], SERVICES[5], SERVICES[2], SERVICES[0], SERVICES[5], SERVICES[2]].map((s, i) => (
+              <article key={`${s.slug}-${i}`} className="w-72 rounded-2xl border border-black/10 p-5 dark:border-white/10">
                 <p className="text-xs font-bold text-brand-deep">{s.n} / 06</p>
                 <h3 className="mt-1 font-bold">{s.title}</h3>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
                 <p className="mt-2 text-xs font-semibold">{s.timeline}</p>
               </article>
             ))}
+            </div>
           </div>
         </div>
       </section>
