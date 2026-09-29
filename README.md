@@ -33,7 +33,9 @@ What `demo` does (`scripts/demo.sh`): production build, `pm2 start ecosystem.con
 
 ## One-time DNS for demo.optyx.com
 
-Cloudflare dashboard → zone `optyx.com` → DNS → add record:
+Prerequisite: the `optyx.com` zone must live on Cloudflare (as of 2026-09-30 it resolves
+outside Cloudflare, so tunnel routing cannot attach — moving nameservers to Cloudflare
+is a dashboard + registrar step). Once it does, add:
 
 | Type  | Name | Target                                    | Proxy |
 |-------|------|-------------------------------------------|-------|
