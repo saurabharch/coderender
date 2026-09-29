@@ -7,6 +7,8 @@ module.exports = {
       cwd: __dirname,
       env: { NODE_ENV: "production", PORT: "3100" },
       autorestart: true,
+      min_uptime: "10s",
+      max_restarts: 5,
       max_memory_restart: "512M",
     },
   ],
