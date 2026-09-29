@@ -37,8 +37,8 @@ export default function Home() {
       <section className="hero-glow">
         <div className="wrap pb-10 pt-14 text-center md:pt-20">
           <Reveal>
-          <p className="inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep dark:border-white/15">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden /> Powered by the official WhatsApp Business API
+          <p className="glass inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden /> Powered by the official <BrandIcon name="whatsapp" size={15} /> Business API
           </p>
           <h1 className="display-1 mx-auto mt-4 max-w-3xl text-balance">
             Your all-in-one growth team that delivers real revenue
@@ -47,8 +47,8 @@ export default function Home() {
             Google profile, WhatsApp replies, reviews, posts, and ads — handled daily so you can focus on your craft.
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <a href={CONTACT.whatsapp} className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 font-semibold text-white dark:bg-white dark:text-zinc-900">Free GBP Booster →</a>
-            <a href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 font-semibold dark:border-white/20">Book Free Demo</a>
+            <a href={CONTACT.whatsapp} className="beam beam-rainbow btn-dark inline-flex min-h-[44px] items-center rounded-full px-6 font-semibold">Free GBP Booster →</a>
+            <a href="/contact" className="btn-glass inline-flex min-h-[44px] items-center rounded-full px-6 font-semibold">Book Free Demo</a>
           </div>
           <ul aria-label="Channels we automate" className="mt-6 flex flex-wrap justify-center gap-2">
             {CHANNELS.map(({ icon, label }) => (

@@ -37,7 +37,7 @@ export default function PricingCalculatorPage() {
       <div className="mt-4 rounded-2xl border-2 border-brand p-5">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Your DRAFT estimate</p>
         <p className="text-3xl font-extrabold">{once > 0 ? `${fmt(once)} one-time` : "—"}{monthly > 0 ? ` + ${fmt(monthly)}/mo` : ""}</p>
-        <Link href="/contact" className="mt-3 inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">Lock this in writing →</Link>
+        <Link href="/contact" className="mt-3 beam beam-rainbow btn-dark inline-flex min-h-[44px] items-center rounded-full px-6 text-sm font-semibold">Lock this in writing →</Link>
       </div>
     </div>
   );

@@ -38,7 +38,7 @@ export default function AboutPage() {
         ))}
       </div>
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/pricing" className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">See pricing →</Link>
+        <Link href="/pricing" className="beam beam-rainbow btn-dark inline-flex min-h-[44px] items-center rounded-full px-6 text-sm font-semibold">See pricing →</Link>
         <Link href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 text-sm font-semibold dark:border-white/20">Talk to us</Link>
       </div>
     </div>

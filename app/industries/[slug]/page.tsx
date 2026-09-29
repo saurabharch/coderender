@@ -36,8 +36,8 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
             <h1 className="display-1 mx-auto mt-3 max-w-3xl text-balance">{v.label}</h1>
             <p className="mx-auto mt-3 max-w-xl text-zinc-600 dark:text-zinc-400">{v.blurb}</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <a href={CONTACT.whatsapp} className="inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">Free GBP Booster →</a>
-              <a href="/contact" className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-6 text-sm font-semibold dark:border-white/20">Book Free Demo</a>
+              <a href={CONTACT.whatsapp} className="beam beam-rainbow btn-dark inline-flex min-h-[44px] items-center rounded-full px-6 text-sm font-semibold">Free GBP Booster →</a>
+              <a href="/contact" className="btn-glass inline-flex min-h-[44px] items-center rounded-full px-6 text-sm font-semibold">Book Free Demo</a>
             </div>
             <div className="mt-8 flex justify-center"><IPhoneMock /></div>
           </Reveal>

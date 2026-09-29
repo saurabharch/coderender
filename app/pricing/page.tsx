@@ -23,7 +23,7 @@ export default function PricingPage() {
           <p className="mt-3 font-bold">Growth Pack</p>
           <p className="mt-1 text-3xl font-extrabold">DRAFT from ₹14,999</p>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Fixed-scope project: profile tune + posts + reviews + WhatsApp flows + landing page.</p>
-          <a href="/contact" className="mt-4 inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-5 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">Start with an audit →</a>
+          <a href="/contact" className="beam beam-rainbow btn-dark mt-4 inline-flex min-h-[44px] items-center rounded-full px-5 text-sm font-semibold">Start with an audit →</a>
         </div>
         <div className="glass rounded-2xl p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Retainer</p>

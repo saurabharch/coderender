@@ -29,7 +29,7 @@ export default function CareersPage() {
           </div>
         ))}
       </div>
-      <Link href="/contact" className="mt-6 inline-flex min-h-[44px] items-center rounded-full bg-zinc-900 px-6 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">Send your portfolio →</Link>
+      <Link href="/contact" className="beam beam-rainbow btn-dark mt-6 inline-flex min-h-[44px] items-center rounded-full px-6 text-sm font-semibold">Send your portfolio →</Link>
     </div>
   );
 }
