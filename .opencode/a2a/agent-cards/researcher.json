@@ -1,0 +1,1 @@
+{"accepts": ["research.wedge", "research.competitors", "research.sources"], "description": "Market + wedge researcher. Picks the AI video wedge with sourced evidence.", "mode": "subagent", "name": "researcher", "outputs": ["workspaces/business-builder/00-*.md"], "skills": ["bb-market-research", "research"]}

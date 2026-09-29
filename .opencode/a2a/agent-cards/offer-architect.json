@@ -1,0 +1,1 @@
+{"accepts": ["offer.ladder", "offer.pricing", "gtm.plan"], "description": "Offer + GTM architect. Packages and prices services, builds 30-day GTM.", "mode": "subagent", "name": "offer-architect", "outputs": ["workspaces/business-builder/00-offers-*.md"], "skills": ["bb-services-offers", "bb-gtm-30-day"]}

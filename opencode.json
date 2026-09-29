@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": true,
+  "formatter": true,
+  "skills": ["./skills"],
+  "permissions": [
+    {
+      "action": "skill",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "lsp",
+      "resource": "*",
+      "effect": "allow"
+    }
+  ],
+  "default_agent": "build"
+}

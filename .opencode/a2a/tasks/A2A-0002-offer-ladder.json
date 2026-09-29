@@ -1,0 +1,15 @@
+{
+  "id": "A2A-0002",
+  "from": "bbuilder-controller",
+  "to": "offer-architect",
+  "type": "offer.ladder",
+  "payload": {
+    "issue": "issues/002-offers-ladder.md",
+    "inputs": [],
+    "expected": "workspaces/coderender/00-offers-decision.md"
+  },
+  "status": "done",
+  "created": "2026-09-29",
+  "updated": "2026-09-29",
+  "result": "workspaces/coderender/00-offers-decision.md + service-catalog.md + offer-one-pager.md \u2014 verified exist, prices DRAFT"
+}

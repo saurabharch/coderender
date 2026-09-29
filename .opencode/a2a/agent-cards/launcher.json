@@ -1,0 +1,1 @@
+{"accepts": ["gap.score", "launch.assets", "fix.implement"], "description": "Launcher + growth fixer. Ships launch assets and ranks gap fixes.", "mode": "subagent", "name": "launcher", "outputs": ["workspaces/business-builder/00-gap-*.md", "templates/launch/*"], "skills": ["bb-gap-analysis", "bb-creator-intelligence"]}

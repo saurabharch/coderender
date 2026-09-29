@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+*.log
+.dev.db
+dev.db
+dev.db-journal
+.env
+coverage/
+dist/

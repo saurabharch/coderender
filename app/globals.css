@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light dark; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  @apply bg-[#fbf8f3] text-zinc-900 antialiased dark:bg-black dark:text-zinc-100;
+  overflow-x: clip;
+}
+
+/* Vertical rhythm: one system at every seam (Inspo spacing guidance) */
+.section { padding-block: clamp(72px, 10vw, 140px); }
+.wrap { margin-inline: auto; max-width: 72rem; padding-inline: max(24px, 4vw); }
+
+/* Cinematic focal glow: one per viewport, masked radial */
+.hero-glow {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgb(13 148 136 / 0.16), transparent 70%);
+}
+.dark .hero-glow {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgb(13 148 136 / 0.28), transparent 70%);
+}
+
+/* Marquee: auto-scroll, snap fallback, pause on hover */
+@keyframes marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - 0.5rem)); }
+}
+.marquee {
+  display: flex; gap: 1rem; overflow-x: auto;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+}
+.marquee::-webkit-scrollbar { display: none; }
+.marquee > * { scroll-snap-align: start; flex: 0 0 auto; }
+@media (prefers-reduced-motion: no-preference) {
+  .marquee-auto { animation: marquee-x 40s linear infinite; width: max-content; }
+  .marquee-auto:hover { animation-play-state: paused; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

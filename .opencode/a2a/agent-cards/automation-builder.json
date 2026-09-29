@@ -1,0 +1,1 @@
+{"accepts": ["automation.audit", "automation.spec", "automation.import-plan"], "description": "Automation builder. Sells and delivers n8n + workflow automation with standards.", "mode": "subagent", "name": "automation-builder", "outputs": ["workspaces/acme-studio/*"], "skills": ["bb-workflow-automation"]}

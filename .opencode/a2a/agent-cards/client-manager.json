@@ -1,0 +1,1 @@
+{"accepts": ["ops.pipeline", "ops.status", "ops.sow"], "description": "Client manager. Acquisition and delivery operations.", "mode": "subagent", "name": "client-manager", "outputs": ["workspaces/*", "issues/*.md"], "skills": ["bb-services-offers", "bb-gtm-30-day"]}

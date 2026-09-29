@@ -1,0 +1,15 @@
+{
+  "id": "A2A-0001",
+  "from": "bbuilder-controller",
+  "to": "researcher",
+  "type": "research.competitors",
+  "payload": {
+    "issue": "issues/001-reference-breakdown.md",
+    "inputs": [],
+    "expected": "workspaces/coderender/reference-breakdown.md"
+  },
+  "status": "done",
+  "created": "2026-09-29",
+  "updated": "2026-09-29",
+  "result": "workspaces/coderender/reference-breakdown.md \u2014 13-row map, verified exists"
+}

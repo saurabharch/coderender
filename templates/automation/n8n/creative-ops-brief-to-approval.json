@@ -1,0 +1,191 @@
+{
+  "name": "[template] Creative ops: brief to approval",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "creative-brief",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "cr-webhook",
+      "name": "Brief received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "00000000-0000-4000-8000-000000000002"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1",
+              "name": "job_id",
+              "value": "={{ $execution.id }}",
+              "type": "string"
+            },
+            {
+              "id": "d2",
+              "name": "brand",
+              "value": "={{ $json.body.brand }}",
+              "type": "string"
+            },
+            {
+              "id": "d3",
+              "name": "brief",
+              "value": "={{ $json.body.brief }}",
+              "type": "string"
+            },
+            {
+              "id": "d4",
+              "name": "status",
+              "value": "queued",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cr-job",
+      "name": "Create job record",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cr-load",
+      "name": "REPLACE: load brand profile",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cr-gen",
+      "name": "REPLACE: generate script/assets (model calls)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cr-gate",
+      "name": "REPLACE: brand gate scoring",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cr-approve",
+      "name": "REPLACE: request client approval and wait",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cr-deliver",
+      "name": "REPLACE: export, deliver, log cost and status",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Brief received": {
+      "main": [
+        [
+          {
+            "node": "Create job record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create job record": {
+      "main": [
+        [
+          {
+            "node": "REPLACE: load brand profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REPLACE: load brand profile": {
+      "main": [
+        [
+          {
+            "node": "REPLACE: generate script/assets (model calls)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REPLACE: generate script/assets (model calls)": {
+      "main": [
+        [
+          {
+            "node": "REPLACE: brand gate scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REPLACE: brand gate scoring": {
+      "main": [
+        [
+          {
+            "node": "REPLACE: request client approval and wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REPLACE: request client approval and wait": {
+      "main": [
+        [
+          {
+            "node": "REPLACE: export, deliver, log cost and status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

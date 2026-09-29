@@ -1,0 +1,1 @@
+{"accepts": ["control.route", "control.verify"], "description": "BBuilder controller. Routes work across the worker team, tracks issues, enforces standards.", "mode": "all", "name": "bbuilder-controller", "outputs": ["issues/*.md status advances", ".opencode/a2a/tasks/*.json status closes"], "skills": []}

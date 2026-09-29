@@ -1,0 +1,1 @@
+{"accepts": ["control.route", "control.verify"], "description": "CodeRender controller. Routes work across the worker team, tracks issues, enforces standards.", "mode": "all", "name": "coderender-controller", "outputs": ["issues/*.md status advances", ".opencode/a2a/tasks/*.json status closes"], "skills": []}
