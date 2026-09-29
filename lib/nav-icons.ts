@@ -1,6 +1,7 @@
 import {
   Scissors, Dumbbell, Cake, Stethoscope, UtensilsCrossed, Bug, Car,
   Plane, Flower2, Hammer, LayoutGrid, Building2, MessageCircle, Tag, Mail, Info,
+  Briefcase, Handshake, BookOpen, MapPin, Globe, Search, TrendingUp, Magnet, Bot,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,4 +25,16 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   pricing: Tag,
   contact: Mail,
   about: Info,
+  careers: Briefcase,
+  partner: Handshake,
+  docs: BookOpen,
+};
+
+export const SERVICE_ICONS: Record<string, LucideIcon> = {
+  "google-business-profile": MapPin,
+  "website-development": Globe,
+  "local-seo": Search,
+  "seo-marketing": TrendingUp,
+  "lead-generation": Magnet,
+  "chat-automation": Bot,
 };

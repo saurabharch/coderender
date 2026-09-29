@@ -3,27 +3,34 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SERVICES } from "@/lib/services";
+import { SERVICE_ICONS } from "@/lib/nav-icons";
 
 export function ServicesShowcase() {
   const [active, setActive] = useState(0);
   const s = SERVICES[active];
+  const ActiveIcon = SERVICE_ICONS[s.slug];
   return (
     <div className="grid gap-6 md:grid-cols-[240px_1fr]">
       <div className="flex gap-2 overflow-x-auto md:sticky md:top-32 md:flex-col md:self-start" role="tablist" aria-label="Services">
-        {SERVICES.map((x, i) => (
-          <button
-            key={x.slug}
-            role="tab"
-            aria-selected={i === active}
-            onClick={() => setActive(i)}
-            className={`min-h-[44px] shrink-0 rounded-xl px-4 text-left text-sm font-semibold transition ${i === active ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "border border-black/10 dark:border-white/15"}`}
-          >
-            {x.n} · {x.title}
-          </button>
-        ))}
+        {SERVICES.map((x, i) => {
+          const RI = SERVICE_ICONS[x.slug];
+          return (
+            <button
+              key={x.slug}
+              role="tab"
+              aria-selected={i === active}
+              onClick={() => setActive(i)}
+              className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl px-4 text-left text-sm font-semibold transition ${i === active ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "border border-black/10 dark:border-white/15"}`}
+            >
+              {RI && <RI size={16} className="shrink-0" />}{x.n} · {x.title}
+            </button>
+          );
+        })}
       </div>
       <article key={s.slug} className="rounded-2xl border border-black/10 p-6 dark:border-white/10 md:p-8">
-        <p className="text-xs font-extrabold tracking-[0.2em] text-brand-deep">{s.n} / 06</p>
+        <p className="flex items-center gap-2 text-xs font-extrabold tracking-[0.2em] text-brand-deep">
+          {ActiveIcon && <ActiveIcon size={16} />}{s.n} / 06
+        </p>
         <h3 className="display-2 mt-2">{s.title}</h3>
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">

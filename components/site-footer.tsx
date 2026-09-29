@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Phone, Mail, MessageCircle, QrCode, Type, Calculator } from "lucide-react";
 import { CONTACT, VERTICALS } from "@/lib/site";
+import { NAV_ICONS, VERTICAL_ICONS } from "@/lib/nav-icons";
 import { Logo } from "./logo";
+
+function FootIcon({ of, size = 15 }: { of: keyof typeof NAV_ICONS; size?: number }) {
+  const I = NAV_ICONS[of];
+  return <I size={size} />;
+}
 
 export function SiteFooter() {
   return (
@@ -19,12 +25,15 @@ export function SiteFooter() {
         </div>
         <nav aria-label="Industries">
           <p className="font-semibold">Coderender For</p>
-          <ul className="mt-2 space-y-1">
-            {VERTICALS.map((v) => (
-              <li key={v.slug}>
-                <Link href={`/industries/${v.slug}`}>{v.label}</Link>
-              </li>
-            ))}
+          <ul className="mt-2 space-y-1.5">
+            {VERTICALS.map((v) => {
+              const VI = VERTICAL_ICONS[v.slug];
+              return (
+                <li key={v.slug}>
+                  <Link href={`/industries/${v.slug}`} className="flex items-center gap-2">{VI && <VI size={15} className="shrink-0 text-brand-deep" />}{v.label}</Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
         <nav aria-label="Featured tool">
@@ -44,13 +53,13 @@ export function SiteFooter() {
             </li>
           </ul>
           <p className="mt-4 font-semibold">Company</p>
-          <ul className="mt-2 space-y-1">
-            <li><Link href="/about">About us</Link></li>
-            <li><Link href="/careers">Careers</Link></li>
-            <li><Link href="/pricing">Pricing</Link></li>
-            <li><Link href="/contact">Contact us</Link></li>
-            <li><Link href="/partner">Become a Partner</Link></li>
-            <li><Link href="/docs">Docs</Link></li>
+          <ul className="mt-2 space-y-1.5">
+            <li><Link href="/about" className="flex items-center gap-2"><FootIcon of="about" />About us</Link></li>
+            <li><Link href="/careers" className="flex items-center gap-2"><FootIcon of="careers" />Careers</Link></li>
+            <li><Link href="/pricing" className="flex items-center gap-2"><FootIcon of="pricing" />Pricing</Link></li>
+            <li><Link href="/contact" className="flex items-center gap-2"><FootIcon of="contact" />Contact us</Link></li>
+            <li><Link href="/partner" className="flex items-center gap-2"><FootIcon of="partner" />Become a Partner</Link></li>
+            <li><Link href="/docs" className="flex items-center gap-2"><FootIcon of="docs" />Docs</Link></li>
           </ul>
         </nav>
         <div>
