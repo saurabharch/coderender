@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.3.0] - 2026-10-01
+## [0.4.0] - 2026-10-01
+- Key-gated notify API, live site prices, proof CMS, session + role management## [0.3.0] - 2026-10-01
 - Enterprise rate limits, security headers, schedule dashboard, drawer nav, review fixes## [0.2.0] - 2026-09-30
 - Glass system, mega-menus, iPhone sim, parity sections, ship automation
 ## [0.2.0] - 2026-09-30
