@@ -137,8 +137,16 @@ export default function Home() {
         <div className="wrap section !py-10">
           <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Built on official platforms</p>
           <ul className="mt-4 flex flex-wrap justify-center gap-2">
-            {["WhatsApp Business API", "Google Business Profile", "Meta", "Google Maps", "Instagram"].map((p) => (
-              <li key={p} className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">{p}</li>
+            {[
+              ["whatsapp", "WhatsApp Business API"],
+              ["google", "Google Business Profile"],
+              ["meta", "Meta"],
+              ["maps", "Google Maps"],
+              ["instagram", "Instagram"],
+            ].map(([icon, p]) => (
+              <li key={p} className="flex items-center gap-2 rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">
+                <BrandIcon name={icon} size={15} />{p}
+              </li>
             ))}
           </ul>
         </div>

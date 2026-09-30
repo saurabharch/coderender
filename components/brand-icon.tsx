@@ -1,7 +1,7 @@
 import {
   siWhatsapp, siFacebook, siInstagram, siMessenger, siTelegram, siGoogle,
   siMeta, siZapier, siShopify, siWoo, siRazorpay, siGooglesheets, siZoho,
-  siGooglecalendar,
+  siGooglecalendar, siGooglemaps,
 } from "simple-icons";
 
 // Open-licensed (CC0) brand glyphs for factual "works with / channel" rows.
@@ -10,7 +10,7 @@ const MAP: Record<string, { path: string; hex: string; title: string }> = {
   whatsapp: siWhatsapp, facebook: siFacebook, instagram: siInstagram,
   messenger: siMessenger, telegram: siTelegram, google: siGoogle, meta: siMeta,
   zapier: siZapier, shopify: siShopify, woo: siWoo, razorpay: siRazorpay,
-  sheets: siGooglesheets, zoho: siZoho, calendar: siGooglecalendar,
+  sheets: siGooglesheets, zoho: siZoho, calendar: siGooglecalendar, maps: siGooglemaps,
 };
 
 export function BrandIcon({ name, size = 20 }: { name: string; size?: number }) {
