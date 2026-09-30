@@ -7,6 +7,7 @@ import { runNetwork } from "@/lib/agent-net";
 import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 import { humanCookie } from "@/lib/captcha";
 import { checkVerifiedCookie } from "@/lib/otp";
+import { banKey, isBanned, punish, scoreRequest, idemGet, idemSet, burstCount } from "@/lib/abuse";
 
 const FALLBACK = "Thanks for reaching out! A teammate replies within one business day. For instant help, WhatsApp us from the contact page.";
 
@@ -38,9 +39,20 @@ export async function POST(req: Request) {
     threadId: z.number().int().optional(),
     message: z.string().min(1).max(1000),
     fingerprint: z.string().max(80).optional(),
+    solveMs: z.number().int().min(0).max(3600000).optional(),
   }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad message" }, { status: 422 });
   const fp = parsed.data.fingerprint || req.headers.get("x-forwarded-for") || "anon";
+  const bkey = banKey(parsed.data.fingerprint, req);
+  if (isBanned(bkey)) return NextResponse.json({ error: "temporarily blocked — try again later" }, { status: 403 });
+  const verdict = scoreRequest({ fp: parsed.data.fingerprint, req, solveMs: parsed.data.solveMs, burstHits: burstCount(fp, req) });
+  if (verdict.banned || verdict.score >= 85) {
+    const mins = punish(bkey);
+    return NextResponse.json({ error: `automated activity detected — retry in ~${mins} min` }, { status: 403 });
+  }
+  const idemKey = req.headers.get("idempotency-key");
+  const replay = idemGet(idemKey);
+  if (replay) return NextResponse.json({ ...JSON.parse(replay), replayed: true });
   const jar = await cookies();
   const verified = checkVerifiedCookie(jar.get("cr_verified")?.value);
   if (jar.get("cr_human")?.value !== humanCookie() && !verified)
@@ -52,13 +64,17 @@ export async function POST(req: Request) {
     const own = getDb().prepare("SELECT id FROM ChatThread WHERE id=? AND userId IS NULL").get(threadId);
     if (!own) return NextResponse.json({ error: "not your thread" }, { status: 403 });
   } else {
-    const r = getDb().prepare("INSERT INTO ChatThread (title, userId) VALUES (?,NULL)")
-      .run(parsed.data.message.slice(0, 60));
+    const r = getDb().prepare("INSERT INTO ChatThread (title, userId, fp) VALUES (?,NULL,?)")
+      .run(parsed.data.message.slice(0, 60), parsed.data.fingerprint ?? null);
     threadId = Number(r.lastInsertRowid);
   }
   getDb().prepare("INSERT INTO ChatMessage (threadId, role, body) VALUES (?,?,?)")
     .run(threadId, "user", parsed.data.message);
   remember(threadId, "user", parsed.data.message);
+  try {
+    getDb().prepare("INSERT INTO Event (type, path, fingerprint) VALUES (?,?,?)")
+      .run("chat", "/api/chat-public", parsed.data.fingerprint ?? null);
+  } catch { /* analytics never breaks chat */ }
   let reply = "";
   let provider = "none";
   let net: {
@@ -86,9 +102,11 @@ export async function POST(req: Request) {
   const { score, notes } = scoreReply(reply);
   getDb().prepare("INSERT INTO Eval (threadId, score, rubric) VALUES (?,?,?)").run(threadId, score, notes.join("; "));
   const turnIdx = (getDb().prepare("SELECT COUNT(*) c FROM ChatMessage WHERE threadId=? AND role='assistant'").get(threadId) as { c: number }).c;
-  return NextResponse.json({
+  const out = {
     threadId, reply, provider, eval: score, turnIdx,
     options: net?.options, multi: net?.multi, submitLabel: net?.submitLabel,
     back: net?.back, done: net?.done, verify: net?.verify,
-  });
+  };
+  idemSet(idemKey, JSON.stringify(out));
+  return NextResponse.json(out);
 }

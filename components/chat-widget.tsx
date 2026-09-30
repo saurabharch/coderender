@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw } from "lucide-react";
+import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw, History } from "lucide-react";
 
 interface Turn {
   role: string;
@@ -36,11 +36,26 @@ function loadSaved(): { threadId?: number; turns: Turn[] } {
   }
 }
 
+function AgentAvatar({ size = "md" }: { size?: "md" | "lg" }) {
+  const box = size === "lg" ? "h-11 w-11 text-base" : "h-8 w-8 text-xs";
+  return (
+    <span className={`relative flex ${box} shrink-0 items-center justify-center rounded-full font-extrabold text-white`}
+      style={{ background: "linear-gradient(135deg,#5eead4 0%,#0d9488 55%,#065f46 100%)" }}
+      aria-label="Riya is online">
+      R
+      <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3" aria-hidden>
+        <span className="absolute h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+        <span className="h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-zinc-950" />
+      </span>
+    </span>
+  );
+}
+
 export function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [gate, setGate] = useState<"entry" | "captcha" | "otp" | "chat">("entry");
   const [human, setHuman] = useState(false);
-  const [captcha, setCaptcha] = useState<{ id: string; question: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ id: string; question: string; at: number } | null>(null);
   const [answer, setAnswer] = useState("");
   const [otpMode, setOtpMode] = useState<"support" | "partner">("support");
   const [otpEmail, setOtpEmail] = useState("");
@@ -63,6 +78,9 @@ export function ChatWidget() {
   const [picked, setPicked] = useState<string[]>([]);
   const [submitLabel, setSubmitLabel] = useState("Submit");
   const [canBack, setCanBack] = useState(false);
+  const [showThreads, setShowThreads] = useState(false);
+  const [threadList, setThreadList] = useState<{ id: number; title: string }[]>([]);
+  const [solveMs, setSolveMs] = useState<number | undefined>();
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -201,7 +219,7 @@ export function ChatWidget() {
   async function loadCaptcha() {
     const res = await fetch("/api/captcha").catch(() => null);
     const data = await res?.json().catch(() => null);
-    if (data?.id) setCaptcha({ id: data.id, question: data.question });
+    if (data?.id) setCaptcha({ id: data.id, question: data.question, at: Date.now() });
   }
 
   useEffect(() => {
@@ -216,6 +234,7 @@ export function ChatWidget() {
       body: JSON.stringify({ id: captcha?.id, answer: Number(answer) }),
     });
     if (res.ok) {
+      if (captcha) setSolveMs(Date.now() - captcha.at);
       setHuman(true);
       setGate("chat");
     } else {
@@ -235,8 +254,9 @@ export function ChatWidget() {
     const res = await fetch("/api/chat-public", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId, message, fingerprint: fp }),
+      body: JSON.stringify({ threadId, message, fingerprint: fp, solveMs }),
     });
+    setSolveMs(undefined);
     clearTimeout(researchTimer);
     const data = await res.json().catch(() => ({}));
     setBusy(false);
@@ -311,6 +331,33 @@ export function ChatWidget() {
     await post("« back");
   }
 
+  async function loadThreads() {
+    setShowThreads((s) => !s);
+    let fp = "";
+    try { fp = localStorage.getItem("cr_fp") ?? ""; } catch { /* ignore */ }
+    const res = await fetch(`/api/chat/threads?fp=${encodeURIComponent(fp)}`).catch(() => null);
+    const data = await res?.json().catch(() => ({}));
+    if (Array.isArray(data?.threads)) setThreadList(data.threads);
+  }
+
+  async function openThread(id: number) {
+    let fp = "";
+    try { fp = localStorage.getItem("cr_fp") ?? ""; } catch { /* ignore */ }
+    const res = await fetch(`/api/chat/threads?id=${id}&fp=${encodeURIComponent(fp)}`).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (!res?.ok) return;
+    let ai = 0;
+    setTurns((data.messages ?? []).map((m: { role: string; body: string }) => {
+      if (m.role === "assistant") ai += 1;
+      return { role: m.role, body: m.body, turnIdx: m.role === "assistant" ? ai : undefined };
+    }));
+    setThreadId(id);
+    setOptions(undefined);
+    setShowThreads(false);
+    setGate("chat");
+    setHuman(true);
+  }
+
   async function vote(turnIdx: number | undefined, v: string, i: number) {
     if (turnIdx === undefined || !threadId) return;
     await fetch("/api/chat/vote", {
@@ -333,11 +380,17 @@ export function ChatWidget() {
       {open && (
         <div className="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-h-[60vh] w-auto max-w-md flex-col overflow-hidden rounded-3xl border border-black/10 bg-white shadow-2xl dark:border-white/15 dark:bg-zinc-950 md:inset-x-auto md:right-4 md:w-[380px]" role="dialog" aria-label="AI assistant chat">
           <div className="flex items-center gap-2 border-b border-black/10 px-4 py-3 dark:border-white/10">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"><Bot size={16} /></span>
+            <AgentAvatar />
             <div className="flex-1">
               <p className="text-sm font-bold">CodeRender AI · Riya</p>
-              <p className="text-xs text-zinc-500">Sales executive · researched prices</p>
+              <p className="flex items-center gap-1.5 text-xs text-zinc-500">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> Online · replies instantly
+              </p>
             </div>
+            <button onClick={loadThreads} aria-label="Past conversations"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/15">
+              <History size={15} />
+            </button>
             <button onClick={newChat} aria-label="Start new chat"
               className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/15">
               <RotateCcw size={15} />
@@ -347,6 +400,17 @@ export function ChatWidget() {
               <X size={16} />
             </button>
           </div>
+          {showThreads && (
+            <div className="max-h-40 overflow-y-auto border-b border-black/10 dark:border-white/10">
+              {threadList.length === 0 && <p className="px-4 py-2 text-xs text-zinc-500">No past chats on this device yet.</p>}
+              {threadList.map((t) => (
+                <button key={t.id} onClick={() => openThread(t.id)}
+                  className="block w-full truncate px-4 py-2.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10">
+                  {t.title || `Chat #${t.id}`}
+                </button>
+              ))}
+            </div>
+          )}
           {gate === "entry" ? (
             <div className="grid gap-2 p-4">
               <p className="text-sm font-semibold">How can Riya help today?</p>

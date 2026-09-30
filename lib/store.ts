@@ -140,6 +140,15 @@ export function getDb(): DatabaseSync {
       id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL DEFAULT '',
       subject TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    try { db.exec("ALTER TABLE ChatThread ADD COLUMN fp TEXT"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS Idempotency (
+      key TEXT PRIMARY KEY, response TEXT NOT NULL DEFAULT '{}', exp INTEGER NOT NULL)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS RateBan (
+      key TEXT PRIMARY KEY, until INTEGER NOT NULL, level INTEGER NOT NULL DEFAULT 1)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS BotFlag (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, fp TEXT NOT NULL DEFAULT '', ip TEXT NOT NULL DEFAULT '',
+      reason TEXT NOT NULL DEFAULT '', score INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;
 }

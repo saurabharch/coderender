@@ -3,6 +3,7 @@ import { createLead } from "@/lib/leads";
 import { getDb } from "@/lib/store";
 import { runLocal } from "@/lib/jobs";
 import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
+import { idemGet, idemSet } from "@/lib/abuse";
 import { leadSchema } from "@/lib/lead-schema";
 
 export async function POST(req: Request) {
@@ -18,11 +19,16 @@ export async function POST(req: Request) {
   const parsed = leadSchema.safeParse(body);
   if (!parsed.success)
     return NextResponse.json({ error: "Invalid lead", issues: parsed.error.flatten() }, { status: 422 });
+  const idemKey = req.headers.get("idempotency-key");
+  const replay = idemGet(idemKey);
+  if (replay) return NextResponse.json({ ...JSON.parse(replay), replayed: true });
   const lead = createLead(parsed.data);
   if (parsed.data.source === "partner") {
     getDb().prepare("INSERT INTO PartnerRequest (name, phone, tier) VALUES (?,?,?)")
       .run(parsed.data.name, parsed.data.phone, "referrer");
   }
   runLocal("leadCreated", { leadId: lead.id }).catch(() => {});
-  return NextResponse.json({ ok: true, id: lead.id });
+  const out = { ok: true, id: lead.id };
+  idemSet(idemKey, JSON.stringify(out));
+  return NextResponse.json(out);
 }

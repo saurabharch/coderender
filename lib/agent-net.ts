@@ -152,6 +152,12 @@ const MODES: WizardOption[] = [
   { id: "video", label: "Video call" },
 ];
 
+function extractLocation(text: string): string {
+  const m = text.match(/\b(?:in|at|near|from|based in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/)
+    || text.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,1})\s+(area|nagar|town|city)\b/i);
+  return (m?.[1] ?? "").slice(0, 60);
+}
+
 function matchSlot(msg: string, slots: string[]): string | undefined {
   const t = msg.toLowerCase();
   if (slots.includes(msg.trim())) return msg.trim();
@@ -340,13 +346,19 @@ export async function runNetwork(opts: {
       saveState(opts.threadId, { ...st0, phone, stage: st0.mode === "support" ? "sdone" : "pdone", email: opts.verifiedEmail });
       return snapshotReply(st0.mode, opts.verifiedEmail, phone);
     }
-    // support ticket filing
+    // support ticket filing (+ team notify + owner mail attempt)
     if (/complaint|issue|problem|broken|refund|not working|ticket/i.test(msg) && !/^(track|status|show)/i.test(msg)) {
       const subj = msg.slice(0, 120);
       try {
         const { getDb } = await import("./store");
         getDb().prepare("INSERT INTO Ticket (email, subject, body, status) VALUES (?,?,?,?)")
           .run(opts.verifiedEmail, subj, msg.slice(0, 2000), "open");
+        getDb().prepare("INSERT INTO Notification (title, body, audience) VALUES (?,?,?)")
+          .run(`Ticket: ${subj}`, `from ${opts.verifiedEmail}`, "team");
+        const { sendMail } = await import("./mailer");
+        const { ADMIN_EMAILS } = await import("./auth");
+        for (const r of ADMIN_EMAILS)
+          await sendMail(r, `Support ticket: ${subj}`, `<p>${subj}</p><p>From: ${opts.verifiedEmail}</p>`).catch(() => {});
         return { text: `Logged! I've opened support ticket for "${subj}" — our team replies within one business day. Anything else I can check?`, scope: "support", runtime: "none" };
       } catch { /* fall through */ }
     }
@@ -373,6 +385,13 @@ export async function runNetwork(opts: {
         if (/already.*(client|customer)|existing|old (business|account)/.test(lower)) {
           saveState(opts.threadId, { stage: "done" });
           return { text: "Welcome back! Since you're already with us, what can I help with today — support, a new service, or billing?", scope: "support", runtime: "none" };
+        }
+        if (/partner|affiliate|reseller|earn|commission/.test(lower)) {
+          saveState(opts.threadId, { stage: "detect", mode: "partner" });
+          return {
+            text: "Partnerships — my favourite topic! To show you tiers and earnings I need to verify you first — tap Verify below with your email.",
+            scope: "partner", runtime: "none", verify: "partner",
+          };
         }
         saveState(opts.threadId, { stage: "vertical" });
         return {
@@ -401,7 +420,9 @@ export async function runNetwork(opts: {
         };
       }
       if (st.stage === "details") {
-        saveState(opts.threadId, { stage: "contact", business: st.business, goals: st.goals, nature: msg.slice(0, 500) });
+        const loc = extractLocation(msg);
+        const nature = (msg.slice(0, 500) + (loc ? ` [loc: ${loc}]` : ""));
+        saveState(opts.threadId, { stage: "contact", business: st.business, goals: st.goals, nature });
         return {
           text: "Noted! And how do we reach you — your name plus phone or email?",
           scope, runtime: "none", back: true,
@@ -452,6 +473,12 @@ export async function runNetwork(opts: {
           getDb().prepare("INSERT INTO Appointment (threadId, name, contact, mode, slot, status) VALUES (?,?,?,?,?,?)")
             .run(opts.threadId ?? null, st.name ?? "friend", st.contact ?? "", st.meet ?? "meet", slot, "confirmed");
         } catch { /* booking never breaks chat */ }
+        try {
+          // Wizard completion mints a real lead so sales sees every booking.
+          const biz = [st.business, st.goals?.join("/"), st.nature].filter(Boolean).join(" · ").slice(0, 200);
+          getDb().prepare("INSERT INTO Lead (name, phone, businessType, source, message) VALUES (?,?,?,?,?)")
+            .run(st.name ?? "friend", (st.contact ?? "").slice(0, 20), "general", "chat", `Booked ${st.meet ?? "meet"} ${slot}. ${biz}`);
+        } catch { /* lead never breaks chat */ }
         const modeLabel = MODES.find((x) => x.id === st.meet)?.label ?? "video call";
         const joinLine = st.meet === "voice"
           ? `We'll call you sharp on time at ${st.contact}.`
