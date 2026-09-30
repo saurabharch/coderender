@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Phone, Mail, MessageCircle, QrCode, Type, Calculator, MapPin } from "lucide-react";
 import { CONTACT } from "@/lib/site";
-import { version } from "@/package.json";
+import pkg from "@/package.json";
 import { Logo } from "./logo";
+
+const APP_VERSION = pkg.version;
 
 const COLS: { title: string; links: { h: string; l: string }[] }[] = [
   {
@@ -111,7 +113,7 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="mt-10 flex flex-col items-center justify-between gap-2 border-t border-black/10 pt-4 text-xs text-zinc-500 md:flex-row dark:border-white/10">
-          <p>© {new Date().getFullYear()} Coderender · v{version}. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Coderender · v{APP_VERSION}. All rights reserved.</p>
           <p className="space-x-3">
             <Link href="/privacy">Privacy Policy</Link>
             <Link href="/terms">Terms & Conditions</Link>
