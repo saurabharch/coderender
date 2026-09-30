@@ -96,6 +96,10 @@ Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
   charges answer), hijack shield holding the Riya sales-exec persona, captcha gate
   (`/api/captcha`, signed cookie) before public chat, @agent/#topic//commands,
   model routing (simple→default, complex→`OPENCODE_MODEL_SMART`), phased widget status.
+- Wizard + memory + booking: option chips (single/multi/submit/back), 7-stage flow
+  (vertical→goals→details→contact→mode→slot→confirmed briefing), FTS5 chat memory
+  recalled into answers, votes/failures at `/api/chat/vote`, appointments in
+  `Appointment` table. Local session preserved per thread.
 - Jobs (Inngest): `lib/jobs.ts` defines durable functions (daily-report cron, lead
   pipeline with 24h nurture sleep, throttled/cancellable broadcasts, support-triage
   agent) + `runLocal()` executes bodies in-process. `emit()` in `lib/events.ts`

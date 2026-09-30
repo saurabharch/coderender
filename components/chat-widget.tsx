@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, X, Send, ShieldCheck } from "lucide-react";
+import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft } from "lucide-react";
 
 interface Turn {
   role: string;
   body: string;
+  turnIdx?: number;
+  voted?: string;
+}
+
+interface Opt {
+  id: string;
+  label: string;
 }
 
 type Phase = "idle" | "thinking" | "researching" | "typing";
@@ -23,6 +30,11 @@ export function ChatWidget() {
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [limited, setLimited] = useState(false);
+  const [options, setOptions] = useState<Opt[] | undefined>();
+  const [multi, setMulti] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [submitLabel, setSubmitLabel] = useState("Submit");
+  const [canBack, setCanBack] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,7 +45,7 @@ export function ChatWidget() {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns, busy, phase]);
+  }, [turns, busy, phase, options]);
 
   async function loadCaptcha() {
     const res = await fetch("/api/captcha").catch(() => null);
@@ -60,21 +72,18 @@ export function ChatWidget() {
     }
   }
 
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || busy) return;
-    const msg = input.trim();
-    setInput("");
-    setTurns((t) => [...t, { role: "user", body: msg }]);
+  async function post(message: string) {
     setBusy(true);
     setPhase("thinking");
+    setOptions(undefined);
+    setPicked([]);
     const researchTimer = setTimeout(() => setPhase("researching"), 3000);
     let fp: string | undefined;
     try { fp = localStorage.getItem("cr_fp") ?? undefined; } catch { /* ignore */ }
     const res = await fetch("/api/chat-public", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId, message: msg, fingerprint: fp }),
+      body: JSON.stringify({ threadId, message, fingerprint: fp }),
     });
     clearTimeout(researchTimer);
     const data = await res.json().catch(() => ({}));
@@ -88,12 +97,58 @@ export function ChatWidget() {
       setThreadId(data.threadId);
       setPhase("typing");
       setTimeout(() => {
-        setTurns((t) => [...t, { role: "assistant", body: data.reply }]);
+        setTurns((t) => [...t, { role: "assistant", body: data.reply, turnIdx: data.turnIdx }]);
+        setOptions(data.options);
+        setMulti(!!data.multi);
+        setSubmitLabel(data.submitLabel || "Submit");
+        setCanBack(!!data.back);
         setPhase("idle");
       }, 700);
     } else {
       setPhase("idle");
     }
+  }
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    if (!input.trim() || busy) return;
+    const msg = input.trim();
+    setInput("");
+    setTurns((t) => [...t, { role: "user", body: msg }]);
+    await post(msg);
+  }
+
+  async function tapOption(id: string, label: string) {
+    if (busy) return;
+    if (!multi) {
+      setTurns((t) => [...t, { role: "user", body: label }]);
+      await post(id);
+      return;
+    }
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  }
+
+  async function submitMulti() {
+    if (busy || picked.length === 0) return;
+    const labels = (options ?? []).filter((o) => picked.includes(o.id)).map((o) => o.label).join(", ");
+    setTurns((t) => [...t, { role: "user", body: labels }]);
+    await post(picked.join(","));
+  }
+
+  async function goBack() {
+    if (busy) return;
+    setTurns((t) => [...t, { role: "user", body: "« back" }]);
+    await post("« back");
+  }
+
+  async function vote(turnIdx: number | undefined, v: string, i: number) {
+    if (turnIdx === undefined || !threadId) return;
+    await fetch("/api/chat/vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId, turnIdx, vote: v }),
+    }).catch(() => {});
+    setTurns((t) => t.map((x, j) => (j === i ? { ...x, voted: v } : x)));
   }
 
   return (
@@ -111,7 +166,7 @@ export function ChatWidget() {
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"><Bot size={16} /></span>
             <div>
               <p className="text-sm font-bold">CodeRender AI · Riya</p>
-              <p className="text-xs text-zinc-500">Sales executive · replies with researched prices</p>
+              <p className="text-xs text-zinc-500">Sales executive · researched prices</p>
             </div>
           </div>
           {!human ? (
@@ -128,11 +183,23 @@ export function ChatWidget() {
           ) : (
             <>
               <div className="flex-1 space-y-2 overflow-y-auto p-4">
-                {turns.length === 0 && <p className="text-sm text-zinc-500">Hi, I am Riya! Tell me about your business — I will ask 3 quick questions, then come back with researched prices.</p>}
+                {turns.length === 0 && <p className="text-sm text-zinc-500">Hi, I am Riya! Tell me about your business — a few quick taps and I will come back with researched prices.</p>}
                 {turns.map((t, i) => (
-                  <p key={i} className={t.role === "user"
-                    ? "ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-white dark:text-zinc-900"
-                    : "w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800"}>{t.body}</p>
+                  <div key={i}>
+                    <p className={t.role === "user"
+                      ? "ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-white dark:text-zinc-900"
+                      : "w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800"}>{t.body}</p>
+                    {t.role === "assistant" && (
+                      <span className="mt-1 flex gap-1">
+                        {(["up", "down"] as const).map((v) => (
+                          <button key={v} onClick={() => vote(t.turnIdx, v, i)} aria-label={`Vote ${v}`}
+                            className={`rounded-full border p-1.5 ${t.voted === v ? "border-brand bg-brand-soft" : "border-black/10 dark:border-white/15"}`}>
+                            {v === "up" ? <ThumbsUp size={12} /> : <ThumbsDown size={12} />}
+                          </button>
+                        ))}
+                      </span>
+                    )}
+                  </div>
                 ))}
                 {busy && <p className="text-xs font-semibold text-brand-deep">
                   {phase === "thinking" && "Thinking…"}
@@ -142,6 +209,27 @@ export function ChatWidget() {
                 {limited && <p className="text-sm font-semibold text-amber-600">Slow down — hourly limit reached, or solve the check again.</p>}
                 <div ref={bottom} />
               </div>
+              {options && options.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-3 pb-1">
+                  {canBack && (
+                    <button onClick={goBack} className="flex min-h-[36px] items-center gap-1 rounded-full border border-black/15 px-3 text-xs font-semibold dark:border-white/20">
+                      <ArrowLeft size={12} /> Back
+                    </button>
+                  )}
+                  {options.map((o) => (
+                    <button key={o.id} onClick={() => tapOption(o.id, o.label)}
+                      className={`min-h-[36px] rounded-full border px-3 text-xs font-semibold ${picked.includes(o.id) ? "border-brand bg-brand-soft dark:bg-white/10" : "border-black/15 dark:border-white/20"}`}>
+                      {o.label}
+                    </button>
+                  ))}
+                  {multi && (
+                    <button onClick={submitMulti} disabled={picked.length === 0}
+                      className="min-h-[36px] rounded-full bg-brand px-4 text-xs font-semibold text-white disabled:opacity-50">
+                      {submitLabel} ({picked.length})
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap gap-1.5 px-3">
                 {HINTS.map((h) => (
                   <button key={h} onClick={() => setInput(h)} className="rounded-full border border-black/10 px-2.5 py-1 text-xs font-semibold text-zinc-600 dark:border-white/15 dark:text-zinc-400">{h}</button>

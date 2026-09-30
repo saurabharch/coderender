@@ -1,9 +1,10 @@
 import { infer, type Scope } from "./ai-gateway";
-import { getDb } from "./store";
+import { getDb, recall } from "./store";
 import { SERVICES } from "./services";
+import { VERTICALS } from "./site";
 
 // AgentKit-shaped network: router + scoped persona agents + grounded tools.
-// Persona is locked: friendly sales executive + front-desk support. Nothing else.
+// Public threads run a wizard intake; team threads get direct answers.
 
 export interface ToolCtx {
   userId: number;
@@ -60,18 +61,59 @@ const HIJACK = [
 
 const DEFLECT = "Haha, nice try! I'm Riya from CodeRender sales — I only do one job and I do it well: helping local businesses grow. What kind of business is yours?";
 
-export interface IntakeState {
-  stage: "detect" | "q1" | "q2" | "q3" | "done";
-  business?: string;
-  goal?: string;
-  name?: string;
+export interface WizardOption {
+  id: string;
+  label: string;
 }
 
-const QUESTIONS: Record<string, string> = {
-  q1: "What kind of business is this for — salon, clinic, gym, restaurant, or something else?",
-  q2: "Got it! And what do you want most — more calls, more orders, or repeat customers?",
-  q3: "Perfect — last one! What should I call you, so our team can follow up personally?",
-};
+export interface AgentReply {
+  text: string;
+  scope: Exclude<Scope, "infra">;
+  runtime: string;
+  options?: WizardOption[];
+  multi?: boolean;
+  submitLabel?: string;
+  back?: boolean;
+  done?: boolean;
+}
+
+export interface IntakeState {
+  stage: "detect" | "vertical" | "goals" | "details" | "contact" | "mode" | "slot" | "done";
+  business?: string;
+  goals?: string[];
+  nature?: string;
+  name?: string;
+  contact?: string;
+  mode?: string;
+}
+
+const GOALS: WizardOption[] = [
+  { id: "calls", label: "More calls" },
+  { id: "orders", label: "More orders" },
+  { id: "repeat", label: "Repeat customers" },
+  { id: "reviews", label: "Better reviews" },
+];
+
+const MODES: WizardOption[] = [
+  { id: "meet", label: "Google Meet" },
+  { id: "zoom", label: "Zoom" },
+  { id: "video", label: "Video call" },
+];
+
+function nextSlots(): WizardOption[] {
+  const out: WizardOption[] = [];
+  const d = new Date();
+  while (out.length < 6) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() === 0) continue;
+    const day = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+    for (const t of ["11:00 AM", "4:00 PM"]) {
+      out.push({ id: `${day} · ${t}`, label: `${day} · ${t}` });
+      if (out.length >= 6) break;
+    }
+  }
+  return out;
+}
 
 function routeAgent(message: string): Exclude<Scope, "infra"> {
   const t = message.toLowerCase();
@@ -102,6 +144,14 @@ function saveState(threadId: number | undefined, s: IntakeState) {
   } catch { /* ignore */ }
 }
 
+const PREV: Record<string, IntakeState["stage"]> = {
+  goals: "vertical",
+  details: "goals",
+  contact: "details",
+  mode: "contact",
+  slot: "mode",
+};
+
 export async function runNetwork(opts: {
   userId: number;
   message: string;
@@ -109,79 +159,155 @@ export async function runNetwork(opts: {
   agent?: string;
   topic?: string;
   command?: string;
-}) {
+}): Promise<AgentReply> {
   const msg = opts.message;
-  // 1. Slash commands (allowlisted)
   if (opts.command === "help" || msg.trim() === "/help")
-    return { text: "I can help with services, prices, bookings, and partnerships. Try @pricing for rates, #booking to book, or /demo to book a demo. What is on your mind?", scope: "support" as const, runtime: "none" as const };
+    return { text: "I can help with services, prices, bookings, and partnerships. Try @pricing for rates, #booking to book, or /demo to book a demo. What is on your mind?", scope: "support", runtime: "none" };
   if (opts.command === "pricing" || msg.trim() === "/pricing")
-    return { text: await tools.pricing_estimate.run({ userId: opts.userId }, {}), scope: "pricing" as const, runtime: "none" as const };
+    return { text: await tools.pricing_estimate.run({ userId: opts.userId }, {}), scope: "pricing", runtime: "none" };
   if (opts.command === "demo" || msg.trim() === "/demo")
-    return { text: "Wonderful! You can book a free demo from our contact page, or just tell me your business type and I'll brief you right here first.", scope: "support" as const, runtime: "none" as const };
+    return { text: "Wonderful! You can book a free demo from our contact page, or just tell me your business type and I'll brief you right here first.", scope: "support", runtime: "none" };
   if (opts.command === "human" || msg.trim() === "/human")
-    return { text: "Of course — a human teammate will take it from here. Share your name and number and we'll call within one business day!", scope: "support" as const, runtime: "none" as const };
+    return { text: "Of course — a human teammate will take it from here. Share your name and number and we'll call within one business day!", scope: "support", runtime: "none" };
   if (opts.command === "reset" || msg.trim() === "/reset") {
     saveState(opts.threadId, { stage: "detect" });
-    return { text: "Fresh start! Are you asking for a new business, a new project, or are you already a CodeRender client?", scope: "support" as const, runtime: "none" as const };
+    return { text: "Fresh start! Are you asking for a new business, a new project, or are you already a CodeRender client?", scope: "support", runtime: "none" };
   }
-  // 2. Hijack shield: never leave the persona, never reveal internals
   if (HIJACK.some((re) => re.test(msg))) {
-    return { text: DEFLECT, scope: "support" as const, runtime: "none" as const };
+    return { text: DEFLECT, scope: "support", runtime: "none" };
   }
-  // 3. Agent override (@sales/@support/@pricing/@partner) + topic hint (#...)
   const scope: Exclude<Scope, "infra"> =
     (opts.agent && AGENTS[opts.agent]) || routeAgent(`${opts.topic ?? ""} ${msg}`);
-  // 4. Intake state machine (public threads; team threads skip to direct answers)
-  const st = loadState(opts.threadId);
   const isTeam = opts.userId > 0;
-  if (!isTeam && st.stage !== "done") {
-    const lower = msg.toLowerCase();
-    const isExisting = /already.*(client|customer)|existing|old (business|account)/.test(lower);
-    if (st.stage === "detect") {
-      const next: IntakeState = isExisting
-        ? { stage: "done" }
-        : { stage: "q1" };
-      saveState(opts.threadId, next);
-      if (isExisting)
-        return { text: "Welcome back! Since you're already with us, what can I help with today — support, a new service, or billing?", scope: "support" as const, runtime: "none" as const };
-      return { text: `Hi there, welcome to CodeRender! ${QUESTIONS.q1}`, scope, runtime: "none" as const };
+
+  // ---- wizard for new-visitor threads ----
+  if (!isTeam) {
+    const st = loadState(opts.threadId);
+    if (msg.trim() === "« back" && st.stage !== "detect" && st.stage !== "done") {
+      const prev = PREV[st.stage] ?? "detect";
+      const rolled: IntakeState = { stage: prev };
+      if (prev === "detect" || prev === "vertical") Object.assign(rolled, {});
+      else if (prev === "goals") rolled.business = st.business;
+      else if (prev === "details") { rolled.business = st.business; rolled.goals = st.goals; }
+      else if (prev === "contact") { rolled.business = st.business; rolled.goals = st.goals; rolled.nature = st.nature; }
+      else if (prev === "mode") { rolled.business = st.business; rolled.goals = st.goals; rolled.nature = st.nature; rolled.name = st.name; rolled.contact = st.contact; }
+      saveState(opts.threadId, rolled);
+      return askStage(rolled, scope, opts.userId);
     }
-    if (st.stage === "q1") {
-      const next = { stage: "q2" as const, business: msg.slice(0, 80) };
-      saveState(opts.threadId, next);
-      return { text: QUESTIONS.q2, scope, runtime: "none" as const };
-    }
-    if (st.stage === "q2") {
-      const next = { stage: "q3" as const, business: st.business, goal: msg.slice(0, 80) };
-      saveState(opts.threadId, next);
-      return { text: QUESTIONS.q3, scope, runtime: "none" as const };
-    }
-    if (st.stage === "q3") {
-      const rawBiz = (st.business || "").replace(/^(i run|i have|i own|my|we are|we run|its? a|a|an)\s+/i, "").replace(/^(a|an|the)\s+/i, "").trim() || "local business";
-      const done = { stage: "done" as const, business: rawBiz, goal: st.goal, name: msg.slice(0, 80) };
-      saveState(opts.threadId, done);
-      const first = msg.split(/\s+/)[0]?.replace(/[^a-zA-Z]/g, "") || "friend";
-      const kw = rawBiz.toLowerCase().split(/\s+/).find((w) =>
-        ["google", "maps", "gmb", "website", "web", "seo", "lead", "chat", "whatsapp", "marketing", "local"].includes(w));
-      const brief = kw
-        ? await tools.service_briefing.run({ userId: opts.userId }, { q: kw }).catch(() => "")
-        : "";
-      const prices = await tools.pricing_estimate.run({ userId: opts.userId }, {});
-      return {
-        text: `Thanks ${first}! Based on everything, here's my honest take for ${/^[aeiou]/i.test(rawBiz) ? "an" : "a"} ${rawBiz} chasing ${st.goal || "growth"}${brief && !brief.startsWith("No matching") ? `: ${brief}` : "."} ${prices} Want me to have our team call you to lock the audit?`,
-        scope, runtime: "none" as const,
-      };
+    if (st.stage !== "done") {
+      const lower = msg.toLowerCase();
+      if (st.stage === "detect") {
+        if (/already.*(client|customer)|existing|old (business|account)/.test(lower)) {
+          saveState(opts.threadId, { stage: "done" });
+          return { text: "Welcome back! Since you're already with us, what can I help with today — support, a new service, or billing?", scope: "support", runtime: "none" };
+        }
+        saveState(opts.threadId, { stage: "vertical" });
+        return {
+          text: "Hi there, welcome to CodeRender! First, pick your business type — or just type it:",
+          scope, runtime: "none", back: false,
+          options: VERTICALS.map((v) => ({ id: v.slug, label: v.label })),
+        };
+      }
+      if (st.stage === "vertical") {
+        const hit = VERTICALS.find((v) => v.slug === msg.trim() || v.label.toLowerCase() === lower);
+        const business = hit ? hit.label : msg.slice(0, 80);
+        saveState(opts.threadId, { stage: "goals", business });
+        return {
+          text: `Lovely — ${business}! Now pick what matters most (you can choose several, then Submit):`,
+          scope, runtime: "none", back: true,
+          options: GOALS, multi: true, submitLabel: "Submit goals",
+        };
+      }
+      if (st.stage === "goals") {
+        const ids = msg.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+        const goals = GOALS.filter((g) => ids.includes(g.id) || ids.includes(g.label.toLowerCase())).map((g) => g.label);
+        saveState(opts.threadId, { stage: "details", business: st.business, goals: goals.length ? goals : [msg.slice(0, 80)] });
+        return {
+          text: "Got it! Tell me a little about the business — what you do, plus any link or detail worth knowing:",
+          scope, runtime: "none", back: true,
+        };
+      }
+      if (st.stage === "details") {
+        saveState(opts.threadId, { stage: "contact", business: st.business, goals: st.goals, nature: msg.slice(0, 500) });
+        return {
+          text: "Noted! And how do we reach you — your name plus phone or email?",
+          scope, runtime: "none", back: true,
+        };
+      }
+      if (st.stage === "contact") {
+        const phone = (msg.match(/\+?\d[\d\s-]{7,}\d/) || [])[0] ?? "";
+        const email = (msg.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] ?? "";
+        const name = msg.replace(phone, "").replace(email, "").replace(/[,;]+/g, " ").trim().slice(0, 80);
+        if (!phone && !email) {
+          return { text: "I need at least a phone number or an email to continue — what works for you?", scope, runtime: "none", back: true };
+        }
+        saveState(opts.threadId, { stage: "mode", business: st.business, goals: st.goals, nature: st.nature, name: name || "friend", contact: phone || email });
+        return {
+          text: `Thanks ${name || "friend"}! Last step — how should we meet for a free 20-minute walkthrough?`,
+          scope, runtime: "none", back: true,
+          options: MODES,
+        };
+      }
+      if (st.stage === "mode") {
+        const m = MODES.find((x) => x.id === msg.trim() || x.label.toLowerCase() === lower);
+        if (!m) {
+          return { text: "Pick one so I can set it up right — Google Meet, Zoom, or a plain video call?", scope, runtime: "none", back: true, options: MODES };
+        }
+        saveState(opts.threadId, { ...st, stage: "slot", mode: m.id });
+        return {
+          text: `${m.label} it is! Choose a slot (IST) and I'll lock it in:`,
+          scope, runtime: "none", back: true,
+          options: nextSlots(),
+        };
+      }
+      if (st.stage === "slot") {
+        const slots = nextSlots().map((s) => s.id);
+        if (!slots.includes(msg.trim())) {
+          return { text: "Tap one of the slots below and I'll confirm it instantly:", scope, runtime: "none", back: true, options: nextSlots() };
+        }
+        const slot = msg.trim();
+        saveState(opts.threadId, { ...st, stage: "done" });
+        try {
+          getDb().prepare("INSERT INTO Appointment (threadId, name, contact, mode, slot, status) VALUES (?,?,?,?,?,?)")
+            .run(opts.threadId ?? null, st.name ?? "friend", st.contact ?? "", st.mode ?? "meet", slot, "confirmed");
+        } catch { /* booking never breaks chat */ }
+        const modeLabel = MODES.find((x) => x.id === st.mode)?.label ?? "video call";
+        return {
+          text: `Locked in, ${st.name || "friend"}! ${modeLabel} on ${slot} (IST), 20 minutes. Before we meet: keep 2–3 examples of customers you love plus your monthly budget range handy. The ${modeLabel} link will be shared on your contact (${st.contact}) an hour before. Anything else I can research meanwhile?`,
+          scope, runtime: "none", done: true,
+        };
+      }
     }
   }
-  // 5. Researched answer via gateway (grounded with tools where relevant)
+
+  // ---- researched direct answer ----
   let context = "";
   if (scope === "product") {
     const hit = SERVICES.find((s) => msg.toLowerCase().includes(s.title.toLowerCase().split(" ")[0]));
     if (hit) context = await tools.service_briefing.run({ userId: opts.userId }, { q: hit.title }).catch(() => "");
   }
   if (scope === "pricing") context = await tools.pricing_estimate.run({ userId: opts.userId }, {});
+  if (!isTeam && opts.threadId) {
+    const mem = recall(opts.threadId, msg);
+    if (mem.length) context += `\nEarlier in this chat: ${mem.join(" | ")}`;
+  }
   const system = `${SYSTEMS[scope]}${context ? `\nContext: ${context}` : ""}`;
   const { infer } = await import("./ai-gateway");
   const r = await infer({ scope, userId: opts.userId, system, user: msg, model: pickModel(msg, scope) });
   return { ...r, scope };
+}
+
+function askStage(st: IntakeState, scope: Exclude<Scope, "infra">, _userId: number) {
+  void _userId;
+  if (st.stage === "vertical")
+    return { text: "Pick your business type — or just type it:", scope, runtime: "none", back: false, options: VERTICALS.map((v) => ({ id: v.slug, label: v.label })) };
+  if (st.stage === "goals")
+    return { text: "Pick what matters most (several allowed, then Submit):", scope, runtime: "none", back: true, options: GOALS, multi: true, submitLabel: "Submit goals" };
+  if (st.stage === "details")
+    return { text: "Tell me about the business — what you do, plus any link or detail:", scope, runtime: "none", back: true };
+  if (st.stage === "contact")
+    return { text: "And how do we reach you — name plus phone or email?", scope, runtime: "none", back: true };
+  if (st.stage === "mode")
+    return { text: "How should we meet for a free 20-minute walkthrough?", scope, runtime: "none", back: true, options: MODES };
+  return { text: "Choose a slot (IST):", scope, runtime: "none", back: true, options: nextSlots() };
 }

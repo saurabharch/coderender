@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { cookies } from "next/headers";
-import { getDb } from "@/lib/store";
+import { getDb, remember } from "@/lib/store";
 import { scoreReply } from "@/lib/evals";
 import { runNetwork } from "@/lib/agent-net";
 import { rateLimited } from "@/lib/rate-limit";
@@ -56,21 +56,35 @@ export async function POST(req: Request) {
   }
   getDb().prepare("INSERT INTO ChatMessage (threadId, role, body) VALUES (?,?,?)")
     .run(threadId, "user", parsed.data.message);
+  remember(threadId, "user", parsed.data.message);
   let reply = "";
   let provider = "none";
+  let net: {
+    text: string; runtime: string; options?: { id: string; label: string }[];
+    multi?: boolean; submitLabel?: string; back?: boolean; done?: boolean;
+  } | null = null;
   try {
     const { agent, topic, command, clean } = parseShortcuts(parsed.data.message);
-    const net = await runNetwork({ userId: 0, message: clean, threadId, agent, topic, command });
-    if ((net as { runtime?: string }).runtime === "busy")
+    net = await runNetwork({ userId: 0, message: clean, threadId, agent, topic, command });
+    if (net.runtime === "busy")
       return NextResponse.json({ error: "All agents are busy — try again in a minute." }, { status: 503 });
     if (net.text) {
       reply = net.text.slice(0, 2000);
       provider = net.runtime === "opencode-cli" ? "local-ai" : net.runtime;
     }
   } catch { /* fallback below */ }
-  if (!reply) reply = FALLBACK;
+  if (!reply) {
+    reply = FALLBACK;
+    getDb().prepare("INSERT INTO Vote (threadId, turnIdx, vote) VALUES (?,?,?)").run(threadId, 0, "fail");
+  }
   getDb().prepare("INSERT INTO ChatMessage (threadId, role, body) VALUES (?,?,?)").run(threadId, "assistant", reply);
+  remember(threadId, "assistant", reply);
   const { score, notes } = scoreReply(reply);
   getDb().prepare("INSERT INTO Eval (threadId, score, rubric) VALUES (?,?,?)").run(threadId, score, notes.join("; "));
-  return NextResponse.json({ threadId, reply, provider, eval: score });
+  const turnIdx = (getDb().prepare("SELECT COUNT(*) c FROM ChatMessage WHERE threadId=? AND role='assistant'").get(threadId) as { c: number }).c;
+  return NextResponse.json({
+    threadId, reply, provider, eval: score, turnIdx,
+    options: net?.options, multi: net?.multi, submitLabel: net?.submitLabel,
+    back: net?.back, done: net?.done,
+  });
 }

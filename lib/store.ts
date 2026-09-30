@@ -116,8 +116,37 @@ export function getDb(): DatabaseSync {
       scope TEXT NOT NULL DEFAULT '', excerpt TEXT NOT NULL DEFAULT '',
       runtime TEXT NOT NULL DEFAULT 'none',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS ChatMemory USING fts5(threadId, role, body)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Vote (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER NOT NULL,
+      turnIdx INTEGER NOT NULL DEFAULT 0, vote TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Appointment (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER, name TEXT NOT NULL DEFAULT '',
+      contact TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'meet',
+      slot TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'proposed',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;
+}
+
+export function remember(threadId: number, role: string, body: string) {
+  try {
+    getDb().prepare("INSERT INTO ChatMemory (threadId, role, body) VALUES (?,?,?)").run(threadId, role, body.slice(0, 2000));
+  } catch { /* memory never breaks chat */ }
+}
+
+export function recall(threadId: number, query: string, limit = 3): string[] {
+  try {
+    const q = query.replace(/["*]/g, " ").split(/\s+/).filter((w) => w.length > 2).slice(0, 6).join(" ");
+    if (!q.trim()) return [];
+    const rows = getDb().prepare(
+      "SELECT role, body FROM ChatMemory WHERE threadId=? AND ChatMemory MATCH ? ORDER BY rank LIMIT ?"
+    ).all(threadId, q, limit) as { role: string; body: string }[];
+    return rows.map((r) => `${r.role}: ${r.body.slice(0, 160)}`);
+  } catch {
+    return [];
+  }
 }
 
 export function uid(bytes = 24): string {
