@@ -12,7 +12,7 @@ export function MobileMenu({ sections, links }: { sections?: MenuSection[]; link
   const close = () => ref.current?.removeAttribute("open");
   const groups: MenuSection[] = sections ?? [{ title: "Menu", links: links ?? [] }];
   return (
-    <details ref={ref} className="relative lg:hidden">
+    <details ref={ref} className="relative md:hidden">
       <summary aria-label="Open menu" className="flex min-h-[44px] min-w-[44px] cursor-pointer list-none items-center justify-center rounded-xl border border-black/10 dark:border-white/15 [&::-webkit-details-marker]:hidden">
         <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
       </summary>

@@ -102,10 +102,10 @@ export function SiteHeader() {
       <header className={`sticky top-0 z-40 border-b border-black/10 bg-white/90 backdrop-blur transition-shadow dark:border-white/10 dark:bg-black/80 ${scrolled ? "shadow-lg" : ""}`}>
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
           <Link href="/" aria-label="coderender home"><Logo wordmark="desktop" /></Link>
-          <nav className="hidden items-center gap-1 text-sm lg:flex" aria-label="Primary">
+          <nav className="hidden items-center gap-0 text-[13px] md:flex lg:gap-1 lg:text-sm" aria-label="Primary">
             {menus.map((m) => (
               <div key={m.label} className="group relative">
-                <Link href={m.href} aria-haspopup="true" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-2 hover:bg-black/5 dark:hover:bg-white/10"><NavIcon of={m.icon} />{m.label} ▾</Link>
+                <Link href={m.href} aria-haspopup="true" className="inline-flex min-h-[44px] items-center gap-1 rounded-xl px-1.5 hover:bg-black/5 dark:hover:bg-white/10 lg:gap-1.5 lg:px-2"><NavIcon of={m.icon} />{m.label} ▾</Link>
                 <div className="invisible absolute left-0 top-full z-50 w-80 rounded-2xl border border-black/10 bg-white p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:border-white/10 dark:bg-zinc-900">
                   {m.items.map((x, xi) => (
                     <Link key={x.h} href={x.h} className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10">
@@ -116,8 +116,8 @@ export function SiteHeader() {
                 </div>
               </div>
             ))}
-            <Link href="/pricing" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-2 hover:bg-black/5 dark:hover:bg-white/10"><NavIcon of="pricing" />Pricing</Link>
-            <Link href="/contact" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-2 hover:bg-black/5 dark:hover:bg-white/10"><NavIcon of="contact" />Contact</Link>
+            <Link href="/pricing" className="inline-flex min-h-[44px] items-center gap-1 rounded-xl px-1.5 hover:bg-black/5 dark:hover:bg-white/10 lg:gap-1.5 lg:px-2"><NavIcon of="pricing" />Pricing</Link>
+            <Link href="/contact" className="inline-flex min-h-[44px] items-center gap-1 rounded-xl px-1.5 hover:bg-black/5 dark:hover:bg-white/10 lg:gap-1.5 lg:px-2"><NavIcon of="contact" />Contact</Link>
           </nav>
           <div className="flex items-center gap-2">
             <a
