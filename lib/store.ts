@@ -126,6 +126,11 @@ export function getDb(): DatabaseSync {
       contact TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'meet',
       slot TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'proposed',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Testimonial (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, business TEXT NOT NULL DEFAULT '',
+      beforeTx TEXT NOT NULL DEFAULT '', afterTx TEXT NOT NULL DEFAULT '',
+      published INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;
 }

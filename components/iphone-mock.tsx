@@ -6,7 +6,7 @@ import { WhatsAppSim } from "./whatsapp-sim";
 // live hero content + the current WhatsApp thread. Pure CSS, no images.
 export function IPhoneMock() {
   return (
-    <div aria-hidden className="relative mx-auto h-[670px] w-[330px] select-none" style={{ filter: "drop-shadow(0 35px 45px rgba(0,0,0,.55))" }}>
+    <div aria-hidden className="relative mx-auto h-[670px] w-[330px] origin-top select-none scale-[.88] min-[400px]:scale-100" style={{ filter: "drop-shadow(0 35px 45px rgba(0,0,0,.55))" }}>
       <div
         className="absolute inset-0 rounded-[48px] p-[7px]"
         style={{

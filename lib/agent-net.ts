@@ -28,8 +28,11 @@ const tools: Record<string, Tool> = {
   },
   pricing_estimate: {
     name: "pricing_estimate",
-    desc: "DRAFT ladder prices",
-    run: async () => "Audit DRAFT ₹2,999 (credited). Growth packs from DRAFT ₹14,999. Retainers from DRAFT ₹11,999/mo. Final quotes always in writing.",
+    desc: "DRAFT ladder prices (live from site settings)",
+    run: async () => {
+      const { ladderLine } = await import("./pricing");
+      return ladderLine();
+    },
   },
 };
 

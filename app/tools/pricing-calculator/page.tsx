@@ -1,24 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
-const BASE = [
-  { id: "audit", label: "GBP Audit + rank report", price: 2999, note: "one-time, credited to a pack" },
-  { id: "pack", label: "Growth Pack (profile + posts + reviews + flows + page)", price: 14999, note: "from, fixed scope" },
-  { id: "site", label: "Website (fast, call-first)", price: 29999, note: "from, 3–4 weeks" },
-  { id: "retainer", label: "Monthly retainer (posts + ads + reviews)", price: 11999, note: "from / month, capped" },
-  { id: "leads", label: "Lead-gen management", price: 19999, note: "from / month + ad spend" },
-];
+interface P {
+  audit: number; packFrom: number; siteFrom: number; retainerFrom: number; leadsFrom: number; currency: string;
+}
+
+const FALLBACK: P = { audit: 2999, packFrom: 14999, siteFrom: 29999, retainerFrom: 11999, leadsFrom: 19999, currency: "₹" };
 
 export default function PricingCalculatorPage() {
   const [picked, setPicked] = useState<string[]>(["audit", "pack"]);
+  const [live, setLive] = useState<P | null>(null);
+  useEffect(() => {
+    fetch("/api/prices").then((r) => r.json()).then(setLive).catch(() => {});
+  }, []);
+  const P0 = live ?? FALLBACK;
+  const BASE = [
+    { id: "audit", label: "GBP Audit + rank report", price: P0.audit, note: "one-time, credited to a pack" },
+    { id: "pack", label: "Growth Pack (profile + posts + reviews + flows + page)", price: P0.packFrom, note: "from, fixed scope" },
+    { id: "site", label: "Website (fast, call-first)", price: P0.siteFrom, note: "from, 3–4 weeks" },
+    { id: "retainer", label: "Monthly retainer (posts + ads + reviews)", price: P0.retainerFrom, note: "from / month, capped" },
+    { id: "leads", label: "Lead-gen management", price: P0.leadsFrom, note: "from / month + ad spend" },
+  ];
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const once = BASE.filter((b) => picked.includes(b.id) && (b.id === "audit" || b.id === "pack" || b.id === "site"))
     .reduce((s, b) => s + b.price, 0);
   const monthly = BASE.filter((b) => picked.includes(b.id) && (b.id === "retainer" || b.id === "leads"))
     .reduce((s, b) => s + b.price, 0);
-  const fmt = (n: number) => "₹" + n.toLocaleString("en-IN");
+  const fmt = (n: number) => P0.currency + n.toLocaleString("en-IN");
 
   return (
     <div className="wrap section max-w-3xl">

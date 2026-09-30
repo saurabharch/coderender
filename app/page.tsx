@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CONTACT, VERTICALS } from "@/lib/site";
+import { getDb } from "@/lib/store";
 import { StackedServices } from "@/components/stacked-services";
 import { CampaignCalendar } from "@/components/campaign-calendar";
 import { VERTICAL_ICONS, orb } from "@/lib/nav-icons";
@@ -33,13 +34,17 @@ const FAQS = [
 ];
 
 export default function Home() {
+  let proof: { name: string; business: string; beforeTx: string; afterTx: string }[] = [];
+  try {
+    proof = getDb().prepare("SELECT name, business, beforeTx, afterTx FROM Testimonial WHERE published=1 ORDER BY id DESC LIMIT 3").all() as typeof proof;
+  } catch { /* first boot */ }
   return (
     <>
       <FaqJsonLd faqs={FAQS} />
       <section className="hero-glow">
         <div className="wrap pb-10 pt-14 text-center md:pt-20">
           <Reveal>
-          <p className="glass inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep">
+          <p className="glass inline-flex max-w-full items-center justify-center gap-2 whitespace-normal rounded-full px-4 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep md:whitespace-nowrap">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden /> Powered by <BrandIcon name="whatsapp" size={15} /> WhatsApp Business API
           </p>
           <h1 className="display-1 mx-auto mt-4 max-w-3xl text-balance">
@@ -246,20 +251,23 @@ export default function Home() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Proof</p>
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Loved by local owners</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {[
-            ["PS", "Salon owner", "Word-of-mouth only", "20+ calls a week after the tune-up"],
-            ["DK", "Clinic owner", "Empty new calendar", "Full books in 3 months on reviews"],
-            ["GR", "Gym owner", "Quiet trial desk", "Trials doubled with instant replies"],
-          ].map(([ini, t, before, after]) => (
+          {(proof.length > 0 ? proof.map((p) => ({
+            ini: p.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+            t: `${p.name} · ${p.business}`, d: `Before: ${p.beforeTx}. After: ${p.afterTx}.`, real: true,
+          })) : [
+            { ini: "PS", t: "Salon owner (placeholder)", d: "Before: word-of-mouth only. After: 20+ calls a week after the tune-up.", real: false },
+            { ini: "DK", t: "Clinic owner (placeholder)", d: "Before: empty new calendar. After: full books in 3 months on reviews.", real: false },
+            { ini: "GR", t: "Gym owner (placeholder)", d: "Before: quiet trial desk. After: trials doubled with instant replies.", real: false },
+          ]).map(({ ini, t, d, real }) => (
             <figure key={t} className="glass rounded-2xl p-5">
               <div className="flex items-center gap-3">
                 <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-deep dark:bg-white/10">{ini}</span>
                 <div>
-                  <figcaption className="text-sm font-semibold">— {t} (placeholder)</figcaption>
+                  <figcaption className="text-sm font-semibold">— {t}</figcaption>
                   <p aria-label="5 out of 5 stars" className="flex gap-0.5">{[0,1,2,3,4].map((i) => <Star key={i} size={12} className="fill-amber-400 text-amber-400" />)}</p>
                 </div>
               </div>
-              <blockquote className="mt-3 text-sm">Before: {before}. After: {after}.</blockquote>
+              <blockquote className="mt-3 text-sm">“{d}”</blockquote>
             </figure>
           ))}
         </div>
