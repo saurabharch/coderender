@@ -54,7 +54,7 @@ Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
 ## Team (controller + workers, `.opencode/agents/`)
 
 - Controller: `coderender-controller` (`mode: all`) — routes, verifies outputs, advances `issues/`. Only it may launch workers. (`bbuilder-controller.md` kept as reference, do not use.)
-- Workers (`mode: subagent`, no fan-out): `researcher`, `offer-architect`, `automation-builder`, `client-manager`, `launcher`.
+- Workers (`mode: subagent`, no fan-out): `researcher`, `offer-architect`, `automation-builder`, `launcher` (also owns client ops; `client-manager` retired — card in `.opencode/a2a/agent-cards/_retired/`).
 - Dispatch: `Use the <worker> subagent to ...` via the controller. Dependents serially, independents may parallelize.
 - Done rule: output file exists + meets worker criteria before Status advances (`inbox → brief → doing → done`).
 
@@ -86,6 +86,18 @@ Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
   license/API keys (raw shown once), settings/team. Partner form writes PartnerRequest.
 - Keys: verify at `/api/license/verify` (activation-counted). No payment gateway yet —
   orders/payments are manual (UPI/cash/card, pending/paid).
+- Jobs (Inngest): `lib/jobs.ts` defines durable functions (daily-report cron, lead
+  pipeline with 24h nurture sleep, throttled/cancellable broadcasts, support-triage
+  agent) + `runLocal()` executes bodies in-process. `emit()` in `lib/events.ts`
+  (catalog `APP_EVENTS`) fans out to Cloud when keys exist, local always.
+  Serve at `/api/inngest` (needs `INNGEST_DEV=1` locally — set in `.env`/ecosystem).
+  Evals: heuristic rubric in `lib/evals.ts`, scored on every chat reply, avg on /admin.
+  Realtime: team-only SSE at `/api/realtime`, live badge on /account.
+- Plugins (native, BTST-aligned — BTST itself needs Tailwind v4/persistent ORM/
+  Better Auth/AI keys/pnpm, none viable here): blog+comments, media, pipeline kanban,
+  form builder, CMS blocks + `/p/[slug]` pages, provider-gated AI chat, account page,
+  OpenAPI + route docs from `lib/plugins/manifest.ts`. Add tables in `lib/store.ts`,
+  mirror in Prisma, register routes in the manifest — see `lib/plugins/README.md`.
 
 ## Verification before done
 

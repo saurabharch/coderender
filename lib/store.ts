@@ -73,6 +73,41 @@ export function getDb(): DatabaseSync {
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     const org = db.prepare("SELECT id FROM Org WHERE id = 1").get();
     if (!org) db.prepare("INSERT INTO Org (id, name) VALUES (1, 'CodeRender')").run();
+    try { db.exec("ALTER TABLE Lead ADD COLUMN status TEXT NOT NULL DEFAULT 'new'"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS Post (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL, excerpt TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
+      published INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Comment (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, name TEXT NOT NULL,
+      body TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS MediaAsset (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, mime TEXT NOT NULL DEFAULT '',
+      size INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS FormDef (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL,
+      fields TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Submission (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, formId INTEGER NOT NULL, data TEXT NOT NULL DEFAULT '{}',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS ContentBlock (
+      key TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL DEFAULT '', published INTEGER NOT NULL DEFAULT 1)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS ChatThread (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL DEFAULT 'Chat',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS ChatMessage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user', body TEXT NOT NULL,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Eval (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER,
+      score INTEGER NOT NULL DEFAULT 0, rubric TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;
 }

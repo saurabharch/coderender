@@ -1,5 +1,5 @@
 import { getPref, setPref } from "./store";
-import { sendDailyReport } from "./reporter";
+import { runLocal } from "./jobs";
 
 let started = false;
 
@@ -13,7 +13,7 @@ export function startScheduler() {
         const today = now.toISOString().slice(0, 10);
         if (getPref("last_report_day", "") !== today) {
           setPref("last_report_day", today);
-          await sendDailyReport();
+          await runLocal("dailyReport");
         }
       }
     } catch (e) {

@@ -6,6 +6,7 @@ import { QuickBar } from "@/components/quick-bar";
 import { Preloader } from "@/components/preloader";
 import { Tracker } from "@/components/tracker";
 import { JsonLd } from "@/components/json-ld";
+import { getDb } from "@/lib/store";
 import { display, body } from "@/lib/fonts";
 import "./globals.css";
 
@@ -25,6 +26,12 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  let announcement = "";
+  try {
+    const b = getDb().prepare("SELECT body FROM ContentBlock WHERE key='announcement' AND published=1").get() as
+      { body: string } | undefined;
+    announcement = b?.body ?? "";
+  } catch { /* first boot before tables exist */ }
   return (
     <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable}`}>
       <body>
@@ -32,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Preloader />
           <Tracker />
           <JsonLd />
-          <SiteHeader />
+          <SiteHeader announcement={announcement || undefined} />
           <main className="pb-20 md:pb-0">{children}</main>
           <SiteFooter />
           <QuickBar />

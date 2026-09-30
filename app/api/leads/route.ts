@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createLead } from "@/lib/leads";
 import { getDb } from "@/lib/store";
+import { runLocal } from "@/lib/jobs";
 import { leadSchema } from "@/lib/lead-schema";
 
 export async function POST(req: Request) {
@@ -18,5 +19,6 @@ export async function POST(req: Request) {
     getDb().prepare("INSERT INTO PartnerRequest (name, phone, tier) VALUES (?,?,?)")
       .run(parsed.data.name, parsed.data.phone, "referrer");
   }
+  runLocal("leadCreated", { leadId: lead.id }).catch(() => {});
   return NextResponse.json({ ok: true, id: lead.id });
 }

@@ -135,3 +135,11 @@ model ApiKey {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+model Eval {
+  id        Int      @id @default(autoincrement())
+  threadId  Int?
+  score     Int      @default(0)
+  rubric    String   @default("")
+  createdAt DateTime @default(now())
+}

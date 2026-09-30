@@ -1,4 +1,4 @@
-import { totals, leadsPerDay, topPages, recentLeads, recentOrders } from "@/lib/store";
+import { totals, leadsPerDay, topPages, recentLeads, recentOrders, getDb } from "@/lib/store";
 
 export default async function AdminHome() {
   const t = totals();
@@ -7,6 +7,8 @@ export default async function AdminHome() {
   const pages = topPages(8);
   const leads = recentLeads(8) as { id: number; name: string; phone: string; businessType: string; source: string; createdAt: string }[];
   const orders = recentOrders(8) as { id: number; title: string; amount: number; status: string; paid: number }[];
+  const evalAvg = (getDb().prepare("SELECT COALESCE(AVG(score),0) a FROM Eval WHERE id > (SELECT COALESCE(MAX(id),0)-20 FROM Eval)").get() as { a: number }).a;
+  const inngestMode = process.env.INNGEST_EVENT_KEY ? "cloud" : "local runner";
   const cards: [string, string][] = [
     ["Leads total", String(t.leads)],
     ["Leads today", String(t.leadsToday)],
@@ -14,11 +16,13 @@ export default async function AdminHome() {
     ["Subscribers", String(t.subscribers)],
     ["Orders", String(t.orders)],
     ["Revenue paid ₹", String(t.revenue)],
+    ["Reply eval avg", `${Math.round(evalAvg)}/100`],
+    ["Jobs", inngestMode],
   ];
   return (
     <>
       <h1 className="text-2xl font-extrabold">Overview</h1>
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-6">
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         {cards.map(([l, v]) => (
           <div key={l} className="glass rounded-2xl p-4">
             <p className="text-2xl font-extrabold">{v}</p>

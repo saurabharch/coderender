@@ -5,11 +5,17 @@ import { sessionUser } from "@/lib/auth";
 const NAV = [
   ["Overview", "/admin"],
   ["Leads", "/admin/leads"],
+  ["Pipeline", "/admin/pipeline"],
   ["Orders", "/admin/orders"],
+  ["Blog", "/admin/blog"],
+  ["Forms", "/admin/forms"],
+  ["CMS", "/admin/cms"],
+  ["Media", "/admin/media"],
   ["Subscribers", "/admin/subscribers"],
   ["Notify", "/admin/notify"],
   ["Partners", "/admin/partners"],
   ["Keys", "/admin/keys"],
+  ["Routes", "/admin/routes"],
   ["Settings", "/admin/settings"],
 ];
 

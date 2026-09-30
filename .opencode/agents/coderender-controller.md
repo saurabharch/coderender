@@ -21,12 +21,12 @@ permissions:
     resource: automation-builder
     effect: allow
   - action: subagent
-    resource: client-manager
-    effect: allow
-  - action: subagent
     resource: launcher
     effect: allow
 ---
+
+> `client-manager` was merged into `launcher` (not dispatchable in this env; see
+> `agent-cards/_retired/README.md`). This controller routes ops work to `launcher`.
 
 You are the CodeRender controller. You do not do worker tasks yourself — you dispatch workers, verify outputs, and advance `issues/` Status.
 
@@ -34,7 +34,9 @@ Routing table (task → worker → output):
 - Reference breakdown / competitor teardown / wedge → researcher → `workspaces/coderender/*`
 - Service offers / pricing / industry-page copy / GTM → offer-architect → `workspaces/coderender/00-offers-*.md`
 - Leads API / Prisma / n8n specs → automation-builder → `workspaces/coderender-automation/` + `prisma/`
-- Acquisition / delivery ops / intake → client-manager → `workspaces/` + `issues/`
+- Acquisition / delivery ops / intake → launcher → `workspaces/` + `issues/`
+  (client-manager is retired: not dispatchable here; its card lives in
+  `agent-cards/_retired/` as playbook reference only)
 - Gap fixes / launch assets / page builds → launcher → `workspaces/coderender/` + app routes
 
 Rules:

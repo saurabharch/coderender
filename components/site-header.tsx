@@ -68,7 +68,7 @@ function OrbIcon({ xi, Icon }: { xi: number; Icon: React.ComponentType<{ size?: 
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({ announcement }: { announcement?: string }) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -93,9 +93,10 @@ export function SiteHeader() {
     <>
       <div className="overflow-hidden bg-brand-deep text-white">
         <a href={`tel:${CONTACT.phone}`} className="block px-4 py-3 text-center text-xs font-medium">
-          <span className="marquee-auto items-center gap-8 whitespace-nowrap" aria-hidden={false}>
-            <span>Boost sales and customer engagement with CodeRender! Call {CONTACT.phone} or <span className="underline">Request a Call</span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
-            <span aria-hidden>Boost sales and customer engagement with CodeRender! Call {CONTACT.phone} or <span className="underline">Request a Call</span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+          <span className="marquee-auto items-center gap-8 whitespace-nowrap">
+            {[false, true].map((hidden) => (
+              <span key={String(hidden)} aria-hidden={hidden || undefined}>{announcement || `Boost sales and customer engagement with CodeRender! Call ${CONTACT.phone} or `}<span className="underline">Request a Call</span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+            ))}
           </span>
         </a>
       </div>
