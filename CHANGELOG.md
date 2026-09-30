@@ -1,6 +1,16 @@
 # Changelog
 
 ## [Unreleased]
+## [0.2.0] - 2026-09-30
+- Glass system, mega-menus, iPhone sim, parity sections, ship automation
+## [0.2.0] - 2026-09-30
+
+- Liquid-glass system: glass surfaces, rotating beam borders, glossy 3D orbs, glass dock + rainbow CTAs.
+- Mega-menus with colorful icons, mobile accordions, per-vertical glyphs everywhere.
+- iPhone mock with live WhatsApp support simulation (ticks, typing, reduced-motion safe).
+- Stacking services, live campaign calendar, tackled marquee systems, announcement ticker.
+- mbgcard parity: integrations, free tools, partner/docs/legal, JSON-LD SEO, footer system.
+- Ship automation: CI, releases, gated deploy with rollback, autonomous loop protocol.
 
 ## [0.1.1] - 2026-09-30
 
