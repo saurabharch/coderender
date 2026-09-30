@@ -35,6 +35,28 @@ npm run demo:stop   # stop tunnel + pm2 app
 
 What `demo` does (`scripts/demo.sh`): production build, `pm2 start ecosystem.config.cjs`, then exposes port 3100. If Cloudflare credentials exist in `~/.cloudflared/`, it runs the **named tunnel** serving `demo.optyx.com`; otherwise it falls back to a **quick tunnel** and prints the public `https://*.trycloudflare.com` URL. Logs: `pm2 logs coderender`.
 
+## pm2 runbook (production, port 3100)
+
+```bash
+npm run build
+./node_modules/.bin/pm2 start ecosystem.config.cjs --update-env
+./node_modules/.bin/pm2 list            # expect coderender → online
+./node_modules/.bin/pm2 logs coderender --lines 20 --nostream
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3100/
+./node_modules/.bin/pm2 restart ecosystem.config.cjs --update-env   # only on green builds
+```
+
+Rules: never restart on a red build (a failed build leaves `.next` unservable and the restart takes the demo down). The ecosystem caps crash loops (`min_uptime 10s`, `max_restarts 5`). Stop the demo connector only by its PID file (`demo:stop`) — never broad `pkill` patterns, which can kill your own shell or other tunnels.
+
+## Cloudflare tunnel runbook (shared `termux` tunnel)
+
+```bash
+cloudflared tunnel --config ~/.cloudflared/config.yml run   # serves every ingress hostname
+tail -f /data/data/com.termux/files/usr/tmp/opencode/cloudflared-demo.log
+```
+
+One connector serves all ingress rules in the shared file (`demo.optyx.shop` → :8090, `demo.optyx.com` + `coderender.optyx.shop` → :3100). Live demo: **https://coderender.optyx.shop**.
+
 ## One-time DNS for demo.optyx.com
 
 Prerequisite: the `optyx.com` zone must live on Cloudflare (as of 2026-09-30 it resolves
