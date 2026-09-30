@@ -1,5 +1,6 @@
 import { getPref, setPref } from "./store";
 import { runLocal } from "./jobs";
+import { infraCheck, reportInfraTrouble } from "./infra";
 
 let started = false;
 
@@ -21,5 +22,12 @@ export function startScheduler() {
     }
   };
   setInterval(check, 60_000);
+  setInterval(async () => {
+    try {
+      await reportInfraTrouble(infraCheck());
+    } catch (e) {
+      console.error("[infra]", e);
+    }
+  }, 3600_000);
   void check();
 }

@@ -99,7 +99,9 @@ export function getDb(): DatabaseSync {
       body TEXT NOT NULL DEFAULT '', published INTEGER NOT NULL DEFAULT 1)`);
     db.exec(`CREATE TABLE IF NOT EXISTS ChatThread (
       id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL DEFAULT 'Chat',
+      userId INTEGER,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    try { db.exec("ALTER TABLE ChatThread ADD COLUMN userId INTEGER"); } catch { /* exists */ }
     db.exec(`CREATE TABLE IF NOT EXISTS ChatMessage (
       id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER NOT NULL,
       role TEXT NOT NULL DEFAULT 'user', body TEXT NOT NULL,
@@ -107,6 +109,11 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS Eval (
       id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER,
       score INTEGER NOT NULL DEFAULT 0, rubric TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS AiAudit (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER,
+      scope TEXT NOT NULL DEFAULT '', excerpt TEXT NOT NULL DEFAULT '',
+      runtime TEXT NOT NULL DEFAULT 'none',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;

@@ -67,34 +67,19 @@ const DRAFTS: Record<string, string> = {
 };
 
 async function doSupportTriage(data: { message: string; threadId?: number }) {
-  const intent = classify(data.message);
-  let draft = DRAFTS[intent];
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
-  if (apiKey) {
-    try {
-      const base = process.env.OPENAI_BASE_URL || "https://api.openai.com";
-      const res = await fetch(`${base}/v1/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: process.env.AI_MODEL || "gpt-4o-mini",
-          messages: [{ role: "user", content: `Intent: ${intent}. Customer says: ${data.message}. Reply in 1–2 sentences, no promises about rankings.` }],
-          max_tokens: 200,
-        }),
-      });
-      if (res.ok) {
-        const j = await res.json();
-        const text = String(j.choices?.[0]?.message?.content ?? "").slice(0, 1000);
-        if (text) draft = text;
-      }
-    } catch { /* template stands */ }
-  }
+  const { runNetwork } = await import("./agent-net");
+  const thread = data.threadId
+    ? (getDb().prepare("SELECT userId FROM ChatThread WHERE id=?").get(data.threadId) as { userId: number } | undefined)
+    : undefined;
+  const out = await runNetwork({ userId: thread?.userId ?? 0, message: data.message, threadId: data.threadId });
+  const draft = out.text || DRAFTS.general;
+  const { scoreReply } = await import("./evals");
   const { score, notes } = scoreReply(draft);
   if (data.threadId) {
     getDb().prepare("INSERT INTO ChatMessage (threadId, role, body) VALUES (?,?,?)").run(data.threadId, "assistant", draft);
     getDb().prepare("INSERT INTO Eval (threadId, score, rubric) VALUES (?,?,?)").run(data.threadId, score, notes.join("; "));
   }
-  return { ok: true, intent, score };
+  return { ok: true, intent: out.scope, score };
 }
 
 // ---- durable functions (steps, retries, flow control, cancellation) ----

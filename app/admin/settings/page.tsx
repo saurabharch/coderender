@@ -17,6 +17,13 @@ async function runReport() {
   revalidatePath("/admin/settings");
 }
 
+async function runInfra() {
+  "use server";
+  const { infraCheck, reportInfraTrouble } = await import("@/lib/infra");
+  await reportInfraTrouble(infraCheck());
+  revalidatePath("/admin/settings");
+}
+
 export default async function SettingsPage() {
   const team = getDb().prepare(
     `SELECT u.email, u.role, m.role mrole FROM AppUser u LEFT JOIN Membership m ON m.userId=u.id ORDER BY u.id`).all() as
@@ -38,6 +45,9 @@ export default async function SettingsPage() {
       </form>
       <form action={runReport} className="mt-3">
         <button className="min-h-[44px] rounded-full border border-black/15 px-5 text-sm font-semibold dark:border-white/20">Send report now (to owner emails)</button>
+      </form>
+      <form action={runInfra} className="mt-2">
+        <button className="min-h-[44px] rounded-full border border-black/15 px-5 text-sm font-semibold dark:border-white/20">Run infra check now</button>
       </form>
       <h2 className="mt-6 font-bold">Team ({team.length})</h2>
       <ul className="mt-2 space-y-1 text-sm">

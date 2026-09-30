@@ -8,3 +8,4 @@ dev.db-journal
 .env
 coverage/
 dist/
+tsconfig.tsbuildinfo

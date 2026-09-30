@@ -86,6 +86,12 @@ Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
   license/API keys (raw shown once), settings/team. Partner form writes PartnerRequest.
 - Keys: verify at `/api/license/verify` (activation-counted). No payment gateway yet —
   orders/payments are manual (UPI/cash/card, pending/paid).
+- AI inference (secure, local-first): `lib/ai-gateway.ts` is the ONLY caller of any
+  model. Scopes enforced (support/product/pricing/partner/infra); prompts PII-redacted;
+  runs `opencode run --format json --standalone` under `script` pty in an empty sandbox
+  dir (plain pipes kill it with SIGINT), 100s cap, output length-capped; provider HTTP
+  fallback; every call audited. `lib/agent-net.ts` = router + 4 agents + tools.
+  AgentKit package deferred (needs zod-v4); BTST proper device-blocked (see 030).
 - Jobs (Inngest): `lib/jobs.ts` defines durable functions (daily-report cron, lead
   pipeline with 24h nurture sleep, throttled/cancellable broadcasts, support-triage
   agent) + `runLocal()` executes bodies in-process. `emit()` in `lib/events.ts`
