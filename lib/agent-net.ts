@@ -86,6 +86,7 @@ export interface IntakeState {
     | "sphone" | "sdone" | "pphone" | "pdone";
   mode?: "enquiry" | "support" | "partner";
   meet?: string;
+  qcount?: number;
   email?: string;
   phone?: string;
   business?: string;
@@ -93,6 +94,48 @@ export interface IntakeState {
   nature?: string;
   name?: string;
   contact?: string;
+}
+
+// ---- secure tool layer: every tool call passes here ----
+type ToolContext = "enquiry" | "support" | "partner" | "team";
+const TOOL_SCOPES: Record<string, ToolContext[]> = {
+  service_briefing: ["enquiry", "support", "partner", "team"],
+  pricing_estimate: ["enquiry", "support", "partner", "team"],
+  own_threads: ["team"],
+};
+
+async function callTool(ctx: ToolCtx, name: string, args: Record<string, string>, context: ToolContext): Promise<string> {
+  const tool = tools[name];
+  if (!tool) return "Unknown tool.";
+  if (!TOOL_SCOPES[name]?.includes(context)) return "Not permitted in this conversation.";
+  const clean: Record<string, string> = {};
+  for (const [k, v] of Object.entries(args).slice(0, 8)) clean[k.slice(0, 40)] = String(v).slice(0, 500);
+  return tool.run(ctx, clean).catch(() => "Tool unavailable right now.");
+}
+
+function bumped(st: IntakeState): IntakeState {
+  return { ...st, qcount: (st.qcount ?? 0) + 1 };
+}
+
+const PERSONA_FLAVOR: Record<string, string> = {
+  enquiry: "You are Riya, an energetic sales executive meeting someone for the first time.",
+  support: "You are Riya, their personal account manager who remembers them and genuinely cares.",
+  partner: "You are Riya, a partner success manager speaking peer-to-peer with a business owner.",
+  team: "You are Riya, the team's sharp inside sales executive.",
+};
+
+async function glue(userId: number, flavor: string, context: string, fallback: string): Promise<string> {
+  try {
+    const { infer } = await import("./ai-gateway");
+    const r = await infer({
+      scope: "support", userId,
+      system: `${PERSONA}\n${flavor}\nSpeak like a warm human in 1–2 sentences. No prices unless they are given below. Never promise rankings, revenue, or virality.`,
+      user: `Context: ${context}\nWrite the next customer-facing message.`,
+      model: process.env.OPENCODE_MODEL_SIMPLE,
+    });
+    if (r.text) return r.text.slice(0, 500);
+  } catch { /* fallback below */ }
+  return fallback;
 }
 
 const GOALS: WizardOption[] = [
@@ -105,8 +148,24 @@ const GOALS: WizardOption[] = [
 const MODES: WizardOption[] = [
   { id: "meet", label: "Google Meet" },
   { id: "zoom", label: "Zoom" },
+  { id: "voice", label: "Voice call" },
   { id: "video", label: "Video call" },
 ];
+
+function matchSlot(msg: string, slots: string[]): string | undefined {
+  const t = msg.toLowerCase();
+  if (slots.includes(msg.trim())) return msg.trim();
+  const norm = t.replace(/monday|tuesday|wednesday|thursday|friday|saturday|sunday/g, (d) =>
+    ({ monday: "mon", tuesday: "tue", wednesday: "wed", thursday: "thu", friday: "fri", saturday: "sat", sunday: "sun" }[d] ?? d));
+  const day = (["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const).find((d) => norm.includes(d));
+  const tm = norm.match(/(\d{1,2})(?::00)?\s*(am|pm)/) || norm.match(/\b(\d{1,2})\b/);
+  const time = tm ? `${tm[1]}${tm[2] ?? ""}` : undefined;
+  if (!day && !time) return undefined;
+  return slots.find((s) => {
+    const n = s.toLowerCase().replace(/:00/g, "").replace(/\s+/g, "");
+    return (!day || n.includes(day)) && (!time || n.includes(time));
+  });
+}
 
 function nextSlots(): WizardOption[] {
   const out: WizardOption[] = [];
@@ -223,7 +282,7 @@ export async function runNetwork(opts: {
   if (opts.command === "help" || msg.trim() === "/help")
     return { text: "I can help with services, prices, bookings, and partnerships. Try @pricing for rates, #booking to book, or /demo to book a demo. What is on your mind?", scope: "support", runtime: "none" };
   if (opts.command === "pricing" || msg.trim() === "/pricing")
-    return { text: await tools.pricing_estimate.run({ userId: opts.userId }, {}), scope: "pricing", runtime: "none" };
+    return { text: await callTool({ userId: opts.userId }, "pricing_estimate", {}, "enquiry"), scope: "pricing", runtime: "none" };
   if (opts.command === "demo" || msg.trim() === "/demo")
     return { text: "Wonderful! You can book a free demo from our contact page, or just tell me your business type and I'll brief you right here first.", scope: "support", runtime: "none" };
   if (opts.command === "human" || msg.trim() === "/human")
@@ -355,19 +414,28 @@ export async function runNetwork(opts: {
         if (!phone && !email) {
           return { text: "I need at least a phone number or an email to continue — what works for you?", scope, runtime: "none", back: true };
         }
-        saveState(opts.threadId, { stage: "mode", business: st.business, goals: st.goals, nature: st.nature, name: name || "friend", contact: phone || email });
-        return {
-          text: `Thanks ${name || "friend"}! Last step — how should we meet for a free 20-minute walkthrough?`,
-          scope, runtime: "none", back: true,
-          options: MODES,
-        };
+        const advanced = bumped({ stage: "mode", business: st.business, goals: st.goals, nature: st.nature, name: name || "friend", contact: phone || email, qcount: st.qcount });
+        if ((advanced.qcount ?? 0) >= 25) {
+          saveState(opts.threadId, { ...advanced, stage: "done" });
+          return { text: `We've covered a lot, ${name || "friend"}! Let's continue on a quick call — our team will reach you at ${phone || email} within one business day with researched prices.`, scope, runtime: "none", done: true };
+        }
+        saveState(opts.threadId, advanced);
+        const q = await glue(opts.userId, PERSONA_FLAVOR.enquiry,
+          `Customer ${name || "friend"} runs ${st.business || "a local business"} and wants ${st.goals?.join(", ") || "growth"}. Ask them to pick a meeting style: Google Meet, Zoom, voice call, or video call.`,
+          `Thanks ${name || "friend"}! Last step — how should we meet for a free 20-minute walkthrough?`);
+        return { text: q, scope, runtime: "none", back: true, options: MODES };
       }
       if (st.stage === "mode") {
-        const m = MODES.find((x) => x.id === msg.trim() || x.label.toLowerCase() === lower);
+        const lower = msg.toLowerCase();
+        const m = MODES.find((x) => x.id === msg.trim() || x.label.toLowerCase() === lower)
+          || (/voice|phone call|audio|call me/.test(lower) && !/video/.test(lower) ? MODES.find((x) => x.id === "voice") : undefined)
+          || (/zoom/.test(lower) ? MODES.find((x) => x.id === "zoom") : undefined)
+          || (/meet|google/.test(lower) ? MODES.find((x) => x.id === "meet") : undefined);
         if (!m) {
-          return { text: "Pick one so I can set it up right — Google Meet, Zoom, or a plain video call?", scope, runtime: "none", back: true, options: MODES };
+          return { text: "Pick one so I can set it up right — Google Meet, Zoom, voice call, or video call? Or just type what suits you.", scope, runtime: "none", back: true, options: MODES };
         }
-        saveState(opts.threadId, { ...st, stage: "slot", meet: m.id });
+        const withSlot = { ...bumped(st), stage: "slot" as const, meet: m.id };
+        saveState(opts.threadId, withSlot);
         return {
           text: `${m.label} it is! Choose a slot (IST) and I'll lock it in:`,
           scope, runtime: "none", back: true,
@@ -375,19 +443,21 @@ export async function runNetwork(opts: {
         };
       }
       if (st.stage === "slot") {
-        const slots = nextSlots().map((s) => s.id);
-        if (!slots.includes(msg.trim())) {
-          return { text: "Tap one of the slots below and I'll confirm it instantly:", scope, runtime: "none", back: true, options: nextSlots() };
+        const slot = matchSlot(msg, nextSlots().map((s) => s.id));
+        if (!slot) {
+          return { text: "Tap one of the slots below — or type a day and time like 'Friday 4pm' — and I'll confirm it instantly:", scope, runtime: "none", back: true, options: nextSlots() };
         }
-        const slot = msg.trim();
         saveState(opts.threadId, { ...st, stage: "done" });
         try {
           getDb().prepare("INSERT INTO Appointment (threadId, name, contact, mode, slot, status) VALUES (?,?,?,?,?,?)")
             .run(opts.threadId ?? null, st.name ?? "friend", st.contact ?? "", st.meet ?? "meet", slot, "confirmed");
         } catch { /* booking never breaks chat */ }
         const modeLabel = MODES.find((x) => x.id === st.meet)?.label ?? "video call";
+        const joinLine = st.meet === "voice"
+          ? `We'll call you sharp on time at ${st.contact}.`
+          : `The ${modeLabel} link will be shared on your contact (${st.contact}) an hour before.`;
         return {
-          text: `Locked in, ${st.name || "friend"}! ${modeLabel} on ${slot} (IST), 20 minutes. Before we meet: keep 2–3 examples of customers you love plus your monthly budget range handy. The ${modeLabel} link will be shared on your contact (${st.contact}) an hour before. Anything else I can research meanwhile?`,
+          text: `Locked in, ${st.name || "friend"}! ${modeLabel} on ${slot} (IST), 20 minutes. Before we meet: keep 2–3 examples of customers you love plus your monthly budget range handy. ${joinLine} Anything else I can research meanwhile?`,
           scope, runtime: "none", done: true,
         };
       }
@@ -398,9 +468,9 @@ export async function runNetwork(opts: {
   let context = "";
   if (scope === "product") {
     const hit = SERVICES.find((s) => msg.toLowerCase().includes(s.title.toLowerCase().split(" ")[0]));
-    if (hit) context = await tools.service_briefing.run({ userId: opts.userId }, { q: hit.title }).catch(() => "");
+    if (hit) context = await callTool({ userId: opts.userId }, "service_briefing", { q: hit.title }, isTeam ? "team" : "enquiry");
   }
-  if (scope === "pricing") context = await tools.pricing_estimate.run({ userId: opts.userId }, {});
+  if (scope === "pricing") context = await callTool({ userId: opts.userId }, "pricing_estimate", {}, isTeam ? "team" : "enquiry");
   if (!isTeam && opts.threadId) {
     const mem = recall(opts.threadId, msg);
     if (mem.length) context += `\nEarlier in this chat: ${mem.join(" | ")}`;
