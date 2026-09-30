@@ -70,6 +70,21 @@ export default function Home() {
           <p className="mt-7 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
             Trusted by owners in 10 local verticals · Salons · Clinics · Gyms · Restaurants · and more
           </p>
+          <div className="marquee mt-6 pb-2" aria-label="Business verticals we serve">
+            <div className="marquee-auto">
+              {[...VERTICALS, ...VERTICALS].map((v, i) => {
+                const VI = VERTICAL_ICONS[v.slug];
+                return (
+                  <div key={`${v.slug}-${i}`} className="glass flex w-40 items-center gap-2.5 rounded-2xl p-3">
+                    <span className="orb flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: orb(i) }}>
+                      {VI && <VI size={19} />}
+                    </span>
+                    <span className="text-left text-xs font-bold leading-tight">{v.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           </Reveal>
         </div>
       </section>
