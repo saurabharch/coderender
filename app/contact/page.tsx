@@ -32,7 +32,7 @@ export default function ContactPage() {
               <li>You pick: fixed-price audit, growth pack, or retainer.</li>
             </ol>
           </div>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Prefer email? <a className="underline" href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a></p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Prefer email? <a className="underline" href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a> · Prefer SMS? <a className="underline" href={`sms:${CONTACT.phone}`}>{CONTACT.phone}</a></p>
         </div>
         <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
           <h2 className="font-bold">Request a callback</h2>

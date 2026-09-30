@@ -1,8 +1,8 @@
 export const CONTACT = {
-  phone: process.env.NEXT_PUBLIC_CONTACT_PHONE ?? "1800-000-000",
+  phone: process.env.NEXT_PUBLIC_CONTACT_PHONE ?? "+919831778894",
   whatsapp:
     process.env.NEXT_PUBLIC_WHATSAPP ??
-    "https://wa.me/911800000000?text=I%20want%20to%20grow%20my%20business%20with%20CodeRender",
+    "https://wa.me/919831778894?text=I%20want%20to%20grow%20my%20business%20with%20CodeRender",
   email: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@coderender.in",
   address: "India (address on request)",
 };

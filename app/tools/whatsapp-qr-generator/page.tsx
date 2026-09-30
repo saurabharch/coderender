@@ -24,7 +24,7 @@ export default function QrGeneratorPage() {
       <p className="mt-3 text-zinc-600 dark:text-zinc-400">Type a number + message, get a scannable QR and a click-to-chat link. Runs 100% in your browser.</p>
       <div className="mt-6 grid gap-3">
         <label className="grid gap-1 text-sm">WhatsApp number (with country code)
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="911800000000" inputMode="tel" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="919831778894" inputMode="tel" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
         </label>
         <label className="grid gap-1 text-sm">Prefilled message
           <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} className="rounded-xl border border-black/15 bg-transparent px-3 py-2 dark:border-white/20" />
