@@ -1,6 +1,6 @@
 # Ship automation: CI + gated deploy + releases
 
-Status: doing
+Status: done
 Labels: chore
 
 ## Question

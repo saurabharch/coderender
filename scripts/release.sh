@@ -14,7 +14,7 @@ case "$PART" in
 esac
 node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version='$NEW';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 DATE=$(date +%F)
-ENTRY="## [$NEW] - $DATE\n${NOTE:+- $NOTE\n}\n"
+ENTRY=$(printf '## [%s] - %s\n%s\n' "$NEW" "$DATE" "${NOTE:+- $NOTE}")
 python3 - "$ENTRY" <<'EOF'
 import sys
 from pathlib import Path

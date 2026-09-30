@@ -48,8 +48,15 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3100/
 
 Rules: never restart on a red build (a failed build leaves `.next` unservable and the restart takes the demo down). The ecosystem caps crash loops (`min_uptime 10s`, `max_restarts 5`). Stop the demo connector only by its PID file (`demo:stop`) — never broad `pkill` patterns, which can kill your own shell or other tunnels.
 
-## Cloudflare tunnel runbook (shared `termux` tunnel)
+## Ship automation (CI → review → release → deploy)
 
+- `bash scripts/ci.sh` — local gate (lint + typecheck + test + build); same chain runs on every push/PR via `.github/workflows/ci.yml`.
+- `bash scripts/sync.sh` — pull --rebase, gate, push (needs GitHub auth).
+- `bash scripts/release.sh [patch|minor|major] ["notes"]` — bumps version, writes CHANGELOG, commits + tags `vX.Y.Z`; tag push creates the GitHub Release (`release.yml`).
+- `bash scripts/deploy.sh` — gates, backs up `.next`, rebuilds, reloads pm2, health-checks, auto-rolls back on failure, verifies the tunnel URL.
+- Branch flow: feature branches → PR (CI must pass) → merge to `main` → release tag → deploy. Pushes to `main` without a green gate are not done.
+
+## Cloudflare tunnel runbook (shared `termux` tunnel)
 ```bash
 cloudflared tunnel --config ~/.cloudflared/config.yml run   # serves every ingress hostname
 tail -f /data/data/com.termux/files/usr/tmp/opencode/cloudflared-demo.log
