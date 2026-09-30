@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { QuickBar } from "@/components/quick-bar";
 import { Preloader } from "@/components/preloader";
 import { Tracker } from "@/components/tracker";
+import { ChatWidget } from "@/components/chat-widget";
 import { JsonLd } from "@/components/json-ld";
 import { getDb } from "@/lib/store";
 import { display, body } from "@/lib/fonts";
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="pb-20 md:pb-0">{children}</main>
           <SiteFooter />
           <QuickBar />
+          <ChatWidget />
         </ThemeProvider>
       </body>
     </html>

@@ -68,8 +68,11 @@ async function runProvider(system: string, user: string): Promise<string> {
 
 export interface GatewayResult {
   text: string;
-  runtime: "opencode-cli" | "provider" | "none";
+  runtime: "opencode-cli" | "provider" | "none" | "busy";
 }
+
+let active = 0;
+const MAX_CONCURRENT = 2;
 
 export async function infer(opts: {
   scope: Scope;
@@ -78,17 +81,29 @@ export async function infer(opts: {
   user: string;
 }): Promise<GatewayResult> {
   if (!SCOPES.includes(opts.scope)) throw new Error("scope denied");
-  const clean = redact(opts.user).slice(0, 2000);
-  const prompt = `${opts.system}\n\nScope: ${opts.scope}. Customer message: ${clean}\nReply in 1–3 sentences. Never promise rankings, revenue, or virality.`;
-  let text = await runCli(prompt);
-  let runtime: GatewayResult["runtime"] = text ? "opencode-cli" : "none";
-  if (!text) {
-    text = await runProvider(opts.system, clean);
-    if (text) runtime = "provider";
+  if (active >= MAX_CONCURRENT) {
+    try {
+      getDb().prepare("INSERT INTO AiAudit (userId, scope, excerpt, runtime) VALUES (?,?,?,?)")
+        .run(opts.userId, opts.scope, "", "busy");
+    } catch { /* ignore */ }
+    return { text: "", runtime: "busy" };
   }
+  active++;
   try {
-    getDb().prepare("INSERT INTO AiAudit (userId, scope, excerpt, runtime) VALUES (?,?,?,?)")
-      .run(opts.userId, opts.scope, clean.slice(0, 200), runtime);
-  } catch { /* audit never breaks inference */ }
-  return { text, runtime };
+    const clean = redact(opts.user).slice(0, 2000);
+    const prompt = `${opts.system}\n\nScope: ${opts.scope}. Customer message: ${clean}\nReply in 1–3 sentences. Never promise rankings, revenue, or virality.`;
+    let text = await runCli(prompt);
+    let runtime: GatewayResult["runtime"] = text ? "opencode-cli" : "none";
+    if (!text) {
+      text = await runProvider(opts.system, clean);
+      if (text) runtime = "provider";
+    }
+    try {
+      getDb().prepare("INSERT INTO AiAudit (userId, scope, excerpt, runtime) VALUES (?,?,?,?)")
+        .run(opts.userId, opts.scope, clean.slice(0, 200), runtime);
+    } catch { /* audit never breaks inference */ }
+    return { text, runtime };
+  } finally {
+    active--;
+  }
 }
