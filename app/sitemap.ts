@@ -4,13 +4,14 @@ import { SERVICES } from "@/lib/services";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://coderender.in";
-  const staticRoutes = ["", "/about", "/careers", "/pricing", "/contact", "/partner", "/docs",
-    "/privacy", "/terms", "/refund",
-    "/tools/gbp-booster-whatsapp-ai-agent", "/tools/whatsapp-qr-generator",
-    "/tools/whatsapp-template-composer", "/tools/pricing-calculator"];
+  const now = new Date();
+  const top = ["", "/pricing", "/contact", "/tools/gbp-booster-whatsapp-ai-agent"];
+  const mid = ["/about", "/careers", "/partner", "/docs", "/privacy", "/terms", "/refund",
+    "/tools/whatsapp-qr-generator", "/tools/whatsapp-template-composer", "/tools/pricing-calculator"];
   return [
-    ...staticRoutes.map((r) => ({ url: `${base}${r || "/"}`, lastModified: new Date() })),
-    ...VERTICALS.map((v) => ({ url: `${base}/industries/${v.slug}`, lastModified: new Date() })),
-    ...SERVICES.map((s) => ({ url: `${base}/services/${s.slug}`, lastModified: new Date() })),
+    ...top.map((r) => ({ url: `${base}${r || "/"}`, lastModified: now, changeFrequency: "weekly" as const, priority: 1 })),
+    ...mid.map((r) => ({ url: `${base}${r}`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.7 })),
+    ...VERTICALS.map((v) => ({ url: `${base}/industries/${v.slug}`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.9 })),
+    ...SERVICES.map((s) => ({ url: `${base}/services/${s.slug}`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.8 })),
   ];
 }

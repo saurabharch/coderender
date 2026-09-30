@@ -18,6 +18,7 @@ const CHANNELS = [
   { icon: "messenger", label: "Messenger" },
   { icon: "telegram", label: "Telegram" },
 ];
+import { FaqJsonLd } from "@/components/json-ld";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const FAQS = [
@@ -34,6 +35,7 @@ const FAQS = [
 export default function Home() {
   return (
     <>
+      <FaqJsonLd faqs={FAQS} />
       <section className="hero-glow">
         <div className="wrap pb-10 pt-14 text-center md:pt-20">
           <Reveal>
@@ -289,7 +291,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section>
+      <section id="faq">
         <div className="wrap section">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">FAQ</p>
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Frequently asked questions</h2>
