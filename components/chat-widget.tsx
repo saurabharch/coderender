@@ -55,6 +55,8 @@ export function ChatWidget() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
+  const [draftRestored, setDraftRestored] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [limited, setLimited] = useState(false);
   const [options, setOptions] = useState<Opt[] | undefined>();
   const [multi, setMulti] = useState(false);
@@ -157,6 +159,43 @@ export function ChatWidget() {
     const cmd = otpMode === "partner" ? "/partner" : "/support";
     setTurns((t) => [...t, { role: "user", body: cmd }]);
     await post(cmd);
+  }
+
+  // Draft memory: preserve what's typed across reloads; cleared on send.
+  useEffect(() => {
+    if (draftRestored) return;
+    setDraftRestored(true);
+    try {
+      const d = localStorage.getItem("cr_draft");
+      if (d) setInput(d.slice(0, 1000));
+    } catch { /* ignore */ }
+  }, [draftRestored]);
+
+  useEffect(() => {
+    if (!draftRestored) return;
+    try {
+      if (input) localStorage.setItem("cr_draft", input);
+      else localStorage.removeItem("cr_draft");
+    } catch { /* ignore */ }
+  }, [input, draftRestored]);
+
+  function autoresize() {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const line = 22;
+    el.style.height = Math.min(el.scrollHeight, line * 3 + 16) + "px";
+    el.style.overflowY = el.scrollHeight > line * 3 + 16 ? "auto" : "hidden";
+  }
+
+  useEffect(() => {
+    autoresize();
+  }, [input]);
+
+  function clearInput() {
+    setInput("");
+    try { localStorage.removeItem("cr_draft"); } catch { /* ignore */ }
+    inputRef.current?.focus();
   }
 
   async function loadCaptcha() {
@@ -406,9 +445,18 @@ export function ChatWidget() {
                   <button key={h} onClick={() => setInput(h)} className="rounded-full border border-black/10 px-2.5 py-1 text-xs font-semibold text-zinc-600 dark:border-white/15 dark:text-zinc-400">{h}</button>
                 ))}
               </div>
-              <form onSubmit={send} className="flex gap-2 border-t border-black/10 p-3 dark:border-white/10">
-                <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask anything… (@agent #topic /command)" maxLength={1000} aria-label="Your message"
-                  className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <form onSubmit={send} className="flex items-end gap-2 border-t border-black/10 p-3 dark:border-white/10">
+                <textarea ref={inputRef} value={input} rows={1}
+                  onChange={(e) => setInput(e.target.value.slice(0, 1000))}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); (e.target as HTMLTextAreaElement).form?.requestSubmit(); } }}
+                  placeholder="Ask anything… (@agent #topic /command)" aria-label="Your message"
+                  className="max-h-[82px] min-h-[44px] w-full resize-none overflow-hidden rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-sm dark:border-white/20" />
+                {input && (
+                  <button type="button" onClick={clearInput} aria-label="Clear message"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 dark:border-white/15">
+                    <X size={16} />
+                  </button>
+                )}
                 <button disabled={busy} aria-label="Send" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-white disabled:opacity-60"><Send size={18} /></button>
               </form>
             </>
