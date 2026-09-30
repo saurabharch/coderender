@@ -1,54 +1,64 @@
 import Link from "next/link";
-import { Phone, Mail, MessageCircle, QrCode, Type, Calculator, MapPin } from "lucide-react";
+import { Phone, Mail, MessageCircle, QrCode, Type, Calculator, MapPin, Info, Briefcase, Handshake, BookOpen, Tag, HelpCircle, MessageSquare, ShieldCheck, FileText, RotateCcw, type LucideIcon } from "lucide-react";
 import { CONTACT } from "@/lib/site";
 import pkg from "@/package.json";
 import { Logo } from "./logo";
 
 const APP_VERSION = pkg.version;
 
-const COLS: { title: string; links: { h: string; l: string }[] }[] = [
+function PulseDot() {
+  return (
+    <span className="relative flex h-2 w-2" aria-hidden>
+      <span className="absolute h-full w-full animate-ping rounded-full bg-brand opacity-75" />
+      <span className="h-2 w-2 rounded-full bg-brand-deep" />
+    </span>
+  );
+}
+
+const COLS: { title: string; links: { h: string; l: string; Icon: LucideIcon }[] }[] = [
   {
     title: "Features",
     links: [
-      { h: "/about", l: "About Us" },
-      { h: "/contact", l: "Contact Us" },
-      { h: "/careers", l: "Careers" },
-      { h: "/partner", l: "Partner With Us" },
+      { h: "/about", l: "About Us", Icon: Info },
+      { h: "/contact", l: "Contact Us", Icon: Mail },
+      { h: "/careers", l: "Careers", Icon: Briefcase },
+      { h: "/partner", l: "Partner With Us", Icon: Handshake },
     ],
   },
   {
     title: "Free Tools",
     links: [
-      { h: "/tools/gbp-booster-whatsapp-ai-agent", l: "GBP Booster AI Agent" },
-      { h: "/tools/pricing-calculator", l: "Pricing Calculator" },
-      { h: "/tools/whatsapp-qr-generator", l: "WhatsApp QR Generator" },
-      { h: "/tools/whatsapp-template-composer", l: "Template Composer" },
+      { h: "/tools/gbp-booster-whatsapp-ai-agent", l: "GBP Booster AI Agent", Icon: MessageCircle },
+      { h: "/tools/pricing-calculator", l: "Pricing Calculator", Icon: Calculator },
+      { h: "/tools/whatsapp-qr-generator", l: "WhatsApp QR Generator", Icon: QrCode },
+      { h: "/tools/whatsapp-template-composer", l: "Template Composer", Icon: Type },
     ],
   },
   {
     title: "Support",
     links: [
-      { h: "/#faq", l: "FAQ's" },
-      { h: "/contact", l: "Raise A Ticket" },
-      { h: "/docs", l: "Docs" },
-      { h: "/pricing", l: "Pricing" },
+      { h: "/#faq", l: "FAQ's", Icon: HelpCircle },
+      { h: "/contact", l: "Raise A Ticket", Icon: MessageSquare },
+      { h: "/docs", l: "Docs", Icon: BookOpen },
+      { h: "/pricing", l: "Pricing", Icon: Tag },
     ],
   },
   {
     title: "Quick Links",
     links: [
-      { h: "/privacy", l: "Privacy Policy" },
-      { h: "/terms", l: "Terms & Conditions" },
-      { h: "/refund", l: "Refund Policy" },
-      { h: "/tools/whatsapp-qr-generator", l: "QR Generator" },
+      { h: "/privacy", l: "Privacy Policy", Icon: ShieldCheck },
+      { h: "/terms", l: "Terms & Conditions", Icon: FileText },
+      { h: "/refund", l: "Refund Policy", Icon: RotateCcw },
+      { h: "/tools/whatsapp-qr-generator", l: "QR Generator", Icon: QrCode },
     ],
   },
 ];
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950">
-      <div className="mx-auto max-w-6xl px-4 py-12">
+    <footer className="relative overflow-hidden border-t border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950">
+      <span aria-hidden className="pointer-events-none absolute -right-4 bottom-0 hidden select-none text-[110px] font-extrabold leading-none tracking-tighter text-black/[0.05] dark:text-white/[0.07] [writing-mode:vertical-rl] md:block">coderender</span>
+      <div className="relative mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-8 md:grid-cols-[1.3fr_1fr_1fr]">
           <div>
             <Logo />
@@ -70,20 +80,20 @@ export function SiteFooter() {
           <nav aria-label="Footer columns" className="hidden gap-8 sm:grid sm:grid-cols-2 md:hidden lg:grid lg:grid-cols-2">
             {COLS.map((c) => (
               <div key={c.title}>
-                <p className="font-semibold">{c.title}</p>
+                <p className="flex items-center gap-2 font-semibold"><PulseDot />{c.title}</p>
                 <ul className="mt-2 space-y-1.5 text-sm">
                   {c.links.map((x) => (
-                    <li key={x.h + x.l}><Link href={x.h}>{x.l}</Link></li>
+                    <li key={x.h + x.l}><Link href={x.h} className="flex items-center gap-2"><x.Icon size={15} className="shrink-0 text-zinc-500" />{x.l}</Link></li>
                   ))}
                 </ul>
               </div>
             ))}
           </nav>
           <div className="hidden md:block lg:hidden">
-            <p className="font-semibold">Explore</p>
+            <p className="flex items-center gap-2 font-semibold"><PulseDot />Explore</p>
             <ul className="mt-2 space-y-1.5 text-sm">
               {COLS.flatMap((c) => c.links).slice(0, 8).map((x) => (
-                <li key={x.h + x.l}><Link href={x.h}>{x.l}</Link></li>
+                <li key={x.h + x.l}><Link href={x.h} className="flex items-center gap-2"><x.Icon size={15} className="shrink-0 text-zinc-500" />{x.l}</Link></li>
               ))}
             </ul>
           </div>
@@ -91,11 +101,11 @@ export function SiteFooter() {
             {COLS.map((c) => (
               <details key={c.title} className="border-b border-black/10 py-1 dark:border-white/10">
                 <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between font-semibold [&::-webkit-details-marker]:hidden">
-                  <span>▶ {c.title}</span>
+                  <span className="flex items-center gap-2"><PulseDot />{c.title}</span>
                 </summary>
                 <ul className="space-y-1.5 pb-3 text-sm">
                   {c.links.map((x) => (
-                    <li key={x.h + x.l}><Link href={x.h}>{x.l}</Link></li>
+                    <li key={x.h + x.l}><Link href={x.h} className="flex items-center gap-2"><x.Icon size={15} className="shrink-0 text-zinc-500" />{x.l}</Link></li>
                   ))}
                 </ul>
               </details>
