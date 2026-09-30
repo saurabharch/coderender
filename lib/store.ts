@@ -102,6 +102,7 @@ export function getDb(): DatabaseSync {
       userId INTEGER,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     try { db.exec("ALTER TABLE ChatThread ADD COLUMN userId INTEGER"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ChatThread ADD COLUMN state TEXT NOT NULL DEFAULT '{}'"); } catch { /* exists */ }
     db.exec(`CREATE TABLE IF NOT EXISTS ChatMessage (
       id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER NOT NULL,
       role TEXT NOT NULL DEFAULT 'user', body TEXT NOT NULL,

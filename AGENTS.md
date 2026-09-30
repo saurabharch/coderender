@@ -92,6 +92,10 @@ Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
   dir (plain pipes kill it with SIGINT), 100s cap, output length-capped; provider HTTP
   fallback; every call audited. `lib/agent-net.ts` = router + 4 agents + tools.
   AgentKit package deferred (needs zod-v4); BTST proper device-blocked (see 030).
+- Guided sales agent: intake state machine (new/existing → ≤3 questions → researched
+  charges answer), hijack shield holding the Riya sales-exec persona, captcha gate
+  (`/api/captcha`, signed cookie) before public chat, @agent/#topic//commands,
+  model routing (simple→default, complex→`OPENCODE_MODEL_SMART`), phased widget status.
 - Jobs (Inngest): `lib/jobs.ts` defines durable functions (daily-report cron, lead
   pipeline with 24h nurture sleep, throttled/cancellable broadcasts, support-triage
   agent) + `runLocal()` executes bodies in-process. `emit()` in `lib/events.ts`
