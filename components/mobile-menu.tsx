@@ -9,7 +9,7 @@ export interface MenuSection {
 
 export function MobileMenu({ sections, links }: { sections?: MenuSection[]; links?: { h: string; l: string; icon?: ReactNode }[] }) {
   const ref = useRef<HTMLDetailsElement>(null);
-  const close = () => ref.current?.removeAttribute("open");
+  const closeAll = () => ref.current?.removeAttribute("open");
   const groups: MenuSection[] = sections ?? [{ title: "Menu", links: links ?? [] }];
   return (
     <details ref={ref} className="relative md:hidden">
@@ -18,14 +18,19 @@ export function MobileMenu({ sections, links }: { sections?: MenuSection[]; link
       </summary>
       <div className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-black/10 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-900">
         {groups.map((g) => (
-          <div key={g.title}>
-            <p className="px-3 pb-1 pt-2 text-xs font-extrabold uppercase tracking-[0.18em] text-zinc-500">{g.title}</p>
-            {g.links.map((x) => (
-              <a key={x.h + x.l} href={x.h} onClick={close} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-medium hover:bg-black/5 dark:hover:bg-white/10">
-                {x.icon}{x.l}
-              </a>
-            ))}
-          </div>
+          <details key={g.title} className="group/sub">
+            <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-xl px-3 font-extrabold uppercase tracking-[0.14em] text-xs text-zinc-500 [&::-webkit-details-marker]:hidden">
+              {g.title}
+              <span aria-hidden className="transition group-open/sub:rotate-180">▾</span>
+            </summary>
+            <div className="pb-1">
+              {g.links.map((x) => (
+                <a key={x.h + x.l} href={x.h} onClick={closeAll} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-medium hover:bg-black/5 dark:hover:bg-white/10">
+                  {x.icon}{x.l}
+                </a>
+              ))}
+            </div>
+          </details>
         ))}
       </div>
     </details>

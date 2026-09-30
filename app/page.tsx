@@ -37,8 +37,8 @@ export default function Home() {
       <section className="hero-glow">
         <div className="wrap pb-10 pt-14 text-center md:pt-20">
           <Reveal>
-          <p className="glass inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden /> Powered by the official <BrandIcon name="whatsapp" size={15} /> Business API
+          <p className="glass inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden /> Powered by <BrandIcon name="whatsapp" size={15} /> WhatsApp Business API
           </p>
           <h1 className="display-1 mx-auto mt-4 max-w-3xl text-balance">
             Your all-in-one growth team that delivers real revenue
@@ -150,8 +150,21 @@ export default function Home() {
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Plays well with your stack</h2>
           <div className="marquee mt-6 pb-2">
             <div className="marquee-auto">
-            {[...INTEGRATIONS, ...INTEGRATIONS].map((g, i) => (
-              <div key={`${g.name}-${i}`} className="flex w-56 items-center gap-3 rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
+            {[...INTEGRATIONS.slice(0, 6), ...INTEGRATIONS.slice(0, 6)].map((g, i) => (
+              <div key={`a-${g.name}-${i}`} className="flex w-56 items-center gap-3 rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
+                <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-white/10"><BrandIcon name={g.icon} size={22} /></span>
+                <div>
+                  <p className="text-sm font-bold">{g.name}</p>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">{g.blurb}</p>
+                </div>
+              </div>
+            ))}
+            </div>
+          </div>
+          <div className="marquee mt-2 pb-2">
+            <div className="marquee-auto marquee-rev">
+            {[...INTEGRATIONS.slice(6), ...INTEGRATIONS.slice(6)].map((g, i) => (
+              <div key={`b-${g.name}-${i}`} className="flex w-56 items-center gap-3 rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
                 <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-white/10"><BrandIcon name={g.icon} size={22} /></span>
                 <div>
                   <p className="text-sm font-bold">{g.name}</p>
