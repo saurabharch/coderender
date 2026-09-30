@@ -20,12 +20,15 @@ function scheduled(year: number, month: number, day: number): boolean {
 
 export function CampaignCalendar() {
   const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
   const months = useMemo(() => {
-    const cur = { y: now.getFullYear(), m: now.getMonth() };
-    const nxt = { y: now.getFullYear(), m: now.getMonth() + 1 };
-    if (nxt.m > 11) { nxt.m = 0; nxt.y += 1; }
-    return [cur, nxt];
-  }, [now.getFullYear(), now.getMonth()]);
+    const nxtM = month + 1;
+    return [
+      { y: year, m: month },
+      nxtM > 11 ? { y: year + 1, m: 0 } : { y: year, m: nxtM },
+    ];
+  }, [year, month]);
   const total = months.reduce((s, { y, m }) => s + monthGrid(y, m).filter((d) => d && scheduled(y, m, d)).length, 0);
 
   return (

@@ -65,6 +65,28 @@ Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
 - Templates: `templates/{research,product,gtm,launch,growth,acquisition,offers,services,automation}` — scaffold with `python3 scripts/new_workspace.py <offers|automation|client|launch|...> "<Name>"`. Placeholders look like `{{this}}`; secrets in `.env` only.
 - Start: `planning/00-master-plan.md`, shared language `CONTEXT.md`, tracker `issues/` local files first.
 
+## Platform (analytics, auth, admin, billing scaffolds)
+
+- Store: `lib/store.ts` — one `node:sqlite` DB, all tables (Lead+fingerprint, Event,
+  Subscriber, AppUser/Session/MagicToken, Org/Membership, Preference, Notification,
+  PartnerRequest, ClientOrder, Payment, LicenseKey, ApiKey). `prisma/schema.prisma`
+  mirrors it for Linux (`npm run db:deploy` there; `deploy.sh` migrates only off-Android).
+- Tracking: `components/tracker.tsx` (FingerprintJS → `cr_fp` → `/api/track`) +
+  `/api/pixel.gif`; LeadForm attaches the fingerprint; footer newsletter → Subscriber.
+- Auth: magic-link only, allowlist enforced in `lib/auth.ts`
+  (`saurabhkashyap0001@gmail.com`, `raj90.ro@gmail.com`); session cookie `cr_session`;
+  `/admin/*` guarded in `app/admin/layout.tsx`. better-auth intentionally NOT used
+  (needs native modules unavailable on Android); same UX, minimal tables.
+- Mail: `lib/mailer.ts` (nodemailer + hand-rolled templates — mailgen's file themes
+  break under Next bundling). No `SMTP_URL` = Ethereal dev preview (no real delivery).
+  Daily owner report: `lib/scheduler.ts` via `instrumentation.ts`, 23:55 IST,
+  toggle `daily_report`, manual send in `/admin/settings`.
+- Admin: overview (counts, 14d bars, top pages, latest), sortable leads, orders +
+  payments, subscribers, broadcasts, partners + JSON profit plan + real revenue math,
+  license/API keys (raw shown once), settings/team. Partner form writes PartnerRequest.
+- Keys: verify at `/api/license/verify` (activation-counted). No payment gateway yet —
+  orders/payments are manual (UPI/cash/card, pending/paid).
+
 ## Verification before done
 
 `npm run lint && npm run typecheck && npm test && npm run build` must pass (green 2026-09-30). Confirm theme toggle cycles all 3 modes without FOUC, mobile quick-bar only on small screens, `/api/leads` round-trips to SQLite (live-verified: 200 + row, invalid → 422).

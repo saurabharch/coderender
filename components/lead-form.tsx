@@ -18,6 +18,7 @@ export function LeadForm({ source = "contact" }: { source?: string }) {
       businessType: String(form.get("businessType") ?? "general"),
       source,
       message: String(form.get("message") ?? ""),
+      fingerprint: (() => { try { return localStorage.getItem("cr_fp") ?? undefined; } catch { return undefined; } })(),
     };
     const res = await fetch("/api/leads", {
       method: "POST",

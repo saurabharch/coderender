@@ -15,5 +15,123 @@ model Lead {
   businessType String   @default("general")
   source       String   @default("contact")
   message      String?
+  fingerprint  String?
   createdAt    DateTime @default(now())
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  type        String
+  path        String   @default("/")
+  fingerprint String?
+  data        String?
+  createdAt   DateTime @default(now())
+}
+
+model Subscriber {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  source    String   @default("footer")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AppUser {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  role      String   @default("member")
+  prefs     String   @default("{}")
+  createdAt DateTime @default(now())
+}
+
+model MagicToken {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+}
+
+model Org {
+  id        Int      @id @default(autoincrement())
+  name      String   @default("CodeRender")
+  createdAt DateTime @default(now())
+}
+
+model Membership {
+  id     Int @id @default(autoincrement())
+  userId Int
+  orgId  Int @default(1)
+  role   String @default("member")
+  @@unique([userId, orgId])
+}
+
+model Preference {
+  key   String @id
+  value String @default("")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String   @default("")
+  audience  String   @default("team")
+  createdBy Int?
+  createdAt DateTime @default(now())
+}
+
+model PartnerRequest {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  city      String   @default("")
+  tier      String   @default("referrer")
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+}
+
+model ClientOrder {
+  id        Int      @id @default(autoincrement())
+  leadId    Int?
+  title     String
+  amount    Int      @default(0)
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  amount    Int
+  method    String   @default("upi")
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+}
+
+model LicenseKey {
+  id              Int      @id @default(autoincrement())
+  product         String
+  key             String   @unique
+  status          String   @default("active")
+  maxActivations  Int      @default(1)
+  activations     Int      @default(0)
+  createdAt       DateTime @default(now())
+}
+
+model ApiKey {
+  id        Int      @id @default(autoincrement())
+  name      String
+  prefix    String
+  hash      String   @unique
+  scopes    String   @default("leads:write")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 }

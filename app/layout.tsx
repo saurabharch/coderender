@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { QuickBar } from "@/components/quick-bar";
 import { Preloader } from "@/components/preloader";
+import { Tracker } from "@/components/tracker";
 import { JsonLd } from "@/components/json-ld";
 import { display, body } from "@/lib/fonts";
 import "./globals.css";
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <Preloader />
+          <Tracker />
           <JsonLd />
           <SiteHeader />
           <main className="pb-20 md:pb-0">{children}</main>

@@ -29,8 +29,8 @@ export function getDb(): DatabaseSync {
 export function createLead(input: LeadInput): { id: number } {
   const result = getDb()
     .prepare(
-      "INSERT INTO Lead (name, phone, businessType, source, message) VALUES (?, ?, ?, ?, ?)"
+      "INSERT INTO Lead (name, phone, businessType, source, message, fingerprint) VALUES (?, ?, ?, ?, ?, ?)"
     )
-    .run(input.name, input.phone, input.businessType, input.source, input.message ?? null);
+    .run(input.name, input.phone, input.businessType, input.source, input.message ?? null, input.fingerprint ?? null);
   return { id: Number(result.lastInsertRowid) };
 }

@@ -3,6 +3,7 @@ import { Phone, Mail, MessageCircle, QrCode, Type, Calculator, MapPin, Info, Bri
 import { CONTACT } from "@/lib/site";
 import pkg from "@/package.json";
 import { Logo } from "./logo";
+import { NewsletterForm } from "./newsletter-form";
 
 const APP_VERSION = pkg.version;
 
@@ -76,6 +77,8 @@ export function SiteFooter() {
               <a href={`mailto:${CONTACT.email}`} className="flex items-center gap-2"><Mail size={15} />{CONTACT.email}</a>
             </p>
             <p className="mt-2 flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-400"><MapPin size={15} className="mt-0.5 shrink-0" />{CONTACT.address}</p>
+            <p className="mt-4 font-semibold">Friday growth note</p>
+            <NewsletterForm />
           </div>
           <nav aria-label="Footer columns" className="hidden gap-8 sm:grid sm:grid-cols-2 md:hidden lg:grid lg:grid-cols-2">
             {COLS.map((c) => (
@@ -114,8 +117,7 @@ export function SiteFooter() {
           <div className="text-sm">
             <p className="font-semibold">Contact</p>
             <p className="mt-2 text-zinc-600 dark:text-zinc-400">For Sales & Support: <a href={`tel:${CONTACT.phone}`}>{CONTACT.phone}</a></p>
-            <p className="mt-4 font-semibold">Popular tools</p>
-            <ul className="mt-2 space-y-1.5">
+            <p className="mt-4 font-semibold">Popular tools</p>            <ul className="mt-2 space-y-1.5">
               <li><Link href="/tools/whatsapp-qr-generator" className="flex items-center gap-2"><QrCode size={15} />QR Generator</Link></li>
               <li><Link href="/tools/whatsapp-template-composer" className="flex items-center gap-2"><Type size={15} />Template Composer</Link></li>
               <li><Link href="/tools/pricing-calculator" className="flex items-center gap-2"><Calculator size={15} />Pricing Calculator</Link></li>
