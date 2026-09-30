@@ -78,16 +78,21 @@ export interface AgentReply {
   submitLabel?: string;
   back?: boolean;
   done?: boolean;
+  verify?: "support" | "partner";
 }
 
 export interface IntakeState {
-  stage: "detect" | "vertical" | "goals" | "details" | "contact" | "mode" | "slot" | "done";
+  stage: "detect" | "vertical" | "goals" | "details" | "contact" | "mode" | "slot" | "done"
+    | "sphone" | "sdone" | "pphone" | "pdone";
+  mode?: "enquiry" | "support" | "partner";
+  meet?: string;
+  email?: string;
+  phone?: string;
   business?: string;
   goals?: string[];
   nature?: string;
   name?: string;
   contact?: string;
-  mode?: string;
 }
 
 const GOALS: WizardOption[] = [
@@ -155,6 +160,56 @@ const PREV: Record<string, IntakeState["stage"]> = {
   slot: "mode",
 };
 
+async function snapshotReply(mode: "support" | "partner", email: string, phone: string): Promise<AgentReply> {
+  if (mode === "partner") {
+    const { partnerSnapshot } = await import("./account");
+    const s = partnerSnapshot(phone);
+    return {
+      text: `Here's your live partner dashboard, straight from our books: tier ${s.tier} (${s.status}), clients on-boarded by partners so far: ${s.referredClients}, revenue collected: ₹${s.revenuePaid}, your estimated share: ₹${s.estimatedShare}, open partner tasks: ${s.tasksPending}, outstanding balances: ₹${s.outstanding}. Ask me about payouts, tiers, or bringing a client!`,
+      scope: "partner", runtime: "none",
+    };
+  }
+  const { clientSnapshot, ticketsFor } = await import("./account");
+  const s = clientSnapshot(phone);
+  const tk = ticketsFor(email);
+  const open = tk.filter((t) => t.status === "open");
+  return {
+    text: `Found you! ${s.leads} enquir${s.leads === 1 ? "y" : "ies"} on file, ${s.orders.length} project${s.orders.length === 1 ? "" : "s"} (${s.completion}% complete), ₹${s.paidTotal} paid so far${s.appts.length ? `, next: ${s.appts[0].slot} (${s.appts[0].status})` : ", no upcoming calls"}. ${open.length ? `You also have ${open.length} open support ticket${open.length === 1 ? "" : "s"}.` : "No open tickets."} What would you like — tracking, bills, or book a call?`,
+    scope: "support", runtime: "none",
+  };
+}
+
+async function accountAnswer(
+  mode: "support" | "partner", email: string, phone: string,
+  msg: string, scope: Exclude<Scope, "infra">, userId: number
+): Promise<AgentReply> {
+  const lower = msg.toLowerCase();
+  if (/track|status|where.*(order|ticket|project)|progress|percent|completion/.test(lower)) {
+    if (mode === "partner") return snapshotReply(mode, email, phone);
+    const { clientSnapshot, ticketsFor } = await import("./account");
+    const s = clientSnapshot(phone);
+    const tk = ticketsFor(email);
+    const proj = s.orders.map((o) => `#${o.id} ${o.title}: ${o.status}, paid ₹${o.paid}/₹${o.amount}`).join("; ") || "no projects yet";
+    const tks = tk.map((t) => `#${t.id} ${t.subject}: ${t.status}`).join("; ") || "no tickets";
+    return { text: `Live tracking — projects: ${proj}. Completion overall: ${s.completion}%. Tickets: ${tks}.`, scope, runtime: "none" };
+  }
+  if (/bill|payment|paid|invoice|outstanding|financial|revenue|payout|earn/.test(lower)) {
+    if (mode === "partner") return snapshotReply(mode, email, phone);
+    const { clientSnapshot } = await import("./account");
+    const s = clientSnapshot(phone);
+    const lines = s.orders.map((o) => `#${o.id} ${o.title}: billed ₹${o.amount}, paid ₹${o.paid}`).join("; ") || "no bills yet";
+    return { text: `Your money picture: ${lines}. Total paid: ₹${s.paidTotal}. Anything looks off? Say the word and I'll open a ticket.`, scope, runtime: "none" };
+  }
+  // fall back to researched gateway answer with account context
+  let context = mode === "partner"
+    ? `Partner tier snapshot available on request.`
+    : `This is an existing client (${phone}).`;
+  const system = `${SYSTEMS[scope]}\nContext: ${context}`;
+  const { infer } = await import("./ai-gateway");
+  const r = await infer({ scope, userId, system, user: msg, model: pickModel(msg, scope) });
+  return { ...r, scope };
+}
+
 export async function runNetwork(opts: {
   userId: number;
   message: string;
@@ -162,6 +217,7 @@ export async function runNetwork(opts: {
   agent?: string;
   topic?: string;
   command?: string;
+  verifiedEmail?: string;
 }): Promise<AgentReply> {
   const msg = opts.message;
   if (opts.command === "help" || msg.trim() === "/help")
@@ -179,9 +235,64 @@ export async function runNetwork(opts: {
   if (HIJACK.some((re) => re.test(msg))) {
     return { text: DEFLECT, scope: "support", runtime: "none" };
   }
+  // ---- verified modes: support + partner ----
+  const modeCmd = opts.command === "support" || msg.trim() === "/support" ? "support"
+    : opts.command === "partner" || msg.trim() === "/partner" ? "partner"
+    : opts.command === "enquiry" || msg.trim() === "/enquiry" ? "enquiry" : undefined;
+  if (modeCmd) {
+    if (modeCmd === "enquiry") {
+      saveState(opts.threadId, { stage: "detect", mode: "enquiry" });
+      return { text: "Great — new enquiry it is! Are you asking for a new business, a new project, or are you already a CodeRender client?", scope: "support", runtime: "none" };
+    }
+    if (!opts.verifiedEmail) {
+      saveState(opts.threadId, { stage: "detect", mode: modeCmd });
+      return {
+        text: modeCmd === "support"
+          ? "Support desk here! To pull up your records I need to verify you first — tap Verify below, enter your email, and I'll take it from there."
+          : "Partner desk here! To show your dashboard I need to verify you first — tap Verify below, enter your email, and I'll take it from there.",
+        scope: "support", runtime: "none", verify: modeCmd,
+      };
+    }
+    saveState(opts.threadId, { stage: "detect", mode: modeCmd, email: opts.verifiedEmail });
+    return { text: "Verified! Which phone number did you share with us? I'll pull up your records.", scope: "support", runtime: "none" };
+  }
+  if (msg.trim() === "/verified") {
+    const st0 = loadState(opts.threadId);
+    if (!opts.verifiedEmail || !st0.mode || st0.mode === "enquiry") {
+      saveState(opts.threadId, { stage: "detect" });
+      return { text: "Hmm, I couldn't confirm that — tap Verify once more?", scope: "support", runtime: "none" };
+    }
+    saveState(opts.threadId, { ...st0, email: opts.verifiedEmail });
+    return { text: "Verified! Which phone number did you share with us? I'll pull up your records.", scope: "support", runtime: "none" };
+  }
   const scope: Exclude<Scope, "infra"> =
     (opts.agent && AGENTS[opts.agent]) || routeAgent(`${opts.topic ?? ""} ${msg}`);
   const isTeam = opts.userId > 0;
+  const st0 = loadState(opts.threadId);
+
+  // ---- authed support / partner Q&A over real rows ----
+  if (!isTeam && (st0.mode === "support" || st0.mode === "partner") && opts.verifiedEmail) {
+    const { clientSnapshot, partnerSnapshot, ticketsFor } = await import("./account");
+    if (!st0.phone) {
+      const phone = (msg.match(/\+?\d[\d\s-]{7,}\d/) || [])[0] ?? "";
+      if (!phone) {
+        return { text: "Which phone number did you share with us? I'll pull up your records.", scope: "support", runtime: "none" };
+      }
+      saveState(opts.threadId, { ...st0, phone, stage: st0.mode === "support" ? "sdone" : "pdone", email: opts.verifiedEmail });
+      return snapshotReply(st0.mode, opts.verifiedEmail, phone);
+    }
+    // support ticket filing
+    if (/complaint|issue|problem|broken|refund|not working|ticket/i.test(msg) && !/^(track|status|show)/i.test(msg)) {
+      const subj = msg.slice(0, 120);
+      try {
+        const { getDb } = await import("./store");
+        getDb().prepare("INSERT INTO Ticket (email, subject, body, status) VALUES (?,?,?,?)")
+          .run(opts.verifiedEmail, subj, msg.slice(0, 2000), "open");
+        return { text: `Logged! I've opened support ticket for "${subj}" — our team replies within one business day. Anything else I can check?`, scope: "support", runtime: "none" };
+      } catch { /* fall through */ }
+    }
+    return accountAnswer(st0.mode, opts.verifiedEmail, st0.phone, msg, scope, opts.userId);
+  }
 
   // ---- wizard for new-visitor threads ----
   if (!isTeam) {
@@ -256,7 +367,7 @@ export async function runNetwork(opts: {
         if (!m) {
           return { text: "Pick one so I can set it up right — Google Meet, Zoom, or a plain video call?", scope, runtime: "none", back: true, options: MODES };
         }
-        saveState(opts.threadId, { ...st, stage: "slot", mode: m.id });
+        saveState(opts.threadId, { ...st, stage: "slot", meet: m.id });
         return {
           text: `${m.label} it is! Choose a slot (IST) and I'll lock it in:`,
           scope, runtime: "none", back: true,
@@ -272,9 +383,9 @@ export async function runNetwork(opts: {
         saveState(opts.threadId, { ...st, stage: "done" });
         try {
           getDb().prepare("INSERT INTO Appointment (threadId, name, contact, mode, slot, status) VALUES (?,?,?,?,?,?)")
-            .run(opts.threadId ?? null, st.name ?? "friend", st.contact ?? "", st.mode ?? "meet", slot, "confirmed");
+            .run(opts.threadId ?? null, st.name ?? "friend", st.contact ?? "", st.meet ?? "meet", slot, "confirmed");
         } catch { /* booking never breaks chat */ }
-        const modeLabel = MODES.find((x) => x.id === st.mode)?.label ?? "video call";
+        const modeLabel = MODES.find((x) => x.id === st.meet)?.label ?? "video call";
         return {
           text: `Locked in, ${st.name || "friend"}! ${modeLabel} on ${slot} (IST), 20 minutes. Before we meet: keep 2–3 examples of customers you love plus your monthly budget range handy. The ${modeLabel} link will be shared on your contact (${st.contact}) an hour before. Anything else I can research meanwhile?`,
           scope, runtime: "none", done: true,

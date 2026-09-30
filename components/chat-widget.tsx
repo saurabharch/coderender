@@ -38,9 +38,17 @@ function loadSaved(): { threadId?: number; turns: Turn[] } {
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [gate, setGate] = useState<"entry" | "captcha" | "otp" | "chat">("entry");
   const [human, setHuman] = useState(false);
   const [captcha, setCaptcha] = useState<{ id: string; question: string } | null>(null);
   const [answer, setAnswer] = useState("");
+  const [otpMode, setOtpMode] = useState<"support" | "partner">("support");
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpPin, setOtpPin] = useState("");
+  const [usePin, setUsePin] = useState(false);
+  const [otpMsg, setOtpMsg] = useState("");
+  const [gatePinShown, setGatePinShown] = useState("");
   const [threadId, setThreadId] = useState<number | undefined>();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [restored, setRestored] = useState(false);
@@ -75,6 +83,7 @@ export function ChatWidget() {
       setThreadId(saved.threadId);
       setTurns(saved.turns);
       setHuman(true);
+      setGate("chat");
     }
   }, [restored]);
 
@@ -92,6 +101,62 @@ export function ChatWidget() {
     setOptions(undefined);
     setPicked([]);
     setLimited(false);
+    setGate("entry");
+    setHuman(false);
+    setOtpMsg("");
+    setGatePinShown("");
+  }
+
+  function chooseEntry(mode: "enquiry" | "support" | "partner") {
+    if (mode === "enquiry") {
+      setGate("captcha");
+      return;
+    }
+    setOtpMode(mode);
+    setGate("otp");
+  }
+
+  async function sendOtpEmail() {
+    setOtpMsg("");
+    const res = await fetch("/api/otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: otpEmail }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setOtpMsg("That email didn't work — check it and retry.");
+      return;
+    }
+    setUsePin(!!data.hasPin);
+    setOtpMsg(data.hasPin
+      ? "You have a gate PIN — enter it below."
+      : data.devCode
+        ? `Dev mode code: ${data.devCode} (email sending needs SMTP setup).`
+        : "Code sent! Check your email (and WhatsApp once connected) — valid 15 minutes.");
+  }
+
+  async function verifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    const body = usePin
+      ? { email: otpEmail, pin: otpPin }
+      : { email: otpEmail, code: otpCode };
+    const res = await fetch("/api/otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setOtpMsg("Wrong code — try again (same code stays valid 15 min).");
+      return;
+    }
+    if (data.gatePin) setGatePinShown(data.gatePin);
+    setGate("chat");
+    setHuman(true);
+    const cmd = otpMode === "partner" ? "/partner" : "/support";
+    setTurns((t) => [...t, { role: "user", body: cmd }]);
+    await post(cmd);
   }
 
   async function loadCaptcha() {
@@ -101,8 +166,8 @@ export function ChatWidget() {
   }
 
   useEffect(() => {
-    if (open && !human && !captcha) void loadCaptcha();
-  }, [open, human, captcha]);
+    if (open && gate === "captcha" && !captcha) void loadCaptcha();
+  }, [open, gate, captcha]);
 
   async function solve(e: React.FormEvent) {
     e.preventDefault();
@@ -113,6 +178,7 @@ export function ChatWidget() {
     });
     if (res.ok) {
       setHuman(true);
+      setGate("chat");
     } else {
       void loadCaptcha();
       setAnswer("");
@@ -154,6 +220,12 @@ export function ChatWidget() {
     }
     if (res.ok) {
       setThreadId(data.threadId);
+      if (data.verify && (data.verify === "support" || data.verify === "partner")) {
+        setOtpMode(data.verify);
+        setGate("otp");
+        setPhase("idle");
+        return;
+      }
       setPhase("typing");
       setTimeout(() => {
         setTurns((t) => [...t, { role: "assistant", body: data.reply, turnIdx: data.turnIdx }]);
@@ -236,7 +308,39 @@ export function ChatWidget() {
               <X size={16} />
             </button>
           </div>
-          {!human ? (
+          {gate === "entry" ? (
+            <div className="grid gap-2 p-4">
+              <p className="text-sm font-semibold">How can Riya help today?</p>
+              {[
+                { m: "enquiry" as const, t: "New Enquiry", d: "Services, prices & booking" },
+                { m: "support" as const, t: "Support", d: "Orders, bills & tickets" },
+                { m: "partner" as const, t: "Partner", d: "Dashboard, payouts & referrals" },
+              ].map((x) => (
+                <button key={x.m} onClick={() => chooseEntry(x.m)}
+                  className="min-h-[52px] rounded-2xl border border-black/10 px-4 text-left hover:border-brand dark:border-white/15">
+                  <span className="block text-sm font-bold">{x.t}</span>
+                  <span className="block text-xs text-zinc-500">{x.d}</span>
+                </button>
+              ))}
+            </div>
+          ) : gate === "otp" ? (
+            <div className="grid gap-2 p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck size={16} /> {otpMode === "partner" ? "Partner" : "Support"} verification</p>
+              <input value={otpEmail} onChange={(e) => setOtpEmail(e.target.value)} type="email" placeholder="you@business.com"
+                aria-label="Email for verification"
+                className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <button onClick={sendOtpEmail} className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Send code</button>
+              <form onSubmit={verifyOtp} className="grid gap-2">
+                <input value={usePin ? otpPin : otpCode} onChange={(e) => usePin ? setOtpPin(e.target.value) : setOtpCode(e.target.value)}
+                  inputMode="numeric" placeholder={usePin ? "Your gate PIN" : "6-digit code"}
+                  aria-label={usePin ? "Gate PIN" : "Verification code"}
+                  className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                <button className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Verify & continue</button>
+              </form>
+              {otpMsg && <p className="text-sm text-zinc-600 dark:text-zinc-400">{otpMsg}</p>}
+              {gatePinShown && <p className="rounded-xl bg-brand-soft p-3 text-sm dark:bg-white/10">Your forever gate PIN: <b>{gatePinShown}</b> — save it, you will use it instead of email codes next time.</p>}
+            </div>
+          ) : gate === "captcha" ? (
             <form onSubmit={solve} className="grid gap-2 p-4">
               <p className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck size={16} /> Quick check — are you human?</p>
               <p className="text-sm">{captcha ? captcha.question : "Loading…"}</p>

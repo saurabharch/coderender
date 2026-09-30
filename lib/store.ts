@@ -131,6 +131,15 @@ export function getDb(): DatabaseSync {
       beforeTx TEXT NOT NULL DEFAULT '', afterTx TEXT NOT NULL DEFAULT '',
       published INTEGER NOT NULL DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS OtpCode (
+      email TEXT PRIMARY KEY, code TEXT NOT NULL, exp INTEGER NOT NULL)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS GatePass (
+      email TEXT PRIMARY KEY, pinHash TEXT NOT NULL, digits INTEGER NOT NULL DEFAULT 6,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Ticket (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL DEFAULT '',
+      subject TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;
 }

@@ -6,6 +6,7 @@ import { scoreReply } from "@/lib/evals";
 import { runNetwork } from "@/lib/agent-net";
 import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 import { humanCookie } from "@/lib/captcha";
+import { checkVerifiedCookie } from "@/lib/otp";
 
 const FALLBACK = "Thanks for reaching out! A teammate replies within one business day. For instant help, WhatsApp us from the contact page.";
 
@@ -25,7 +26,7 @@ function parseShortcuts(message: string): { agent?: string; topic?: string; comm
     clean = clean.replace(hash[0], "").trim();
   }
   const slash = clean.match(/^\/(\w+)/);
-  if (slash && ["help", "pricing", "demo", "human", "reset"].includes(slash[1])) {
+  if (slash && ["help", "pricing", "demo", "human", "reset", "support", "partner", "enquiry", "verified"].includes(slash[1])) {
     command = slash[1];
     clean = clean.replace(slash[0], "").trim();
   }
@@ -41,7 +42,8 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "bad message" }, { status: 422 });
   const fp = parsed.data.fingerprint || req.headers.get("x-forwarded-for") || "anon";
   const jar = await cookies();
-  if (jar.get("cr_human")?.value !== humanCookie())
+  const verified = checkVerifiedCookie(jar.get("cr_verified")?.value);
+  if (jar.get("cr_human")?.value !== humanCookie() && !verified)
     return NextResponse.json({ error: "Prove you're human first — solve the quick check in the chat." }, { status: 403 });
   if (rateLimited(clientKey(fp, req), 20, 3600_000))
     return NextResponse.json(slowDown(), { status: 429 });
@@ -62,10 +64,12 @@ export async function POST(req: Request) {
   let net: {
     text: string; runtime: string; options?: { id: string; label: string }[];
     multi?: boolean; submitLabel?: string; back?: boolean; done?: boolean;
+    verify?: "support" | "partner";
   } | null = null;
+  const verifiedEmail = verified ?? undefined;
   try {
     const { agent, topic, command, clean } = parseShortcuts(parsed.data.message);
-    net = await runNetwork({ userId: 0, message: clean, threadId, agent, topic, command });
+    net = await runNetwork({ userId: 0, message: clean, threadId, agent, topic, command, verifiedEmail });
     if (net.runtime === "busy")
       return NextResponse.json({ error: "All agents are busy — try again in a minute." }, { status: 503 });
     if (net.text) {
@@ -85,6 +89,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     threadId, reply, provider, eval: score, turnIdx,
     options: net?.options, multi: net?.multi, submitLabel: net?.submitLabel,
-    back: net?.back, done: net?.done,
+    back: net?.back, done: net?.done, verify: net?.verify,
   });
 }

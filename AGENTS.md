@@ -100,6 +100,10 @@ Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
   (vertical→goals→details→contact→mode→slot→confirmed briefing), FTS5 chat memory
   recalled into answers, votes/failures at `/api/chat/vote`, appointments in
   `Appointment` table. Local session preserved per thread.
+- Verified identity: entry modes (New Enquiry / Support / Partner); OTP same-code
+  15-min + never-expiring gate PIN (`/api/otp`); `cr_verified` cookie gates account
+  modes; real snapshots (orders/completion/payments, partner revenue, tickets) answered
+  in-chat; ticket filing from chat; captcha still gates enquiry.
 - Jobs (Inngest): `lib/jobs.ts` defines durable functions (daily-report cron, lead
   pipeline with 24h nurture sleep, throttled/cancellable broadcasts, support-triage
   agent) + `runLocal()` executes bodies in-process. `emit()` in `lib/events.ts`
