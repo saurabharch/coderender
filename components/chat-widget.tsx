@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft } from "lucide-react";
+import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw } from "lucide-react";
 
 interface Turn {
   role: string;
@@ -18,6 +18,23 @@ interface Opt {
 type Phase = "idle" | "thinking" | "researching" | "typing";
 
 const HINTS = ["@pricing rates?", "#booking weekend slot", "/demo", "/human"];
+const STORE_KEY = "cr_chat";
+
+function loadSaved(): { threadId?: number; turns: Turn[] } {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return { turns: [] };
+    const d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.turns)) return { turns: [] };
+    return {
+      threadId: typeof d.threadId === "number" ? d.threadId : undefined,
+      turns: d.turns.filter((t: unknown): t is Turn =>
+        !!t && typeof (t as Turn).body === "string" && ((t as Turn).role === "user" || (t as Turn).role === "assistant")).slice(-30),
+    };
+  } catch {
+    return { turns: [] };
+  }
+}
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -26,6 +43,7 @@ export function ChatWidget() {
   const [answer, setAnswer] = useState("");
   const [threadId, setThreadId] = useState<number | undefined>();
   const [turns, setTurns] = useState<Turn[]>([]);
+  const [restored, setRestored] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -46,6 +64,35 @@ export function ChatWidget() {
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns, busy, phase, options]);
+
+  // Guest persistence: mirror thread + history to localStorage (no auth needed).
+  // Logged-in team history lives server-side under /ai-chat instead.
+  useEffect(() => {
+    if (restored) return;
+    setRestored(true);
+    const saved = loadSaved();
+    if (saved.turns.length > 0) {
+      setThreadId(saved.threadId);
+      setTurns(saved.turns);
+      setHuman(true);
+    }
+  }, [restored]);
+
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({ threadId, turns: turns.slice(-30) }));
+    } catch { /* storage full/blocked: chat still works */ }
+  }, [threadId, turns, restored]);
+
+  function newChat() {
+    try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ }
+    setThreadId(undefined);
+    setTurns([]);
+    setOptions(undefined);
+    setPicked([]);
+    setLimited(false);
+  }
 
   async function loadCaptcha() {
     const res = await fetch("/api/captcha").catch(() => null);
@@ -72,7 +119,7 @@ export function ChatWidget() {
     }
   }
 
-  async function post(message: string) {
+  async function post(message: string, retry = true): Promise<void> {
     setBusy(true);
     setPhase("thinking");
     setOptions(undefined);
@@ -88,7 +135,19 @@ export function ChatWidget() {
     clearTimeout(researchTimer);
     const data = await res.json().catch(() => ({}));
     setBusy(false);
-    if (res.status === 429 || res.status === 403) {
+    if (res.status === 429) {
+      setLimited(true);
+      setPhase("idle");
+      return;
+    }
+    if (res.status === 403 && threadId && retry && data.error === "not your thread") {
+      // Restored thread gone server-side: start fresh once, keep history visible.
+      setThreadId(undefined);
+      setPhase("idle");
+      await post(message, false);
+      return;
+    }
+    if (res.status === 403) {
       setLimited(true);
       setPhase("idle");
       return;
@@ -164,10 +223,18 @@ export function ChatWidget() {
         <div className="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-h-[60vh] w-auto max-w-md flex-col overflow-hidden rounded-3xl border border-black/10 bg-white shadow-2xl dark:border-white/15 dark:bg-zinc-950 md:inset-x-auto md:right-4 md:w-[380px]" role="dialog" aria-label="AI assistant chat">
           <div className="flex items-center gap-2 border-b border-black/10 px-4 py-3 dark:border-white/10">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"><Bot size={16} /></span>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-bold">CodeRender AI · Riya</p>
               <p className="text-xs text-zinc-500">Sales executive · researched prices</p>
             </div>
+            <button onClick={newChat} aria-label="Start new chat"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/15">
+              <RotateCcw size={15} />
+            </button>
+            <button onClick={() => setOpen(false)} aria-label="Close chat"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900">
+              <X size={16} />
+            </button>
           </div>
           {!human ? (
             <form onSubmit={solve} className="grid gap-2 p-4">
