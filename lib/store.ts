@@ -200,6 +200,21 @@ export function recentOrders(limit = 10) {
      FROM ClientOrder o ORDER BY o.id DESC LIMIT ?`).all(limit);
 }
 
+export function upcomingMeetings(limit = 5) {
+  return getDb().prepare(
+    `SELECT * FROM Appointment WHERE status IN ('proposed','confirmed') ORDER BY id DESC LIMIT ?`).all(limit);
+}
+
+export function meetingCount(): number {
+  return (getDb().prepare(
+    `SELECT COUNT(*) c FROM Appointment WHERE status IN ('proposed','confirmed')`).get() as { c: number }).c;
+}
+
+export function evalAvg(last = 20): number {
+  return (getDb().prepare(
+    `SELECT COALESCE(AVG(score),0) a FROM Eval WHERE id > (SELECT COALESCE(MAX(id),0)-? FROM Eval)`).get(last) as { a: number }).a;
+}
+
 export function getPref(key: string, fallback = ""): string {
   const r = getDb().prepare("SELECT value FROM Preference WHERE key=?").get(key) as { value: string } | undefined;
   return r?.value ?? fallback;

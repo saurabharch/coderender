@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/store";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
 const schema = z.object({ slug: z.string().min(1).max(120), name: z.string().min(2).max(80), body: z.string().min(2).max(2000) });
 
 export async function POST(req: Request) {
   const ct = req.headers.get("content-type") ?? "";
+  const fp = req.headers.get("x-forwarded-for") || "anon";
+  if (rateLimited(clientKey(undefined, req), 10, 3600_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   const input = ct.includes("application/json")
     ? await req.json().catch(() => null)
     : Object.fromEntries((await req.formData().catch(() => new FormData())).entries());

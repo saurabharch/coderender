@@ -1,9 +1,11 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
 import { sessionUser } from "@/lib/auth";
+import { requireTeam } from "@/lib/auth";
 
 async function broadcast(form: FormData) {
   "use server";
+  await requireTeam();
   const user = await sessionUser();
   const title = String(form.get("title") || "").slice(0, 120);
   const body = String(form.get("body") || "").slice(0, 2000);

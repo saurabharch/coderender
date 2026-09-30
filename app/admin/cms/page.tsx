@@ -1,8 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 async function save(form: FormData) {
   "use server";
+  await requireTeam();
   const key = String(form.get("key") || "").toLowerCase().replace(/[^a-z0-9:_\-]+/g, "-").slice(0, 120);
   if (!key) return;
   getDb().prepare("INSERT INTO ContentBlock (key, title, body, published) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET title=excluded.title, body=excluded.body, published=excluded.published")

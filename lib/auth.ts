@@ -62,3 +62,9 @@ export async function destroySession() {
   const token = jar.get("cr_session")?.value;
   if (token) getDb().prepare("DELETE FROM Session WHERE token=?").run(token);
 }
+
+export async function requireTeam(): Promise<{ id: number; email: string; role: string }> {
+  const user = await sessionUser();
+  if (!user) throw new Error("login required");
+  return user;
+}

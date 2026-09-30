@@ -1,8 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 async function createOrder(form: FormData) {
   "use server";
+  await requireTeam();
   getDb().prepare("INSERT INTO ClientOrder (leadId, title, amount, status) VALUES (?,?,?,?)").run(
     Number(form.get("leadId") || 0) || null,
     String(form.get("title") || "Order"),
@@ -14,6 +16,7 @@ async function createOrder(form: FormData) {
 
 async function setStatus(form: FormData) {
   "use server";
+  await requireTeam();
   const id = Number(form.get("id"));
   const status = String(form.get("status"));
   if (!["draft", "active", "done", "cancelled"].includes(status)) return;
@@ -23,6 +26,7 @@ async function setStatus(form: FormData) {
 
 async function addPayment(form: FormData) {
   "use server";
+  await requireTeam();
   getDb().prepare("INSERT INTO Payment (orderId, amount, method, status) VALUES (?,?,?,?)").run(
     Number(form.get("orderId")), Number(form.get("amount") || 0),
     String(form.get("method") || "upi"), String(form.get("status") || "pending")

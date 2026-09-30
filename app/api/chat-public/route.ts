@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { getDb, remember } from "@/lib/store";
 import { scoreReply } from "@/lib/evals";
 import { runNetwork } from "@/lib/agent-net";
-import { rateLimited } from "@/lib/rate-limit";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 import { humanCookie } from "@/lib/captcha";
 
 const FALLBACK = "Thanks for reaching out! A teammate replies within one business day. For instant help, WhatsApp us from the contact page.";
@@ -43,8 +43,8 @@ export async function POST(req: Request) {
   const jar = await cookies();
   if (jar.get("cr_human")?.value !== humanCookie())
     return NextResponse.json({ error: "Prove you're human first — solve the quick check in the chat." }, { status: 403 });
-  if (rateLimited(`public-chat:${fp}`, 20, 3600_000))
-    return NextResponse.json({ error: "slow down — try again in a bit" }, { status: 429 });
+  if (rateLimited(clientKey(fp, req), 20, 3600_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   let threadId = parsed.data.threadId;
   if (threadId) {
     const own = getDb().prepare("SELECT id FROM ChatThread WHERE id=? AND userId IS NULL").get(threadId);

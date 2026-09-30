@@ -1,10 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 const STAGES = ["new", "contacted", "qualified", "won", "lost"] as const;
 
 async function move(form: FormData) {
   "use server";
+  await requireTeam();
   const to = String(form.get("to"));
   if (!(STAGES as readonly string[]).includes(to)) return;
   getDb().prepare("UPDATE Lead SET status=? WHERE id=?").run(to, Number(form.get("id")));

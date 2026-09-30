@@ -1,8 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 async function save(form: FormData) {
   "use server";
+  await requireTeam();
   const slug = String(form.get("slug") || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
   const title = String(form.get("title") || "").slice(0, 120);
   if (!slug || !title) return;

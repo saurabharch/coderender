@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { getDb, getPref, setPref } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 const DEFAULT_PLAN = [
   { tier: "referrer", commission: 10, note: "per closed deal" },
@@ -9,6 +10,7 @@ const DEFAULT_PLAN = [
 
 async function setStatus(form: FormData) {
   "use server";
+  await requireTeam();
   const s = String(form.get("status"));
   if (!["new", "approved", "rejected", "paid"].includes(s)) return;
   getDb().prepare("UPDATE PartnerRequest SET status=? WHERE id=?").run(s, Number(form.get("id")));
@@ -17,6 +19,7 @@ async function setStatus(form: FormData) {
 
 async function savePlan(form: FormData) {
   "use server";
+  await requireTeam();
   try {
     const plan = JSON.parse(String(form.get("plan") || "[]"));
     if (!Array.isArray(plan)) return;

@@ -1,8 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { getDb, newLicenseKey, uid, hashKey, getPref, setPref } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 async function genLicense(form: FormData) {
   "use server";
+  await requireTeam();
   getDb().prepare("INSERT INTO LicenseKey (product, key, maxActivations) VALUES (?,?,?)").run(
     String(form.get("product") || "default").slice(0, 80), newLicenseKey(), Number(form.get("max") || 1));
   revalidatePath("/admin/keys");
@@ -10,12 +12,14 @@ async function genLicense(form: FormData) {
 
 async function revokeLicense(form: FormData) {
   "use server";
+  await requireTeam();
   getDb().prepare("UPDATE LicenseKey SET status='revoked' WHERE id=?").run(Number(form.get("id")));
   revalidatePath("/admin/keys");
 }
 
 async function genApiKey(form: FormData) {
   "use server";
+  await requireTeam();
   const raw = `cr_${uid(20)}`;
   getDb().prepare("INSERT INTO ApiKey (name, prefix, hash, scopes) VALUES (?,?,?,?)").run(
     String(form.get("name") || "key").slice(0, 80), raw.slice(0, 10), hashKey(raw),
@@ -26,6 +30,7 @@ async function genApiKey(form: FormData) {
 
 async function toggleApiKey(form: FormData) {
   "use server";
+  await requireTeam();
   getDb().prepare("UPDATE ApiKey SET active = 1 - active WHERE id=?").run(Number(form.get("id")));
   revalidatePath("/admin/keys");
 }

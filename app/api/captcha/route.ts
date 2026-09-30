@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "wrong answer" }, { status: 403 });
   const res = NextResponse.json({ ok: true });
   res.cookies.set("cr_human", humanCookie(), {
-    httpOnly: true, sameSite: "lax", path: "/", maxAge: 6 * 3600,
+    httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 6 * 3600,
   });
   return res;
 }

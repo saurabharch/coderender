@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/store";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const ct = req.headers.get("content-type") ?? "";
+  if (rateLimited(clientKey(undefined, req), 20, 3600_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   const raw = ct.includes("application/json")
     ? await req.json().catch(() => null)
     : Object.fromEntries((await req.formData().catch(() => new FormData())).entries());

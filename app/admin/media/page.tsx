@@ -2,9 +2,11 @@ import { revalidatePath } from "next/cache";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { getDb } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 async function remove(form: FormData) {
   "use server";
+  await requireTeam();
   const row = getDb().prepare("SELECT filename FROM MediaAsset WHERE id=?").get(Number(form.get("id"))) as
     { filename: string } | undefined;
   if (row) {

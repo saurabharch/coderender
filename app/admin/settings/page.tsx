@@ -1,9 +1,11 @@
 import { revalidatePath } from "next/cache";
 import { getDb, getPref, setPref } from "@/lib/store";
 import { sendDailyReport } from "@/lib/reporter";
+import { requireTeam } from "@/lib/auth";
 
 async function save(form: FormData) {
   "use server";
+  await requireTeam();
   for (const k of ["daily_report", "contact_phone", "contact_email", "partner_plan"]) {
     const v = form.get(k);
     if (typeof v === "string") setPref(k, v.slice(0, 4000));
@@ -13,12 +15,14 @@ async function save(form: FormData) {
 
 async function runReport() {
   "use server";
+  await requireTeam();
   await sendDailyReport();
   revalidatePath("/admin/settings");
 }
 
 async function runInfra() {
   "use server";
+  await requireTeam();
   const { infraCheck, reportInfraTrouble } = await import("@/lib/infra");
   await reportInfraTrouble(infraCheck());
   revalidatePath("/admin/settings");

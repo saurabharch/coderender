@@ -1,8 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 async function toggle(form: FormData) {
   "use server";
+  await requireTeam();
   getDb().prepare("UPDATE Subscriber SET active = 1 - active WHERE id=?").run(Number(form.get("id")));
   revalidatePath("/admin/subscribers");
 }

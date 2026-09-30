@@ -1,10 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
+import { requireTeam } from "@/lib/auth";
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || `post-${Date.now()}`;
 
 async function save(form: FormData) {
   "use server";
+  await requireTeam();
   const id = Number(form.get("id") || 0);
   const title = String(form.get("title") || "").slice(0, 160);
   if (!title) return;
@@ -20,6 +22,7 @@ async function save(form: FormData) {
 
 async function remove(form: FormData) {
   "use server";
+  await requireTeam();
   const id = Number(form.get("id"));
   getDb().prepare("DELETE FROM Comment WHERE postId=?").run(id);
   getDb().prepare("DELETE FROM Post WHERE id=?").run(id);
@@ -29,6 +32,7 @@ async function remove(form: FormData) {
 
 async function moderate(form: FormData) {
   "use server";
+  await requireTeam();
   getDb().prepare("UPDATE Comment SET status=? WHERE id=?").run(String(form.get("status")), Number(form.get("id")));
   revalidatePath("/admin/blog");
 }
