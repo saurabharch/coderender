@@ -279,3 +279,22 @@ model MediaFolder {
   parentId  Int?
   createdAt DateTime @default(now())
 }
+
+model PageBlock {
+  id       Int      @id @default(autoincrement())
+  pageSlug String
+  ord      Int      @default(0)
+  type     String   @default("text")
+  title    String   @default("")
+  body     String   @default("")
+  props    String   @default("{}")
+  createdAt DateTime @default(now())
+}
+
+model PageVar {
+  id       Int      @id @default(autoincrement())
+  pageSlug String
+  name     String
+  value    String   @default("")
+  @@unique([pageSlug, name])
+}

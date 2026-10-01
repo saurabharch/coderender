@@ -85,6 +85,7 @@ export const ROUTES: RouteDoc[] = [
   { method: "GET", path: "/api/push/key", auth: "public", desc: "VAPID public key for subscribing." },
   { method: "POST", path: "/api/push/test", auth: "team", desc: "Send yourself a test push." },
   { method: "POST", path: "/api/otp", auth: "public", desc: "Request/verify email OTP or gate PIN." },
+  { method: "GET", path: "/api/pages/[slug]", auth: "public", desc: "Composed page layers + variables." },
   { method: "GET", path: "/api/captcha/mode", auth: "public", desc: "Active human gate (default|slider|off) — chat + forms read this." },
   { method: "GET", path: "/api/slider-captcha", auth: "public", desc: "Issue a slide-puzzle challenge (chat gate only)." },
   { method: "POST", path: "/api/slider-captcha", auth: "public", desc: "Verify puzzle + hashcash, set human cookie.", body: "{id, sig, dx, nonce}" },

@@ -231,8 +231,12 @@ export function getDb(): DatabaseSync {
       id INTEGER PRIMARY KEY AUTOINCREMENT, pageSlug TEXT NOT NULL,
       ord INTEGER NOT NULL DEFAULT 0, type TEXT NOT NULL DEFAULT 'text',
       title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
+      props TEXT NOT NULL DEFAULT '{}',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS CmsItem (
+    try { db.exec("ALTER TABLE PageBlock ADD COLUMN props TEXT NOT NULL DEFAULT '{}'"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS PageVar (
+      pageSlug TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL DEFAULT '',
+      UNIQUE(pageSlug, name))`);    db.exec(`CREATE TABLE IF NOT EXISTS CmsItem (
       id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL,
       slug TEXT NOT NULL, data TEXT NOT NULL DEFAULT '{}', published INTEGER NOT NULL DEFAULT 1,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
