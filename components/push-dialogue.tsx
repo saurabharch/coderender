@@ -53,7 +53,7 @@ export function PushDialogue() {
   if (state === "done")
     return (
       <p className="flex items-center gap-2 rounded-2xl bg-brand-soft p-3 text-sm font-semibold dark:bg-white/10">
-        <Check size={16} /> Notifications on — we'll ping you about replies and offers.
+        <Check size={16} /> Notifications on — we will ping you about replies and offers.
       </p>
     );
   return (
@@ -68,7 +68,7 @@ export function PushDialogue() {
       {state === "blocked" && (
         <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><BellOff size={14} /> Blocked in browser settings — flip it there to retry.</p>
       )}
-      {state === "error" && <p className="mt-2 text-xs text-red-600">Couldn't enable on this device yet.</p>}
+      {state === "error" && <p className="mt-2 text-xs text-red-600">Could not enable on this device yet.</p>}
     </div>
   );
 }
