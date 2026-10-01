@@ -24,6 +24,14 @@ export function startScheduler() {
   setInterval(check, 60_000);
   setInterval(async () => {
     try {
+      const { runQueueTick } = await import("./queue");
+      await runQueueTick(5);
+    } catch (e) {
+      console.error("[queue]", e);
+    }
+  }, 60_000);
+  setInterval(async () => {
+    try {
       await reportInfraTrouble(infraCheck());
     } catch (e) {
       console.error("[infra]", e);

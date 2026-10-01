@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { connectStatus, pullDay, pushTask, setConnection } from "@/lib/gcal";
-import { designationOf, getBoard } from "@/lib/kanban";
-import { taskDay } from "@/lib/calendar-core";
+import { connectStatus, pullDay, setConnection } from "@/lib/gcal";
+import { getBoard } from "@/lib/kanban";
 import { sessionUser } from "@/lib/auth";
 
 export async function GET() {
@@ -35,16 +34,10 @@ export async function POST(req: Request) {
     }
     const board = getBoard(Number(parsed.data.boardId || 0));
     if (!board) return NextResponse.json({ error: "no board" }, { status: 404 });
-    const pushed: string[] = [];
-    for (const t of board.tasks.filter((x) => !x.archived)) {
-      const day = taskDay({ dueAt: t.dueAt, doneAt: t.doneAt, createdAt: t.createdAt });
-      await pushTask(user.email, {
-        id: t.id, title: t.title, body: t.body.slice(0, 500), day,
-        assigneeEmail: t.assigneeEmail, designation: designationOf(t.assigneeEmail), done: !!t.doneAt,
-      });
-      pushed.push(`${t.id}@${day}`);
-    }
-    return NextResponse.json({ ok: true, pushed });
+    const { enqueue, runQueueTick } = await import("@/lib/queue");
+    const jobId = enqueue("gcal.push", { boardId: board.id, email: user.email });
+    const tick = await runQueueTick(3);
+    return NextResponse.json({ ok: true, jobId, ran: tick.results });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "sync failed" }, { status: 502 });
   }

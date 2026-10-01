@@ -83,6 +83,8 @@ export const ROUTES: RouteDoc[] = [
   { method: "PUT", path: "/api/cms/[type]/[id]", auth: "team", desc: "Update a CMS item (merged + revalidated).", body: "{…type fields}" },
   { method: "DELETE", path: "/api/cms/[type]/[id]", auth: "team", desc: "Delete a CMS item." },
   { method: "GET", path: "/api/chat/threads", auth: "public", desc: "List own-device guest threads (fingerprint-scoped)." },  { method: "GET", path: "/api/realtime", auth: "team", desc: "SSE heartbeat of latest team notification." },
+  { method: "GET", path: "/api/ops/run", auth: "team", desc: "Run the queue worker tick (depth + results)." },
+  { method: "POST", path: "/api/ops/enqueue", auth: "team", desc: "Enqueue a job + run tick.", body: "{kind: gcal.push|gcal.pull|agent.call|notify, payload?}" },
   { method: "POST", path: "/api/ops/cancel", auth: "team", desc: "Fan out ops-cancel signal (stops broadcast runs)." },
   { method: "GET", path: "/api/client", auth: "public", desc: "Your own connection facts (IP, geo, UA class)." },
   { method: "POST", path: "/api/push/subscribe", auth: "public", desc: "Store a Web Push subscription." },
