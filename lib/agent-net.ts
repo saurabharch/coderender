@@ -69,6 +69,15 @@ export interface WizardOption {
   label: string;
 }
 
+export interface MsgBlock {
+  kind: "table" | "links" | "buttons" | "bars";
+  title?: string;
+  columns?: string[];
+  rows?: string[][];
+  items?: { label: string; href: string }[];
+  pairs?: { label: string; value: number }[];
+}
+
 export interface AgentReply {
   text: string;
   scope: Exclude<Scope, "infra">;
@@ -79,6 +88,7 @@ export interface AgentReply {
   back?: boolean;
   done?: boolean;
   verify?: "support" | "partner";
+  blocks?: MsgBlock[];
 }
 
 export interface IntakeState {
@@ -492,6 +502,50 @@ export async function runNetwork(opts: {
   }
 
   // ---- researched direct answer ----
+  const cmp = /compar|differen|vs\.? |versus|which (is|one)|best (plan|option|pack)/i.test(msg);
+  if (cmp && !isTeam) {
+    const { sitePrices, fmt } = await import("./pricing");
+    const p = sitePrices();
+    const svcHit = /service/.test(msg.toLowerCase());
+    if (svcHit) {
+      return {
+        text: "Here's how our services stack up — tap any row's page for the full briefing:",
+        scope, runtime: "none",
+        blocks: [
+          {
+            kind: "table", title: "Services compared",
+            columns: ["Service", "Promise", "Timeline"],
+            rows: SERVICES.map((s) => [s.title, s.tagline, s.timeline]),
+          },
+          { kind: "links", title: "Briefings", items: SERVICES.slice(0, 4).map((s) => ({ label: s.title, href: `/services/${s.slug}` })) },
+        ],
+      };
+    }
+    return {
+      text: "Here's every pack side by side — tap one to start with it:",
+      scope, runtime: "none",
+      blocks: [
+        {
+          kind: "table", title: "Growth packs compared",
+          columns: ["Pack", "Starts at", "Best for"],
+          rows: [
+            ["Diagnostic", fmt(p.audit), "Finding leaks fast"],
+            ["Growth Pack", fmt(p.packFrom), "Maps + replies + page"],
+            ["Website", fmt(p.siteFrom), "Call-first presence"],
+            ["Retainer", `${fmt(p.retainerFrom)}/mo`, "Ongoing growth"],
+            ["Lead-gen", `${fmt(p.leadsFrom)}/mo`, "Paid pipeline"],
+          ],
+        },
+        {
+          kind: "buttons",
+          items: [
+            { label: "Start with an audit", href: "/contact" },
+            { label: "Full pricing", href: "/pricing" },
+          ],
+        },
+      ],
+    };
+  }
   let context = "";
   if (scope === "product") {
     const hit = SERVICES.find((s) => msg.toLowerCase().includes(s.title.toLowerCase().split(" ")[0]));

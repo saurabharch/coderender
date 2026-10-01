@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CONTACT } from "@/lib/site";
 import { LeadForm } from "@/components/lead-form";
+import { PushDialogue } from "@/components/push-dialogue";
 import { MessageCircle, Phone } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default function ContactPage() {
         <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
           <h2 className="font-bold">Request a callback</h2>
           <div className="mt-3"><LeadForm source="contact" /></div>
+          <div className="mt-4"><PushDialogue /></div>
         </div>
       </div>
     </div>

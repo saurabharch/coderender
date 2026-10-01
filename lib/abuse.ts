@@ -1,4 +1,6 @@
 import { getDb } from "./store";
+import { getClientIp } from "./client";
+import { geoLabel, lookup } from "./geo";
 
 // Bot vs human scoring + exponential bans. Signals (each weak alone, strong together):
 // headless UA, missing fingerprint, inhuman captcha solve time, burst rate,
@@ -10,12 +12,11 @@ export interface BotVerdict {
 }
 
 export function banKey(fp: string | undefined, req: Request): string {
-  const ip = (req.headers.get("x-forwarded-for") || "anon").split(",")[0].trim();
-  return `${fp || "nofp"}|${ip}`;
+  return `${fp || "nofp"}|${getClientIp(req) || "anon"}`;
 }
 
 export function burstCount(fp: string | undefined, req: Request): number {
-  const ip = (req.headers.get("x-forwarded-for") || "anon").split(",")[0].trim();
+  const ip = getClientIp(req) || "anon";
   try {
     const r = getDb().prepare(
       `SELECT COUNT(*) c FROM Event WHERE createdAt > datetime('now','-1 minute')
@@ -39,6 +40,15 @@ export function punish(key: string): number {
   d.prepare("INSERT INTO RateBan (key, until, level) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET until=excluded.until, level=excluded.level")
     .run(key, Date.now() + minutes * 60000, level);
   return minutes;
+}
+
+export function flagging(req: Request, fp: string | undefined, reason: string, score: number, locale = "") {
+  try {
+    const ip = getClientIp(req) || "";
+    const geo = geoLabel(lookup(ip));
+    getDb().prepare("INSERT INTO BotFlag (fp, ip, reason, score, locale) VALUES (?,?,?,?,?)")
+      .run(fp ?? "", ip, reason, score, [locale.slice(0, 40), geo].filter(Boolean).join(" · ").slice(0, 120));
+  } catch { /* flagging never breaks requests */ }
 }
 
 export function scoreRequest(opts: {
@@ -65,13 +75,7 @@ export function scoreRequest(opts: {
   }
   const key = banKey(opts.fp, opts.req);
   const banned = isBanned(key);
-  if (score >= 60) {
-    try {
-      const ip = key.split("|")[1] ?? "";
-      getDb().prepare("INSERT INTO BotFlag (fp, ip, reason, score) VALUES (?,?,?,?)")
-        .run(opts.fp ?? "", ip, reasons.join("; "), score);
-    } catch { /* flagging never breaks chat */ }
-  }
+  if (score >= 60) flagging(opts.req, opts.fp, reasons.join("; "), score);
   return { score, reasons, banned };
 }
 

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { chime } from "@/lib/chime";
 
 export function LiveNotices({ initial }: { initial: { title: string; body: string; createdAt: string }[] }) {
   const [fresh, setFresh] = useState(false);
   useEffect(() => {
     const es = new EventSource("/api/realtime");
-    es.onmessage = () => setFresh(true);
+    es.onmessage = () => { setFresh(true); chime("notice"); };
     es.onerror = () => es.close();
     return () => es.close();
   }, []);

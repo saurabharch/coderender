@@ -6,6 +6,7 @@ import { QuickBar } from "@/components/quick-bar";
 import { Preloader } from "@/components/preloader";
 import { Tracker } from "@/components/tracker";
 import { ChatWidget } from "@/components/chat-widget";
+import { ServiceWorker } from "@/components/service-worker";
 import { JsonLd } from "@/components/json-ld";
 import { getDb } from "@/lib/store";
 import { display, body } from "@/lib/fonts";
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <Preloader />
           <Tracker />
+          <ServiceWorker />
           <JsonLd />
           <SiteHeader announcement={announcement || undefined} />
           <main className="pb-20 md:pb-0">{children}</main>

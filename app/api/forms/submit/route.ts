@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/store";
 import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
+import { moderate } from "@/lib/moderate";
 
 export async function POST(req: Request) {
   const ct = req.headers.get("content-type") ?? "";
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
     ct.includes("application/json") ? raw : { slug: String((raw as Record<string, unknown>).slug ?? ""), values: Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([k]) => k !== "slug").map(([k, v]) => [k, String(v)])) }
   );
   if (!parsed.success) return NextResponse.json({ error: "bad submission" }, { status: 422 });
+  if (moderate(JSON.stringify(parsed.data.values ?? {})).verdict === "block")
+    return NextResponse.json({ error: "bad submission" }, { status: 422 });
   const form = getDb().prepare("SELECT id FROM FormDef WHERE slug=? AND active=1").get(parsed.data.slug) as { id: number } | undefined;
   if (!form) return NextResponse.json({ error: "no form" }, { status: 404 });
   getDb().prepare("INSERT INTO Submission (formId, data) VALUES (?,?)").run(form.id, JSON.stringify(parsed.data.values ?? {}));

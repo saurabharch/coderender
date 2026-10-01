@@ -8,6 +8,7 @@ import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 import { humanCookie } from "@/lib/captcha";
 import { checkVerifiedCookie } from "@/lib/otp";
 import { banKey, isBanned, punish, scoreRequest, idemGet, idemSet, burstCount } from "@/lib/abuse";
+import { moderate } from "@/lib/moderate";
 
 const FALLBACK = "Thanks for reaching out! A teammate replies within one business day. For instant help, WhatsApp us from the contact page.";
 
@@ -40,11 +41,34 @@ export async function POST(req: Request) {
     message: z.string().min(1).max(1000),
     fingerprint: z.string().max(80).optional(),
     solveMs: z.number().int().min(0).max(3600000).optional(),
+    locale: z.string().max(60).optional(),
   }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad message" }, { status: 422 });
+  const cleanMsg = moderate(parsed.data.message).clean;
   const fp = parsed.data.fingerprint || req.headers.get("x-forwarded-for") || "anon";
+  const locale = parsed.data.locale || "";
   const bkey = banKey(parsed.data.fingerprint, req);
   if (isBanned(bkey)) return NextResponse.json({ error: "temporarily blocked — try again later" }, { status: 403 });
+  const mod = moderate(parsed.data.message);
+  if (mod.verdict === "block") {
+    const recent = getDb().prepare(
+      "SELECT COUNT(*) c FROM BotFlag WHERE fp=? AND reason LIKE '%content-block%' AND createdAt > datetime('now','-1 hour')"
+    ).get(parsed.data.fingerprint ?? "") as { c: number };
+    const { flagging } = await import("@/lib/abuse");
+    flagging(req, parsed.data.fingerprint, `content-block: ${mod.reasons.join("; ")}`, 70, parsed.data.locale ?? "");
+    if (recent.c >= 1) {
+      const mins = punish(bkey);
+      return NextResponse.json({ error: `repeated violations — retry in ~${mins} min` }, { status: 403 });
+    }
+    return NextResponse.json({
+      reply: "Let's keep it clean — I'm here to help with your business. What do you need: services, prices, or booking?",
+      provider: "none", eval: 50, warned: mod.reasons,
+    });
+  }
+  if (mod.reasons.length > 0) {
+    const { flagging } = await import("@/lib/abuse");
+    flagging(req, parsed.data.fingerprint, `cleaned: ${mod.reasons.join("; ")}`, 20, parsed.data.locale ?? "");
+  }
   const verdict = scoreRequest({ fp: parsed.data.fingerprint, req, solveMs: parsed.data.solveMs, burstHits: burstCount(fp, req) });
   if (verdict.banned || verdict.score >= 85) {
     const mins = punish(bkey);
@@ -65,12 +89,12 @@ export async function POST(req: Request) {
     if (!own) return NextResponse.json({ error: "not your thread" }, { status: 403 });
   } else {
     const r = getDb().prepare("INSERT INTO ChatThread (title, userId, fp) VALUES (?,NULL,?)")
-      .run(parsed.data.message.slice(0, 60), parsed.data.fingerprint ?? null);
+      .run(cleanMsg.slice(0, 60), parsed.data.fingerprint ?? null);
     threadId = Number(r.lastInsertRowid);
   }
   getDb().prepare("INSERT INTO ChatMessage (threadId, role, body) VALUES (?,?,?)")
-    .run(threadId, "user", parsed.data.message);
-  remember(threadId, "user", parsed.data.message);
+    .run(threadId, "user", cleanMsg);
+  remember(threadId, "user", cleanMsg);
   try {
     getDb().prepare("INSERT INTO Event (type, path, fingerprint) VALUES (?,?,?)")
       .run("chat", "/api/chat-public", parsed.data.fingerprint ?? null);
@@ -80,12 +104,17 @@ export async function POST(req: Request) {
   let net: {
     text: string; runtime: string; options?: { id: string; label: string }[];
     multi?: boolean; submitLabel?: string; back?: boolean; done?: boolean;
-    verify?: "support" | "partner";
+    verify?: "support" | "partner"; blocks?: unknown;
   } | null = null;
   const verifiedEmail = verified ?? undefined;
   try {
-    const { agent, topic, command, clean } = parseShortcuts(parsed.data.message);
-    net = await runNetwork({ userId: 0, message: clean, threadId, agent, topic, command, verifiedEmail });
+    const { agent, topic, command } = parseShortcuts(parsed.data.message);
+    const second = parseShortcuts(cleanMsg);
+    net = await runNetwork({
+      userId: 0, message: second.clean, threadId,
+      agent: second.agent ?? agent, topic: second.topic ?? topic, command: second.command ?? command,
+      verifiedEmail,
+    });
     if (net.runtime === "busy")
       return NextResponse.json({ error: "All agents are busy — try again in a minute." }, { status: 503 });
     if (net.text) {
@@ -105,7 +134,7 @@ export async function POST(req: Request) {
   const out = {
     threadId, reply, provider, eval: score, turnIdx,
     options: net?.options, multi: net?.multi, submitLabel: net?.submitLabel,
-    back: net?.back, done: net?.done, verify: net?.verify,
+    back: net?.back, done: net?.done, verify: net?.verify, blocks: net?.blocks ?? undefined,
   };
   idemSet(idemKey, JSON.stringify(out));
   return NextResponse.json(out);

@@ -147,7 +147,12 @@ export function getDb(): DatabaseSync {
       key TEXT PRIMARY KEY, until INTEGER NOT NULL, level INTEGER NOT NULL DEFAULT 1)`);
     db.exec(`CREATE TABLE IF NOT EXISTS BotFlag (
       id INTEGER PRIMARY KEY AUTOINCREMENT, fp TEXT NOT NULL DEFAULT '', ip TEXT NOT NULL DEFAULT '',
-      reason TEXT NOT NULL DEFAULT '', score INTEGER NOT NULL DEFAULT 0,
+      reason TEXT NOT NULL DEFAULT '', score INTEGER NOT NULL DEFAULT 0, locale TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    try { db.exec("ALTER TABLE BotFlag ADD COLUMN locale TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS PushSubscription (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL DEFAULT '', auth TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;

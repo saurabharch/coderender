@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw, History } from "lucide-react";
 
+import { Blocks, RichText, type Block } from "./rich-blocks";
+import { chime } from "@/lib/chime";
+
 interface Turn {
   role: string;
   body: string;
   turnIdx?: number;
   voted?: string;
+  blocks?: Block[];
 }
 
 interface Opt {
@@ -251,10 +255,12 @@ export function ChatWidget() {
     const researchTimer = setTimeout(() => setPhase("researching"), 3000);
     let fp: string | undefined;
     try { fp = localStorage.getItem("cr_fp") ?? undefined; } catch { /* ignore */ }
+    let locale = "";
+    try { locale = `${navigator.language} ${Intl.DateTimeFormat().resolvedOptions().timeZone}`; } catch { /* ignore */ }
     const res = await fetch("/api/chat-public", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId, message, fingerprint: fp, solveMs }),
+      body: JSON.stringify({ threadId, message, fingerprint: fp, solveMs, locale }),
     });
     setSolveMs(undefined);
     clearTimeout(researchTimer);
@@ -287,7 +293,8 @@ export function ChatWidget() {
       }
       setPhase("typing");
       setTimeout(() => {
-        setTurns((t) => [...t, { role: "assistant", body: data.reply, turnIdx: data.turnIdx }]);
+        setTurns((t) => [...t, { role: "assistant", body: data.reply, turnIdx: data.turnIdx, blocks: data.blocks }]);
+        chime("reply");
         setOptions(data.options);
         setMulti(!!data.multi);
         setSubmitLabel(data.submitLabel || "Submit");
@@ -462,7 +469,10 @@ export function ChatWidget() {
                   <div key={i}>
                     <p className={t.role === "user"
                       ? "ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-white dark:text-zinc-900"
-                      : "w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800"}>{t.body}</p>
+                      : "w-fit max-w-[95%] rounded-2xl rounded-bl-sm bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800"}>
+                      <RichText text={t.body} />
+                      {t.role === "assistant" && t.blocks && <Blocks blocks={t.blocks} />}
+                    </p>
                     {t.role === "assistant" && (
                       <span className="mt-1 flex gap-1">
                         {(["up", "down"] as const).map((v) => (

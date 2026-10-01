@@ -14,7 +14,9 @@
     "prisma:studio": "prisma studio",
     "db:deploy": "prisma migrate deploy",
     "demo": "bash scripts/demo.sh",
-    "demo:stop": "bash scripts/demo-stop.sh"
+    "demo:stop": "bash scripts/demo-stop.sh",
+    "update:geodb": "node ./node_modules/geoip-lite/scripts/updatedb.js license_key=$GEOIP_LICENSE_KEY",
+    "vapid:gen": "node scripts/vapid-gen.mjs"
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^5.2.0",
@@ -26,6 +28,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.0",
+    "geoip-lite": "^2.0.3",
     "inngest": "^4.21.0",
     "lucide-react": "^0.454.0",
     "next": "^15.1.0",
@@ -36,14 +39,17 @@
     "react-dom": "^19.0.0",
     "simple-icons": "^16.33.0",
     "tailwind-merge": "^2.5.4",
+    "web-push": "^3.6.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@types/geoip-lite": "^1.4.4",
     "@types/node": "^22.20.4",
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.0",
     "eslint-config-next": "^15.1.0",

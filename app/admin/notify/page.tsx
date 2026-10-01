@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
 import { sessionUser } from "@/lib/auth";
+import { broadcastPush } from "@/lib/push";
 import { requireTeam } from "@/lib/auth";
 
 async function broadcast(form: FormData) {
@@ -12,6 +13,7 @@ async function broadcast(form: FormData) {
   if (!title) return;
   getDb().prepare("INSERT INTO Notification (title, body, audience, createdBy) VALUES (?,?,?,?)")
     .run(title, body, String(form.get("audience") || "team"), user?.id ?? null);
+  broadcastPush(title, body).catch(() => {});
   revalidatePath("/admin/notify");
 }
 

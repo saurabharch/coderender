@@ -4,6 +4,7 @@ import { getDb } from "@/lib/store";
 import { runLocal } from "@/lib/jobs";
 import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 import { idemGet, idemSet } from "@/lib/abuse";
+import { moderate } from "@/lib/moderate";
 import { leadSchema } from "@/lib/lead-schema";
 
 export async function POST(req: Request) {
@@ -19,6 +20,8 @@ export async function POST(req: Request) {
   const parsed = leadSchema.safeParse(body);
   if (!parsed.success)
     return NextResponse.json({ error: "Invalid lead", issues: parsed.error.flatten() }, { status: 422 });
+  if (moderate(`${parsed.data.name} ${parsed.data.message ?? ""}`).verdict === "block")
+    return NextResponse.json({ error: "Invalid lead" }, { status: 422 });
   const idemKey = req.headers.get("idempotency-key");
   const replay = idemGet(idemKey);
   if (replay) return NextResponse.json({ ...JSON.parse(replay), replayed: true });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/store";
 import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
+import { moderate } from "@/lib/moderate";
 
 const schema = z.object({ slug: z.string().min(1).max(120), name: z.string().min(2).max(80), body: z.string().min(2).max(2000) });
 
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
     : Object.fromEntries((await req.formData().catch(() => new FormData())).entries());
   const parsed = schema.safeParse(input);
   const back = new URL(req.url);
-  if (!parsed.success) {
+  if (!parsed.success || moderate(`${parsed.success ? parsed.data.name : ""} ${parsed.success ? parsed.data.body : ""}`).verdict === "block") {
     return ct.includes("application/json")
       ? NextResponse.json({ error: "bad comment" }, { status: 422 })
       : NextResponse.redirect(new URL(`/blog/${String((input as Record<string, unknown>).slug ?? "")}?e=bad`, back.origin), 303);
