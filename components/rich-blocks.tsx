@@ -15,20 +15,40 @@ export interface Block {
   href?: string;
 }
 
-// Renders markdown-lite links [text](url) as anchors.
+// Renders markdown-lite links [text](url) as anchors, plus **bold**, *italic*,
+// `code`, and "- " list lines. Escapes everything else (model output is untrusted).
 export function RichText({ text }: { text: string }) {
-  const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
+  const lines = text.split("\n");
   return (
     <>
-      {parts.map((p, i) => {
-        const m = p.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (!m) return <span key={i}>{p}</span>;
-        const href = m[2];
-        const safe = href.startsWith("/") || href.startsWith("https://wa.me");
-        return safe ? (
-          <a key={i} href={href} className="font-semibold text-brand-deep underline">{m[1]}</a>
-        ) : (
-          <span key={i}>{m[1]}</span>
+      {lines.map((line, li) => {
+        const list = line.match(/^\s*[-*]\s+(.*)$/);
+        const content = list ? list[1] : line;
+        const parts = content.split(/(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+        return (
+          <span key={li} className={list ? "block pl-3" : "block"}>
+            {list ? "• " : null}
+            {parts.map((p, i) => {
+              const link = p.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+              if (link) {
+                const href = link[2];
+                const safe = href.startsWith("/") || href.startsWith("https://wa.me");
+                return safe ? (
+                  <a key={i} href={href} className="font-semibold text-brand-deep underline">{link[1]}</a>
+                ) : (
+                  <span key={i}>{link[1]}</span>
+                );
+              }
+              const bold = p.match(/^\*\*([^*]+)\*\*$/);
+              if (bold) return <strong key={i}>{bold[1]}</strong>;
+              const ital = p.match(/^\*([^*]+)\*$/);
+              if (ital) return <em key={i}>{ital[1]}</em>;
+              const code = p.match(/^`([^`]+)`$/);
+              if (code) return <code key={i} className="rounded bg-black/10 px-1 font-mono text-[13px] dark:bg-white/15">{code[1]}</code>;
+              return <span key={i}>{p}</span>;
+            })}
+            {li < lines.length - 1 ? <br /> : null}
+          </span>
         );
       })}
     </>

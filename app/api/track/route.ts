@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/store";
 
 const schema = z.object({
-  type: z.enum(["page_view", "click", "form_submit", "lead"]),
+  type: z.enum(["page_view", "click", "form_submit", "lead", "chat"]),
   path: z.string().max(300).default("/"),
   fingerprint: z.string().max(80).optional(),
   data: z.string().max(2000).optional(),

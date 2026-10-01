@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { getDb } from "./store";
 
@@ -20,27 +20,49 @@ function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
-function runCli(prompt: string, model?: string, timeoutMs = 100000): Promise<string> {
+function runCli(prompt: string, model?: string, timeoutMs = 100000, onToken?: (t: string) => void): Promise<string> {
   const safeModel = model && /^[a-z0-9_./:#-]+$/i.test(model) ? model : undefined;
   return new Promise((resolve) => {
     // opencode dies with SIGINT under plain pipes, so `script` gives it a pty.
     // Prompt is single-quote escaped; runs in an empty sandbox dir so the
     // model has no project files in scope.
     const args = ["-qec", `opencode run --format json --standalone${safeModel ? ` --model ${safeModel}` : ""} ${shellQuote(prompt)}`, "/dev/null"];
-    const child = execFile("script", args,
-      { cwd: SANDBOX, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024 },
-      (_err, stdout) => {
-        const texts: string[] = [];
-        for (const line of String(stdout || "").split("\n")) {
-          try {
-            const o = JSON.parse(line);
-            if (o.type === "text" && o.part?.text) texts.push(o.part.text);
-          } catch { /* progress frames + pty echo */ }
+    const texts: string[] = [];
+    let buf = "";
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve(texts.join("\n").trim());
+    };
+    const emit = (line: string) => {
+      try {
+        const o = JSON.parse(line);
+        if (o.type === "text" && o.part?.text) {
+          texts.push(o.part.text);
+          try { onToken?.(o.part.text); } catch { /* never break stream */ }
         }
-        resolve(texts.join("\n").trim());
-      }
-    );
+      } catch { /* progress frames + pty echo */ }
+    };
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn("script", args, { cwd: SANDBOX, timeout: timeoutMs });
+    } catch {
+      finish();
+      return;
+    }
     child.stdin?.end();
+    child.stdout?.on("data", (chunk: Buffer) => {
+      buf += chunk.toString();
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) emit(line);
+    });
+    child.on("error", finish);
+    child.on("close", () => {
+      for (const line of buf.split("\n")) emit(line);
+      finish();
+    });
   });
 }
 
@@ -81,6 +103,18 @@ export async function infer(opts: {
   user: string;
   model?: string;
 }): Promise<GatewayResult> {
+  const r = await inferStream({ ...opts, onToken: undefined });
+  return { text: r.text, runtime: r.runtime };
+}
+
+export async function inferStream(opts: {
+  scope: Scope;
+  userId: number;
+  system: string;
+  user: string;
+  model?: string;
+  onToken?: (t: string) => void;
+}): Promise<GatewayResult> {
   if (!SCOPES.includes(opts.scope)) throw new Error("scope denied");
   if (active >= MAX_CONCURRENT) {
     try {
@@ -93,7 +127,7 @@ export async function infer(opts: {
   try {
     const clean = redact(opts.user).slice(0, 2000);
     const prompt = `${opts.system}\n\nScope: ${opts.scope}. Customer message: ${clean}\nReply in 1–3 sentences. Never promise rankings, revenue, or virality.`;
-    let text = await runCli(prompt, opts.model);
+    let text = await runCli(prompt, opts.model, 100000, opts.onToken);
     let runtime: GatewayResult["runtime"] = text ? "opencode-cli" : "none";
     if (!text) {
       text = await runProvider(opts.system, clean);
