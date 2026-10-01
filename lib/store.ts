@@ -170,6 +170,11 @@ export function getDb(): DatabaseSync {
       better TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'nightly',
       score INTEGER NOT NULL DEFAULT 0, uses INTEGER NOT NULL DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS PageBlock (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, pageSlug TEXT NOT NULL,
+      ord INTEGER NOT NULL DEFAULT 0, type TEXT NOT NULL DEFAULT 'text',
+      title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;
 }

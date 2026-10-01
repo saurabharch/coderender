@@ -45,7 +45,7 @@ export default function Home() {
         <div className="wrap pb-10 pt-14 text-center md:pt-20">
           <Reveal>
           <p className="glass inline-flex max-w-full items-center justify-center gap-2 whitespace-normal rounded-full px-4 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-deep md:whitespace-nowrap">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden /> Powered by <BrandIcon name="whatsapp" size={15} /> WhatsApp Business API
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden /> Powered by <BrandIcon name="whatsapp" size={15} /> Business API
           </p>
           <h1 className="display-1 mx-auto mt-4 max-w-3xl text-balance">
             Your all-in-one growth team that delivers real revenue
