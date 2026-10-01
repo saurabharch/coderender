@@ -1,11 +1,12 @@
 // Offline trainer: brain.js LSTM on rollout data.json.
 // Retrain: npm i -D brain.js && node scripts/train-censor.js
-// HONEST RESULT (2026-10-01): the LSTM collapses to the majority class on this
-// 853-row set in every configuration tried (imbalanced, balanced, binary+clean,
-// forced iterations) — it flags even "hello" as harmful. Shipping it would block
-// every user, so production uses the dataset-derived specificity scorer in
-// lib/moderate.ts (same data.json source, verified precision/recall) instead.
-// Keep this script + dataset for retraining when more labeled data exists.
+// HONEST RESULT (2026-10-01, 6 training runs): LSTM/GRU collapse on this data in
+// every configuration (imbalanced, balanced, binary+clean business verticals,
+// forced iterations, GRU). Best run: 3/4 harmful caught but 7/8 clean flagged —
+// shipping it would block legitimate customers. Production uses the
+// dataset-derived specificity scorer in lib/moderate.ts (same data.json source,
+// verified precision/recall) instead. The expanded v2 set (348 rows, 10 business
+// verticals) stays for retraining when more labeled data exists.
 const fs = require("fs");
 const path = require("path");
 const brain = require("brain.js");
