@@ -106,7 +106,21 @@ export function getDb(): DatabaseSync {
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     try { db.exec("ALTER TABLE Submission ADD COLUMN ipAddress TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE Submission ADD COLUMN userAgent TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
-    try { db.exec("ALTER TABLE Submission ADD COLUMN submittedBy TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }    db.exec(`CREATE TABLE IF NOT EXISTS ContentBlock (
+    try { db.exec("ALTER TABLE Submission ADD COLUMN submittedBy TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS KanbanBoard (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '', formId INTEGER, ownerEmail TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS KanbanColumn (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, boardId INTEGER NOT NULL,
+      name TEXT NOT NULL, ord INTEGER NOT NULL DEFAULT 0)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS KanbanTask (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, boardId INTEGER NOT NULL, columnId INTEGER NOT NULL,
+      title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
+      priority TEXT NOT NULL DEFAULT 'medium', assigneeEmail TEXT NOT NULL DEFAULT '',
+      ord INTEGER NOT NULL DEFAULT 0, submissionId INTEGER,
+      archived INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')), doneAt TEXT NOT NULL DEFAULT '')`);    db.exec(`CREATE TABLE IF NOT EXISTS ContentBlock (
       key TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '',
       body TEXT NOT NULL DEFAULT '', published INTEGER NOT NULL DEFAULT 1)`);
     db.exec(`CREATE TABLE IF NOT EXISTS ChatThread (

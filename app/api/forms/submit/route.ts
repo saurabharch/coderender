@@ -24,9 +24,15 @@ export async function POST(req: Request) {
   if (!form) return NextResponse.json({ error: "no form" }, { status: 404 });
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
   try {
-    await createSubmission(form, parsed.data.values ?? {}, {
+    const { id } = await createSubmission(form, parsed.data.values ?? {}, {
       ip, ua: req.headers.get("user-agent") ?? "",
     });
+    // Boards linked to this form receive one task per submission.
+    try {
+      const { onFormSubmission } = await import("@/lib/kanban");
+      await onFormSubmission(form.id, form.slug, id,
+        Object.fromEntries(Object.entries(parsed.data.values ?? {}).map(([k, v]) => [k, String(v)])));
+    } catch { /* board link never breaks submission */ }
   } catch (e) {
     const err = e as Error & { errors?: Record<string, string>; status?: number };
     if (err.status === 422) return NextResponse.json({ error: "validation failed", fields: err.errors }, { status: 422 });

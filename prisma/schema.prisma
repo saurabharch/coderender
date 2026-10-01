@@ -176,3 +176,35 @@ model Submission {
   submittedBy String   @default("")
   createdAt   DateTime @default(now())
 }
+
+model KanbanBoard {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String   @default("")
+  formId      Int?
+  ownerEmail  String   @default("")
+  createdAt   DateTime @default(now())
+}
+
+model KanbanColumn {
+  id      Int @id @default(autoincrement())
+  boardId Int
+  name    String
+  ord     Int @default(0)
+}
+
+model KanbanTask {
+  id            Int      @id @default(autoincrement())
+  boardId       Int
+  columnId      Int
+  title         String
+  body          String   @default("")
+  priority      String   @default("medium")
+  assigneeEmail String   @default("")
+  ord           Int      @default(0)
+  submissionId  Int?
+  archived      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  doneAt        DateTime?
+}
