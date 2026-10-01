@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-
+## [0.6.0] - 2026-10-01
+- Identity chat, vector memory, moderation, plugins, AI platform, self-learning
 ## [0.6.0] - 2026-10-01
 
 - Verified-identity chat: entry modes, OTP + gate PIN, account snapshots, booking.
