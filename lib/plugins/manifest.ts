@@ -39,6 +39,8 @@ export const ROUTES: RouteDoc[] = [
   { method: "GET", path: "/api/forms/[id]/submissions", auth: "team", desc: "List submission metadata for a form." },
   { method: "GET", path: "/api/forms/[id]/submissions/[subId]", auth: "team", desc: "Get one submission with its data." },
   { method: "DELETE", path: "/api/forms/[id]/submissions/[subId]", auth: "team", desc: "Delete a submission." },
+  { method: "GET", path: "/api/agent/call", auth: "public", desc: "List allowlisted agent ops." },
+  { method: "POST", path: "/api/agent/call", auth: "key", desc: "Run an allowlisted agent op (ApiKey scope-checked, audited; durable via Inngest when keyed).", body: "{op, params?}" },
   { method: "GET", path: "/api/kanban/boards", auth: "team", desc: "List boards with column/task counts." },
   { method: "POST", path: "/api/kanban/boards", auth: "team", desc: "Create a board (default columns).", body: "{name, description?, formId?}" },
   { method: "GET", path: "/api/kanban/boards/[id]", auth: "team", desc: "Board detail with columns + tasks." },
@@ -87,14 +89,49 @@ export const ROUTES: RouteDoc[] = [
 ];
 
 export function openApiDoc() {
+  const toOpenPath = (p: string) =>
+    p.replace("[type]", "{type}").replace("[id]", "{id}").replace("[slug]", "{slug}")
+      .replace("[subId]", "{subId}").replace("[colId]", "{colId}").replace("[taskId]", "{taskId}");
+  const tagOf = (p: string) => {
+    const seg = p.split("/")[2] ?? "misc";
+    return seg.replace(/\[.*/, "") || "misc";
+  };
+  const paths: Record<string, unknown> = {};
+  for (const r of ROUTES.filter((x) => x.path.startsWith("/api/"))) {
+    const open = toOpenPath(r.path.split("?")[0]);
+    const params = [...r.path.matchAll(/\[(\w+)\]/g)].map((m) => ({
+      name: m[1], in: "path", required: true, schema: { type: "string" },
+    }));
+    const query = r.path.includes("?") ? [{
+      name: r.path.split("?")[1].split("=")[0], in: "query", required: false, schema: { type: "string" },
+    }] : [];
+    paths[open] = {
+      [r.method.toLowerCase()]: {
+        tags: [tagOf(r.path)],
+        operationId: `${r.method.toLowerCase()}_${open.replace(/[\/{}]/g, "_").replace(/^_+|_+$/g, "")}`,
+        summary: r.desc,
+        ...(r.body ? {
+          requestBody: {
+            content: { "application/json": { schema: { type: "object" }, example: r.body } },
+          },
+        } : {}),
+        parameters: [...params, ...query],
+        "x-cr-auth": r.auth,
+        responses: { "200": { description: "OK" } },
+      },
+    };
+  }
   return {
     openapi: "3.1.0",
-    info: { title: "CodeRender API", version: "0.2.0" },
-    paths: Object.fromEntries(
-      ROUTES.filter((r) => r.path.startsWith("/api/")).map((r) => [
-        r.path,
-        { [r.method.toLowerCase()]: { summary: r.desc, ...(r.body ? { requestBody: { content: { "application/json": { schema: { type: "object" } } } } } : {}) } },
-      ])
-    ),
+    info: { title: "CodeRender API", version: "0.6.1" },
+    servers: [{ url: "/api", description: "This deployment" }],
+    tags: [...new Set(ROUTES.map((r) => tagOf(r.path)))].map((name) => ({ name })),
+    paths,
+    components: {
+      securitySchemes: {
+        cookieAuth: { type: "apiKey", in: "cookie", name: "cr_session" },
+        apiKey: { type: "apiKey", in: "header", name: "x-api-key" },
+      },
+    },
   };
 }

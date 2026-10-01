@@ -65,6 +65,7 @@ export default async function KeysPage() {
         ))}
       </ul>
       <h2 className="mt-6 font-bold">New API key (copy it once — only the hash is stored)</h2>
+      <p className="mt-1 text-xs text-zinc-500">Scopes: <code>leads:write</code> · <code>agent:read</code> (board/form/cms reads) · <code>agent:write</code> (tasks, leads) · <code>admin</code> (all). Agent ops listed at <code>GET /api/agent/call</code>.</p>
       {justMade && <p className="mt-2 rounded-2xl bg-brand-soft p-3 font-mono text-xs dark:bg-white/10">New key (shown once): <b>{justMade}</b></p>}
       <form action={genApiKey} className="mt-2 flex flex-wrap gap-2">
         <input name="name" placeholder="name" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />

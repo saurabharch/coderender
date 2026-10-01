@@ -151,10 +151,24 @@ export const nightlyDistillFn = inngest.createFunction(
   }
 );
 
-export const functions = [dailyReportFn, leadCreatedFn, broadcastFn, supportTriageFn, nightlyDistillFn];
+async function doAgentCall(data: { op: string; params?: Record<string, unknown>; keyName?: string }) {
+  const { runAgentOp } = await import("./agent-ops");
+  return runAgentOp(data.op, data.params ?? {}, data.keyName ?? "key");
+}
+
+export const agentCallFn = inngest.createFunction(
+  { id: "agent-call", triggers: { event: "app/agent.call" }, retries: 2, concurrency: { limit: 5 } },
+  async ({ event, step }) => {
+    const data = event.data as { op: string; params?: Record<string, unknown>; keyName?: string };
+    return step.run("exec", async () => doAgentCall(data));
+  }
+);
+
+export const functions = [dailyReportFn, leadCreatedFn, broadcastFn, supportTriageFn, nightlyDistillFn, agentCallFn];
 
 // Local runner: executes bodies in-process (scheduler, emit fallback, manual).
-export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" | "supportTriage" | "nightlyDistill", data?: { leadId?: number; message?: string; threadId?: number }) {
+export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" | "supportTriage" | "nightlyDistill" | "agentCall", data?: { leadId?: number; message?: string; threadId?: number; op?: string; params?: Record<string, unknown>; keyName?: string }) {
+  if (name === "agentCall") return doAgentCall({ op: data?.op ?? "", params: data?.params, keyName: data?.keyName });
   if (name === "dailyReport") return doDailyReport();
   if (name === "nightlyDistill") {
     const { runNightlyDistill } = await import("./learn");

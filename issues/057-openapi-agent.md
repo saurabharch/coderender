@@ -1,6 +1,6 @@
 # OpenAPI + agent secure layer (BTST contract, native)
 
-Status: doing
+Status: done
 Labels: feature
 
 ## Question
