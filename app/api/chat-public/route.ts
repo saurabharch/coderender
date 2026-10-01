@@ -8,6 +8,8 @@ import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 import { humanCookie } from "@/lib/captcha";
 import { checkVerifiedCookie } from "@/lib/otp";
 import { banKey, isBanned, punish, scoreRequest, idemGet, idemSet, burstCount } from "@/lib/abuse";
+import { threadName } from "@/lib/identity";
+import { withName } from "@/lib/honorific";
 import { moderate } from "@/lib/moderate";
 
 const FALLBACK = "Thanks for reaching out! A teammate replies within one business day. For instant help, WhatsApp us from the contact page.";
@@ -125,6 +127,8 @@ export async function POST(req: Request) {
   if (!reply) {
     reply = FALLBACK;
     getDb().prepare("INSERT INTO Vote (threadId, turnIdx, vote) VALUES (?,?,?)").run(threadId, 0, "fail");
+  } else {
+    reply = withName(reply, threadName(threadId));
   }
   getDb().prepare("INSERT INTO ChatMessage (threadId, role, body) VALUES (?,?,?)").run(threadId, "assistant", reply);
   remember(threadId, "assistant", reply);

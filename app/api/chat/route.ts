@@ -4,6 +4,8 @@ import { getDb } from "@/lib/store";
 import { sessionUser } from "@/lib/auth";
 import { scoreReply } from "@/lib/evals";
 import { runNetwork } from "@/lib/agent-net";
+import { threadName } from "@/lib/identity";
+import { withName } from "@/lib/honorific";
 
 const FALLBACK = "Thanks for reaching out! A teammate replies within one business day. For instant help, WhatsApp us from the contact page.";
 
@@ -35,6 +37,7 @@ export async function POST(req: Request) {
     }
   } catch { /* fallback below */ }
   if (!reply) reply = FALLBACK;
+  else reply = withName(reply, threadName(threadId));
   getDb().prepare("INSERT INTO ChatMessage (threadId, role, body) VALUES (?,?,?)").run(threadId, "assistant", reply);
   const { score, notes } = scoreReply(reply);
   getDb().prepare("INSERT INTO Eval (threadId, score, rubric) VALUES (?,?,?)").run(threadId, score, notes.join("; "));

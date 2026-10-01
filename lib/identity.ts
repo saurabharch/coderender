@@ -1,4 +1,5 @@
 import { getDb } from "./store";
+import { addressAs as honorificLabel } from "./honorific";
 
 export interface KnownIdentity {
   name: string;
@@ -29,9 +30,19 @@ export function findKnown(phone?: string, email?: string): KnownIdentity | null 
 
 // Honorific addressing: "Mr./Ms. Sharma" when a surname exists, else first name.
 export function addressAs(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return `Mr./Ms. ${parts[parts.length - 1]}`;
-  return parts[0] || "friend";
+  return honorificLabel(name).label;
+}
+
+export function threadName(threadId: number | undefined): string {
+  if (!threadId) return "";
+  try {
+    const r = getDb().prepare("SELECT state FROM ChatThread WHERE id=?").get(threadId) as { state: string } | undefined;
+    if (!r?.state) return "";
+    const s = JSON.parse(r.state) as { name?: string };
+    return typeof s.name === "string" ? s.name : "";
+  } catch {
+    return "";
+  }
 }
 
 export function extractContact(text: string): { phone: string; email: string; rest: string } {
