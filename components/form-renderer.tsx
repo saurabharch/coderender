@@ -33,7 +33,7 @@ export function FormRenderer({ slug, submitButtonText, successMessage, onSuccess
   const [done, setDone] = useState("");
   const [math, setMath] = useState<{ id: string; question: string } | null>(null);
   const [mathAnswer, setMathAnswer] = useState("");
-  const [slider, setSlider] = useState<{ id: string; sig: string; dx: number; nonce: string } | null>(null);
+  const [slider, setSlider] = useState<{ id: string; sig: string; dx: number; answers: { challenge: string; prefix: number }[] } | null>(null);
 
   useEffect(() => {
     fetch(`/api/forms/by-slug/${encodeURIComponent(slug)}`).then((r) => r.json()).then((d) => {
@@ -82,7 +82,7 @@ export function FormRenderer({ slug, submitButtonText, successMessage, onSuccess
       const gated = form!.captcha === "default"
         ? { captchaId: math!.id, captchaAnswer: Number(mathAnswer) }
         : form!.captcha === "slider"
-          ? { sliderId: slider!.id, sliderSig: slider!.sig, sliderDx: slider!.dx, sliderNonce: slider!.nonce }
+          ? { sliderId: slider!.id, sliderSig: slider!.sig, sliderDx: slider!.dx, sliderAnswers: slider!.answers }
           : {};
       const res = await fetch("/api/forms/submit", {
         method: "POST",

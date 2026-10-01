@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { TOLERANCE, offsetOk, powOk } from "@/lib/slider-core";
+import { createHash } from "node:crypto";
+import { TOLERANCE, POW_COUNT, offsetOk, powOk, makeChallenge } from "@/lib/slider-core";
+
+function mine(challenge: string): number {
+  for (let n = 0; n < 500000; n++) {
+    if (createHash("sha256").update(`${n}${challenge}`).digest("hex").startsWith("000")) return n;
+  }
+  throw new Error("not found");
+}
 
 describe("slider-core", () => {
   it("accepts positions within tolerance", () => {
@@ -9,16 +17,14 @@ describe("slider-core", () => {
     expect(offsetOk(0.5, NaN)).toBe(false);
   });
 
-  it("rejects bad nonces, accepts a mined one", async () => {
-    expect(powOk("abc123", "nope")).toBe(false);
-    expect(powOk("abc123", "x".repeat(33))).toBe(false);
-    const { createHash } = await import("node:crypto");
-    let found = "";
-    for (let n = 0; n < 100000 && !found; n++) {
-      const nonce = n.toString(36);
-      if (createHash("sha256").update(`abc123:${nonce}`).digest("hex").startsWith("00")) found = nonce;
-    }
-    expect(found).not.toBe("");
-    expect(powOk("abc123", found)).toBe(true);
+  it("issues unique challenges and verifies mined batches", () => {
+    const cs = new Set([makeChallenge(), makeChallenge(), makeChallenge()]);
+    expect(cs.size).toBe(3);
+    expect(POW_COUNT).toBe(3);
+    const challenge = [...cs][0];
+    const prefix = mine(challenge);
+    expect(powOk(String(prefix), challenge)).toBe(true);
+    expect(powOk("nope", challenge)).toBe(false);
+    expect(powOk(String(prefix), "x".repeat(32))).toBe(false);
   });
 });

@@ -32,7 +32,9 @@ export async function POST(req: Request) {
   if (form.captcha === "slider") {
     const { verifySlider } = await import("@/lib/slider-captcha");
     const v = parsed.data.values ?? {};
-    if (!verifySlider(String(v.sliderId ?? ""), String(v.sliderSig ?? ""), Number(v.sliderDx), String(v.sliderNonce ?? "")))
+    const answers = v.sliderAnswers;
+    const list = Array.isArray(answers) ? answers as { challenge: string; prefix: number }[] : [];
+    if (!verifySlider(String(v.sliderId ?? ""), String(v.sliderSig ?? ""), Number(v.sliderDx), list))
       return NextResponse.json({ error: "captcha required" }, { status: 403 });
   }
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
