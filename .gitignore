@@ -9,3 +9,5 @@ dev.db-journal
 coverage/
 dist/
 tsconfig.tsbuildinfo
+public/uploads/*
+!public/uploads/.gitkeep
