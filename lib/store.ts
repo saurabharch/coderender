@@ -109,9 +109,17 @@ export function getDb(): DatabaseSync {
         WHERE resourceType='' AND postId > 0`);
     } catch { /* posts may not exist yet */ }    db.exec(`CREATE TABLE IF NOT EXISTS MediaAsset (
       id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, mime TEXT NOT NULL DEFAULT '',
-      size INTEGER NOT NULL DEFAULT 0,
+      size INTEGER NOT NULL DEFAULT 0, folder TEXT NOT NULL DEFAULT '',
+      alt TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS FormDef (
+    try { db.exec("ALTER TABLE MediaAsset ADD COLUMN folder TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE MediaAsset ADD COLUMN alt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE MediaAsset ADD COLUMN url TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS MediaFolder (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, parentId INTEGER,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    try { db.exec("ALTER TABLE Post ADD COLUMN cover TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE KanbanTask ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'"); } catch { /* exists */ }    db.exec(`CREATE TABLE IF NOT EXISTS FormDef (
       id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL,
       fields TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1,
       schema TEXT NOT NULL DEFAULT '', successMessage TEXT NOT NULL DEFAULT '',

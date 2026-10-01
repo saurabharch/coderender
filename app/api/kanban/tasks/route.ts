@@ -11,8 +11,8 @@ const schema = z.object({
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   assigneeEmail: z.string().max(120).optional(),
   submissionId: z.number().int().optional(),
+  attachments: z.array(z.string().max(500)).max(10).optional(),
 });
-
 export async function POST(req: Request) {
   const user = await sessionUser();
   if (!user) return NextResponse.json({ error: "login required" }, { status: 401 });

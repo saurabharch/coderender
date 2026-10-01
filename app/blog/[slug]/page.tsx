@@ -16,10 +16,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = getDb().prepare("SELECT * FROM Post WHERE slug=? AND published=1").get(slug) as
-    { title: string; body: string; createdAt: string } | undefined;
+    { title: string; body: string; cover: string; createdAt: string } | undefined;
   if (!post) notFound();
   return (
     <div className="wrap section max-w-3xl">
+      {post.cover ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={post.cover} alt="" className="mb-4 aspect-[21/9] w-full rounded-2xl object-cover" />
+      ) : null}
       <h1 className="display-1">{post.title}</h1>
       <p className="mt-2 text-xs text-zinc-500">{post.createdAt.slice(0, 10)}</p>
       <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed">{post.body}</div>

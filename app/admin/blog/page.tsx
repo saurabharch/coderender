@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
 import { requireTeam } from "@/lib/auth";
+import { CoverField } from "@/components/media-picker";
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || `post-${Date.now()}`;
 
@@ -14,8 +15,9 @@ async function save(form: FormData) {
   const excerpt = String(form.get("excerpt") || "").slice(0, 300);
   const body = String(form.get("body") || "").slice(0, 20000);
   const published = form.get("published") ? 1 : 0;
-  if (id) getDb().prepare("UPDATE Post SET slug=?, title=?, excerpt=?, body=?, published=? WHERE id=?").run(slug, title, excerpt, body, published, id);
-  else getDb().prepare("INSERT INTO Post (slug, title, excerpt, body, published) VALUES (?,?,?,?,?)").run(slug, title, excerpt, body, published);
+  const cover = String(form.get("cover") || "").slice(0, 500);
+  if (id) getDb().prepare("UPDATE Post SET slug=?, title=?, excerpt=?, body=?, published=?, cover=? WHERE id=?").run(slug, title, excerpt, body, published, cover, id);
+  else getDb().prepare("INSERT INTO Post (slug, title, excerpt, body, published, cover) VALUES (?,?,?,?,?,?)").run(slug, title, excerpt, body, published, cover);
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
 }
@@ -54,6 +56,7 @@ export default async function BlogAdmin() {
         </div>
         <input name="excerpt" placeholder="Excerpt" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         <textarea name="body" rows={6} placeholder="Body (plain text, paragraphs kept)" className="rounded-xl border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20" />
+        <CoverField name="cover" />
         <label className="flex min-h-[44px] items-center gap-2 text-sm"><input type="checkbox" name="published" value="1" defaultChecked className="h-5 w-5" /> Published</label>
         <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save post</button>
       </form>

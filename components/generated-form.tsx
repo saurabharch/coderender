@@ -1,6 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MediaPicker } from "./media-picker";
+
+function MediaPickerButton({ target }: { target: string }) {
+  const [picking, setPicking] = useState(false);
+  if (!picking) {
+    return (
+      <button type="button" onClick={() => setPicking(true)}
+        className="min-h-[44px] w-fit rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">
+        Browse library…
+      </button>
+    );
+  }
+  return (
+    <span className="grid gap-1">
+      <MediaPicker onSelect={(u) => {
+        const hidden = document.getElementById(target) as HTMLInputElement | null;
+        if (hidden) hidden.value = u;
+        setPicking(false);
+      }} />
+      <button type="button" onClick={() => setPicking(false)} className="w-fit text-xs text-zinc-500">Cancel</button>
+    </span>
+  );
+}
 
 export interface FieldDef {
   name: string;
@@ -94,8 +117,9 @@ export function GeneratedForm({ fields, action, submitLabel }: {
                     if (hidden) hidden.value = "";
                   }
                 }} />
-              <input id={`file-${f.name}`} name={f.name} defaultValue={String(f.value ?? "")} placeholder={f.placeholder || "…or paste URL"}
+              <input id={`file-${f.name}`} name={f.name} defaultValue={String(f.value ?? "")} placeholder={f.placeholder || "…upload, browse, or paste URL"}
                 className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+              <MediaPickerButton target={`file-${f.name}`} />
             </span>
           )}
           {f.kind === "relation" && (

@@ -205,6 +205,7 @@ model KanbanTask {
   ord           Int      @default(0)
   submissionId  Int?
   archived      Boolean  @default(false)
+  attachments   String   @default("[]")
   createdAt     DateTime @default(now())
   doneAt        DateTime?
 }
@@ -247,4 +248,33 @@ model TeamTodo {
   assigneeEmail String   @default("")
   ord           Int      @default(0)
   createdAt     DateTime @default(now())
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  title     String
+  excerpt   String   @default("")
+  body      String   @default("")
+  published Boolean  @default(false)
+  cover     String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model MediaAsset {
+  id        Int      @id @default(autoincrement())
+  filename  String   @default("")
+  mime      String   @default("")
+  size      Int      @default(0)
+  folder    String   @default("")
+  alt       String   @default("")
+  url       String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model MediaFolder {
+  id        Int      @id @default(autoincrement())
+  name      String
+  parentId  Int?
+  createdAt DateTime @default(now())
 }

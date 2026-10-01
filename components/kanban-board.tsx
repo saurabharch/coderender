@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { priorityBadge, type BoardAnalytics } from "@/lib/kanban-core";
 import type { BoardDetail, BoardTask } from "@/lib/kanban";
 import { CommentThread } from "./comment-thread";
+import { MediaPicker } from "./media-picker";
 
 interface FormOpt { id: number; title: string }
 
@@ -138,6 +139,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
         body: JSON.stringify({
           title: editing.title, body: editing.body, priority: editing.priority,
           assigneeEmail: editing.assigneeEmail, archived: !!editing.archived,
+          attachments: editing.attachments ?? [],
         }),
       });
       setEditing(null);
@@ -300,6 +302,36 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
               <input type="checkbox" checked={!!editing.archived} onChange={(e) => setEditing({ ...editing, archived: e.target.checked ? 1 : 0 })} className="h-5 w-5" /> Archived</label>
             {editing.submissionId != null && <p className="text-xs text-zinc-500">From form submission #{editing.submissionId}.</p>}
             <TaskExtras taskId={editing.id} />
+            <div className="grid gap-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+              <p className="text-sm font-bold">Attachments ({(editing.attachments ?? []).length}/5)</p>
+              {(editing.attachments ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {editing.attachments.map((u) => (
+                    <span key={u} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={u} alt="attachment" className="h-16 w-16 rounded-xl border border-black/10 object-cover dark:border-white/10" />
+                      <button aria-label="Remove attachment" onClick={() => setEditing({ ...editing, attachments: editing.attachments.filter((x) => x !== u) })}
+                        className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white">✕</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <span className="flex flex-wrap gap-1">
+                <label className="min-h-[44px] cursor-pointer rounded-xl border border-black/15 px-4 py-2.5 text-sm dark:border-white/20">Upload…
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const form = new FormData();
+                    form.append("file", f);
+                    const res = await fetch("/api/media/upload", { method: "POST", body: form }).catch(() => null);
+                    const data = await res?.json().catch(() => ({}));
+                    if (data?.url) setEditing({ ...editing, attachments: [...(editing.attachments ?? []), data.url].slice(0, 5) });
+                    e.target.value = "";
+                  }} />
+                </label>
+                <MediaPicker onSelect={(u) => setEditing({ ...editing, attachments: [...(editing.attachments ?? []), u].slice(0, 5) })} />
+              </span>
+            </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => void saveEdit()} className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save</button>
               <button onClick={() => setEditing(null)} className="min-h-[44px] rounded-xl border border-black/15 px-5 text-sm dark:border-white/20">Close</button>

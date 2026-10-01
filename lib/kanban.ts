@@ -57,6 +57,12 @@ export interface BoardTask {
   id: number; boardId: number; columnId: number; title: string; body: string;
   priority: string; assigneeEmail: string; ord: number;
   submissionId: number | null; archived: number; createdAt: string; doneAt: string;
+  attachments: string[];
+}
+
+function parseAttachments(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((u) => String(u).slice(0, 500)).filter((u) => /^(\/|https?:\/\/)/.test(u)).slice(0, 5);
 }
 
 export interface BoardDetail {
@@ -72,7 +78,15 @@ export function getBoard(id: number): BoardDetail | null {
   if (!b) return null;
   const columns = d.prepare("SELECT id, name, ord FROM KanbanColumn WHERE boardId=? ORDER BY ord, id").all(id) as
     { id: number; name: string; ord: number }[];
-  const tasks = d.prepare("SELECT * FROM KanbanTask WHERE boardId=? ORDER BY ord, id").all(id) as unknown as BoardTask[];
+  const rawTasks = d.prepare("SELECT * FROM KanbanTask WHERE boardId=? ORDER BY ord, id").all(id) as unknown as (Omit<BoardTask, "attachments"> & { attachments: string })[];
+  const tasks: BoardTask[] = rawTasks.map((t) => {
+    let attachments: string[] = [];
+    try {
+      const p = JSON.parse(t.attachments || "[]");
+      if (Array.isArray(p)) attachments = p.map(String).slice(0, 5);
+    } catch { /* keep empty */ }
+    return { ...t, attachments };
+  });
   return { ...b, columns, tasks };
 }
 
@@ -152,6 +166,7 @@ export async function reorderColumns(boardId: number, ids: number[]): Promise<vo
 
 export async function createTask(boardId: number, input: {
   columnId?: number; title: string; body?: string; priority?: string; assigneeEmail?: string; submissionId?: number;
+  attachments?: unknown;
 }): Promise<number> {
   const b = getBoard(boardId);
   if (!b) throw new Error("not found");
@@ -163,10 +178,11 @@ export async function createTask(boardId: number, input: {
   const d = getDb();
   const max = (d.prepare("SELECT COALESCE(MAX(ord),-1) m FROM KanbanTask WHERE columnId=?").get(col.id) as { m: number }).m;
   const r = d.prepare(
-    `INSERT INTO KanbanTask (boardId, columnId, title, body, priority, assigneeEmail, ord, submissionId) VALUES (?,?,?,?,?,?,?,?)`
+    `INSERT INTO KanbanTask (boardId, columnId, title, body, priority, assigneeEmail, ord, submissionId, attachments) VALUES (?,?,?,?,?,?,?,?,?)`
   ).run(boardId, col.id, title, String(input.body ?? "").slice(0, 4000),
     isPriority(input.priority) ? input.priority : "medium",
-    String(input.assigneeEmail ?? "").slice(0, 120), max + 1, input.submissionId ?? null);
+    String(input.assigneeEmail ?? "").slice(0, 120), max + 1, input.submissionId ?? null,
+    JSON.stringify(parseAttachments(input.attachments)));
   const id = Number(r.lastInsertRowid);
   await hooks.onAfterCreateTask?.(id);
   track("kanban", boardId, { op: "task.create", id });
@@ -175,17 +191,22 @@ export async function createTask(boardId: number, input: {
 
 export async function updateTask(taskId: number, input: {
   title?: string; body?: string; priority?: string; assigneeEmail?: string; archived?: boolean;
+  attachments?: unknown;
 }): Promise<void> {
   const d = getDb();
-  const cur = d.prepare("SELECT * FROM KanbanTask WHERE id=?").get(taskId) as BoardTask | undefined;
+  const cur = d.prepare("SELECT * FROM KanbanTask WHERE id=?").get(taskId) as (BoardTask & { attachments: string }) | undefined;
   if (!cur) throw new Error("not found");
   const priority = input.priority !== undefined ? (isPriority(input.priority) ? input.priority : cur.priority) : cur.priority;
-  d.prepare("UPDATE KanbanTask SET title=?, body=?, priority=?, assigneeEmail=?, archived=? WHERE id=?").run(
+  let attachments: string[] = [];
+  try { attachments = JSON.parse(String(cur.attachments ?? "[]")); } catch { /* keep empty */ }
+  if (!Array.isArray(attachments)) attachments = [];
+  d.prepare("UPDATE KanbanTask SET title=?, body=?, priority=?, assigneeEmail=?, archived=?, attachments=? WHERE id=?").run(
     input.title !== undefined ? String(input.title).slice(0, 160) : cur.title,
     input.body !== undefined ? String(input.body).slice(0, 4000) : cur.body,
     priority,
     input.assigneeEmail !== undefined ? String(input.assigneeEmail).slice(0, 120) : cur.assigneeEmail,
     input.archived !== undefined ? (input.archived ? 1 : 0) : cur.archived,
+    input.attachments !== undefined ? JSON.stringify(parseAttachments(input.attachments)) : JSON.stringify(attachments),
     taskId);
   track("kanban", cur.boardId, { op: "task.update", id: taskId });
 }

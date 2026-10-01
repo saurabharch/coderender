@@ -9,6 +9,7 @@ const schema = z.object({
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   assigneeEmail: z.string().max(120).optional(),
   archived: z.boolean().optional(),
+  attachments: z.array(z.string().max(500)).max(10).optional(),
 });
 
 export async function PUT(req: Request, { params }: { params: Promise<{ taskId: string }> }) {
