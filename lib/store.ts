@@ -119,7 +119,22 @@ export function getDb(): DatabaseSync {
       id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, parentId INTEGER,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     try { db.exec("ALTER TABLE Post ADD COLUMN cover TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
-    try { db.exec("ALTER TABLE KanbanTask ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'"); } catch { /* exists */ }    db.exec(`CREATE TABLE IF NOT EXISTS FormDef (
+    try { db.exec("ALTER TABLE KanbanTask ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE KanbanTask ADD COLUMN startAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE KanbanTask ADD COLUMN dueAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE AppUser ADD COLUMN designation TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS GcalToken (
+      email TEXT PRIMARY KEY, refreshToken TEXT NOT NULL DEFAULT '', calendarId TEXT NOT NULL DEFAULT 'primary',
+      syncOn INTEGER NOT NULL DEFAULT 1, updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS GcalEvent (
+      taskId INTEGER PRIMARY KEY, gEventId TEXT NOT NULL DEFAULT '', day TEXT NOT NULL DEFAULT '',
+      updated TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Job (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0,
+      runAfter TEXT NOT NULL DEFAULT (datetime('now')), error TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS FormDef (
       id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL,
       fields TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1,
       schema TEXT NOT NULL DEFAULT '', successMessage TEXT NOT NULL DEFAULT '',

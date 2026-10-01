@@ -41,6 +41,7 @@ model AppUser {
   email     String   @unique
   name      String?
   role      String   @default("member")
+  designation String @default("")
   prefs     String   @default("{}")
   createdAt DateTime @default(now())
 }
@@ -206,7 +207,11 @@ model KanbanTask {
   ord           Int      @default(0)
   submissionId  Int?
   archived      Boolean  @default(false)
+  startAt       String   @default("")
+  dueAt         String   @default("")
   attachments   String   @default("[]")
+  startAt       String   @default("")
+  dueAt         String   @default("")
   createdAt     DateTime @default(now())
   doneAt        DateTime?
 }
@@ -297,4 +302,30 @@ model PageVar {
   name     String
   value    String   @default("")
   @@unique([pageSlug, name])
+}
+
+model GcalToken {
+  email        String   @id
+  refreshToken String   @default("")
+  calendarId   String   @default("primary")
+  syncOn       Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+}
+
+model GcalEvent {
+  taskId    Int      @id
+  gEventId  String   @default("")
+  day       String   @default("")
+  updated   DateTime @default(now())
+}
+
+model Job {
+  id       Int      @id @default(autoincrement())
+  kind     String
+  payload  String   @default("{}")
+  status   String   @default("queued")
+  attempts Int      @default(0)
+  runAfter DateTime @default(now())
+  error    String   @default("")
+  createdAt DateTime @default(now())
 }

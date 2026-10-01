@@ -47,7 +47,8 @@ async function setRole(form: FormData) {
   const email = String(form.get("email"));
   const role = String(form.get("role"));
   if (!["owner", "member"].includes(role) || email === me.email) return;
-  getDb().prepare("UPDATE AppUser SET role=? WHERE email=?").run(role, email);
+  getDb().prepare("UPDATE AppUser SET role=?, designation=? WHERE email=?").run(
+    role, String(form.get("designation") || "").slice(0, 60), email);
   getDb().prepare("UPDATE Membership SET role=? WHERE userId=(SELECT id FROM AppUser WHERE email=?)").run(role, email);
   revalidatePath("/admin/settings");
 }
@@ -75,8 +76,8 @@ async function savePrices(form: FormData) {
 
 export default async function SettingsPage() {
   const team = getDb().prepare(
-    `SELECT u.email, u.role, m.role mrole FROM AppUser u LEFT JOIN Membership m ON m.userId=u.id ORDER BY u.id`).all() as
-    { email: string; role: string; mrole: string | null }[];
+    `SELECT u.email, u.role, u.designation, m.role mrole FROM AppUser u LEFT JOIN Membership m ON m.userId=u.id ORDER BY u.id`).all() as
+    { email: string; role: string; designation: string; mrole: string | null }[];
   const notifs = getDb().prepare("SELECT COUNT(*) c FROM Notification").get() as { c: number };
   const sessions = getDb().prepare(
     `SELECT s.id, u.email, s.expiresAt FROM Session s JOIN AppUser u ON u.id=s.userId ORDER BY s.id DESC LIMIT 50`).all() as
@@ -115,9 +116,11 @@ export default async function SettingsPage() {
       <ul className="mt-2 space-y-2 text-sm">
         {team.map((t) => (
           <li key={t.email} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">
-            <span>{t.email} · {t.role}{t.mrole ? ` / ${t.mrole}` : ""}</span>
-            <form action={setRole} className="flex gap-2">
+            <span>{t.email} · {t.role}{t.mrole ? ` / ${t.mrole}` : ""}{t.designation ? ` · ${t.designation}` : ""}</span>
+            <form action={setRole} className="flex flex-wrap gap-2">
               <input type="hidden" name="email" value={t.email} />
+              <input name="designation" defaultValue={t.designation ?? ""} placeholder="Designation" maxLength={60}
+                className="min-h-[44px] w-36 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20" />
               <select name="role" defaultValue={t.role} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
                 <option value="member">member</option>
                 <option value="owner">owner</option>

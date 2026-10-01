@@ -57,12 +57,17 @@ export interface BoardTask {
   id: number; boardId: number; columnId: number; title: string; body: string;
   priority: string; assigneeEmail: string; ord: number;
   submissionId: number | null; archived: number; createdAt: string; doneAt: string;
-  attachments: string[];
+  attachments: string[]; startAt: string; dueAt: string;
 }
 
 function parseAttachments(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw.map((u) => String(u).slice(0, 500)).filter((u) => /^(\/|https?:\/\/)/.test(u)).slice(0, 5);
+}
+
+function dayStr(v: unknown): string {
+  const s = String(v ?? "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
 }
 
 export interface BoardDetail {
@@ -87,7 +92,9 @@ export function getBoard(id: number): BoardDetail | null {
     } catch { /* keep empty */ }
     return { ...t, attachments };
   });
-  return { ...b, columns, tasks };
+  // Deep-plain: node:sqlite rows carry null prototypes, which RSC refuses
+  // to serialize into client components.
+  return JSON.parse(JSON.stringify({ ...b, columns, tasks }));
 }
 
 const DEFAULT_COLUMNS = ["To Do", "In Progress", "Done"];
@@ -166,7 +173,7 @@ export async function reorderColumns(boardId: number, ids: number[]): Promise<vo
 
 export async function createTask(boardId: number, input: {
   columnId?: number; title: string; body?: string; priority?: string; assigneeEmail?: string; submissionId?: number;
-  attachments?: unknown;
+  attachments?: unknown; startAt?: string; dueAt?: string;
 }): Promise<number> {
   const b = getBoard(boardId);
   if (!b) throw new Error("not found");
@@ -178,11 +185,12 @@ export async function createTask(boardId: number, input: {
   const d = getDb();
   const max = (d.prepare("SELECT COALESCE(MAX(ord),-1) m FROM KanbanTask WHERE columnId=?").get(col.id) as { m: number }).m;
   const r = d.prepare(
-    `INSERT INTO KanbanTask (boardId, columnId, title, body, priority, assigneeEmail, ord, submissionId, attachments) VALUES (?,?,?,?,?,?,?,?,?)`
+    `INSERT INTO KanbanTask (boardId, columnId, title, body, priority, assigneeEmail, ord, submissionId, attachments, startAt, dueAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
   ).run(boardId, col.id, title, String(input.body ?? "").slice(0, 4000),
     isPriority(input.priority) ? input.priority : "medium",
     String(input.assigneeEmail ?? "").slice(0, 120), max + 1, input.submissionId ?? null,
-    JSON.stringify(parseAttachments(input.attachments)));
+    JSON.stringify(parseAttachments(input.attachments)),
+    dayStr(input.startAt), dayStr(input.dueAt));
   const id = Number(r.lastInsertRowid);
   await hooks.onAfterCreateTask?.(id);
   track("kanban", boardId, { op: "task.create", id });
@@ -191,23 +199,27 @@ export async function createTask(boardId: number, input: {
 
 export async function updateTask(taskId: number, input: {
   title?: string; body?: string; priority?: string; assigneeEmail?: string; archived?: boolean;
-  attachments?: unknown;
+  attachments?: unknown; startAt?: string; dueAt?: string;
 }): Promise<void> {
   const d = getDb();
   const cur = d.prepare("SELECT * FROM KanbanTask WHERE id=?").get(taskId) as (BoardTask & { attachments: string }) | undefined;
   if (!cur) throw new Error("not found");
+  const day = (v: unknown, fb: string) => dayStr(v) || fb;
+  const curDates = cur as unknown as { startAt: string; dueAt: string };
+  const startAt = input.startAt !== undefined ? day(input.startAt, "") : (curDates.startAt ?? "");
+  const dueAt = input.dueAt !== undefined ? day(input.dueAt, "") : (curDates.dueAt ?? "");
   const priority = input.priority !== undefined ? (isPriority(input.priority) ? input.priority : cur.priority) : cur.priority;
   let attachments: string[] = [];
   try { attachments = JSON.parse(String(cur.attachments ?? "[]")); } catch { /* keep empty */ }
   if (!Array.isArray(attachments)) attachments = [];
-  d.prepare("UPDATE KanbanTask SET title=?, body=?, priority=?, assigneeEmail=?, archived=?, attachments=? WHERE id=?").run(
+  d.prepare("UPDATE KanbanTask SET title=?, body=?, priority=?, assigneeEmail=?, archived=?, attachments=?, startAt=?, dueAt=? WHERE id=?").run(
     input.title !== undefined ? String(input.title).slice(0, 160) : cur.title,
     input.body !== undefined ? String(input.body).slice(0, 4000) : cur.body,
     priority,
     input.assigneeEmail !== undefined ? String(input.assigneeEmail).slice(0, 120) : cur.assigneeEmail,
     input.archived !== undefined ? (input.archived ? 1 : 0) : cur.archived,
     input.attachments !== undefined ? JSON.stringify(parseAttachments(input.attachments)) : JSON.stringify(attachments),
-    taskId);
+    startAt, dueAt, taskId);
   track("kanban", cur.boardId, { op: "task.update", id: taskId });
 }
 
@@ -249,7 +261,13 @@ export async function deleteTask(taskId: number): Promise<void> {
 
 // ---- assignee resolvers over team AppUsers ----
 
-export interface KanbanUser { id: string; name: string; email: string }
+export interface KanbanUser { id: string; name: string; email: string; designation?: string }
+
+export function designationOf(email: string): string {
+  if (!email) return "";
+  const r = getDb().prepare("SELECT designation FROM AppUser WHERE email=?").get(email) as { designation: string } | undefined;
+  return r?.designation ?? "";
+}
 
 export function resolveUser(email: string): KanbanUser | null {
   const r = getDb().prepare("SELECT email FROM AppUser WHERE email=?").get(email) as { email: string } | undefined;
@@ -259,8 +277,8 @@ export function resolveUser(email: string): KanbanUser | null {
 
 export function searchUsers(query: string, limit = 10): KanbanUser[] {
   const q = `%${query.slice(0, 60)}%`;
-  const rows = getDb().prepare("SELECT email FROM AppUser WHERE email LIKE ? ORDER BY email LIMIT ?").all(q, limit) as { email: string }[];
-  return rows.map((r) => ({ id: r.email, name: r.email.split("@")[0], email: r.email }));
+  const rows = getDb().prepare("SELECT email, designation FROM AppUser WHERE email LIKE ? ORDER BY email LIMIT ?").all(q, limit) as { email: string; designation: string }[];
+  return rows.map((r) => ({ id: r.email, name: r.email.split("@")[0], email: r.email, designation: r.designation ?? "" }));
 }
 
 // ---- form-submission relation ----

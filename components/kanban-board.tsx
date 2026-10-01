@@ -140,6 +140,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
           title: editing.title, body: editing.body, priority: editing.priority,
           assigneeEmail: editing.assigneeEmail, archived: !!editing.archived,
           attachments: editing.attachments ?? [],
+          startAt: editing.startAt ?? "", dueAt: editing.dueAt ?? "",
         }),
       });
       setEditing(null);
@@ -286,6 +287,14 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
             <label className="grid gap-1 text-sm">Notes
               <textarea value={editing.body} rows={3} onChange={(e) => setEditing({ ...editing, body: e.target.value })}
                 className="rounded-xl border border-black/15 bg-transparent px-3 py-2 dark:border-white/20" /></label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="grid gap-1 text-sm">Start
+                <input type="date" value={editing.startAt ?? ""} onChange={(e) => setEditing({ ...editing, startAt: e.target.value })}
+                  className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+              <label className="grid gap-1 text-sm">Due
+                <input type="date" value={editing.dueAt ?? ""} onChange={(e) => setEditing({ ...editing, dueAt: e.target.value })}
+                  className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1 text-sm">Priority
                 <select value={editing.priority} onChange={(e) => setEditing({ ...editing, priority: e.target.value })}
