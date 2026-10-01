@@ -83,8 +83,31 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS Comment (
       id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, name TEXT NOT NULL,
       body TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+      resourceType TEXT NOT NULL DEFAULT '', resourceId TEXT NOT NULL DEFAULT '',
+      parentId INTEGER, authorEmail TEXT NOT NULL DEFAULT '', likes INTEGER NOT NULL DEFAULT 0,
+      editedAt TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS MediaAsset (
+    try { db.exec("ALTER TABLE Comment ADD COLUMN resourceType TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Comment ADD COLUMN resourceId TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Comment ADD COLUMN parentId INTEGER"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Comment ADD COLUMN authorEmail TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Comment ADD COLUMN likes INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Comment ADD COLUMN editedAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS CommentLike (
+      commentId INTEGER NOT NULL, key TEXT NOT NULL, UNIQUE(commentId, key))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS KanbanTodo (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, taskId INTEGER NOT NULL,
+      label TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, ord INTEGER NOT NULL DEFAULT 0)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS TeamTodo (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'open', assigneeEmail TEXT NOT NULL DEFAULT '',
+      ord INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    // Backfill: blog comments get resource identity so old threads keep working.
+    try {
+      db.exec(`UPDATE Comment SET resourceType='blog-post', resourceId=(SELECT slug FROM Post WHERE Post.id=Comment.postId)
+        WHERE resourceType='' AND postId > 0`);
+    } catch { /* posts may not exist yet */ }    db.exec(`CREATE TABLE IF NOT EXISTS MediaAsset (
       id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, mime TEXT NOT NULL DEFAULT '',
       size INTEGER NOT NULL DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);

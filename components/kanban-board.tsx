@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { priorityBadge, type BoardAnalytics } from "@/lib/kanban-core";
 import type { BoardDetail, BoardTask } from "@/lib/kanban";
+import { CommentThread } from "./comment-thread";
 
 interface FormOpt { id: number; title: string }
 
@@ -19,6 +20,68 @@ async function api(path: string, init?: RequestInit) {
 function initials(email: string): string {
   const name = email.split("@")[0].replace(/[._-]+/g, " ").trim();
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+}
+
+function TaskExtras({ taskId }: { taskId: number }) {
+  const [items, setItems] = useState<{ id: number; label: string; done: number }[]>([]);
+  const [label, setLabel] = useState("");
+  const [openDiscuss, setOpenDiscuss] = useState<number | null>(null);
+
+  async function load() {
+    const d = await api(`/api/kanban/tasks/${taskId}/checklist`).catch(() => null);
+    if (d?.items) setItems(d.items);
+  }
+
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const done = items.filter((i) => i.done).length;
+
+  return (
+    <div className="grid gap-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+      <p className="text-sm font-bold">Checklist ({done}/{items.length})</p>
+      {items.length > 0 && (
+        <div className="h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+          <div className="h-full bg-brand" style={{ width: `${(done / items.length) * 100}%` }} />
+        </div>
+      )}
+      <ul className="space-y-1">
+        {items.map((it) => (
+          <li key={it.id}>
+            <div className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={!!it.done} aria-label={it.label}
+                onChange={async (e) => {
+                  await api("/api/kanban/tasks/checklist", { method: "PUT", body: JSON.stringify({ id: it.id, done: e.target.checked }) });
+                  void load();
+                }} className="h-5 w-5" />
+              <span className={it.done ? "line-through opacity-60" : ""}>{it.label}</span>
+              <button onClick={() => setOpenDiscuss((o) => (o === it.id ? null : it.id))}
+                className="ml-auto min-h-[36px] rounded-lg border border-black/10 px-2 text-xs dark:border-white/15">💬</button>
+              <button aria-label="Remove item" onClick={async () => {
+                await api(`/api/kanban/tasks/checklist?id=${it.id}`, { method: "DELETE" });
+                void load();
+              }} className="min-h-[36px] px-1.5 text-xs opacity-60 hover:opacity-100">✕</button>
+            </div>
+            {openDiscuss === it.id && (
+              <div className="mb-1 ml-7 mt-1">
+                <CommentThread resourceType="kanban-todo" resourceId={String(it.id)} compact />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="flex gap-1">
+        <input value={label} onChange={(e) => setLabel(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) { void api(`/api/kanban/tasks/${taskId}/checklist`, { method: "POST", body: JSON.stringify({ label: label.trim() }) }).then(() => { setLabel(""); void load(); }); } }}
+          placeholder="+ Add checklist item" maxLength={160}
+          className="min-h-[44px] w-full rounded-xl border border-dashed border-black/20 bg-transparent px-3 text-sm dark:border-white/20" />
+      </div>
+      <div>
+        <p className="text-sm font-bold">Discussion</p>
+        <div className="mt-1">
+          <CommentThread resourceType="kanban-task" resourceId={String(taskId)} compact />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: FormOpt[] }) {
@@ -236,6 +299,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
             <label className="flex min-h-[44px] items-center gap-2 text-sm">
               <input type="checkbox" checked={!!editing.archived} onChange={(e) => setEditing({ ...editing, archived: e.target.checked ? 1 : 0 })} className="h-5 w-5" /> Archived</label>
             {editing.submissionId != null && <p className="text-xs text-zinc-500">From form submission #{editing.submissionId}.</p>}
+            <TaskExtras taskId={editing.id} />
             <div className="flex flex-wrap gap-2">
               <button onClick={() => void saveEdit()} className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save</button>
               <button onClick={() => setEditing(null)} className="min-h-[44px] rounded-xl border border-black/15 px-5 text-sm dark:border-white/20">Close</button>

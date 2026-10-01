@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, Users, KanbanSquare, ShoppingCart, FileText, ClipboardList,
-  Blocks, Image, Mail, Bell, Handshake, KeyRound, ShieldCheck, Route, Settings, CalendarClock, Menu, X, LogOut, Star, Package, GraduationCap, MessageSquare, LayoutTemplate, Trello,
+  Blocks, Image, Mail, Bell, Handshake, KeyRound, ShieldCheck, Route, Settings, CalendarClock, Menu, X, LogOut, Star, Package, GraduationCap, MessageSquare, LayoutTemplate, Trello, ListChecks,
 } from "lucide-react";
 
 const NAV: [string, string, React.ComponentType<{ size?: number; className?: string }>][] = [
@@ -19,6 +19,7 @@ const NAV: [string, string, React.ComponentType<{ size?: number; className?: str
   ["Comments", "/admin/comments", MessageSquare],
   ["Pages", "/admin/pages", LayoutTemplate],
   ["Forms", "/admin/forms", ClipboardList],
+  ["Todos", "/admin/todos", ListChecks],
   ["CMS", "/admin/cms", Blocks],
   ["Media", "/admin/media", Image],
   ["Subscribers", "/admin/subscribers", Mail],

@@ -208,3 +208,43 @@ model KanbanTask {
   createdAt     DateTime @default(now())
   doneAt        DateTime?
 }
+
+model Comment {
+  id           Int      @id @default(autoincrement())
+  postId       Int      @default(0)
+  name         String
+  body         String
+  status       String   @default("pending")
+  resourceType String   @default("")
+  resourceId   String   @default("")
+  parentId     Int?
+  authorEmail  String   @default("")
+  likes        Int      @default(0)
+  editedAt     String   @default("")
+  createdAt    DateTime @default(now())
+}
+
+model CommentLike {
+  id        Int @id @default(autoincrement())
+  commentId Int
+  key       String
+  @@unique([commentId, key])
+}
+
+model KanbanTodo {
+  id     Int     @id @default(autoincrement())
+  taskId Int
+  label  String
+  done   Boolean @default(false)
+  ord    Int     @default(0)
+}
+
+model TeamTodo {
+  id            Int      @id @default(autoincrement())
+  title         String
+  body          String   @default("")
+  status        String   @default("open")
+  assigneeEmail String   @default("")
+  ord           Int      @default(0)
+  createdAt     DateTime @default(now())
+}
