@@ -32,6 +32,7 @@ describe("calendar-core", () => {
 
   it("parses slot text to day keys", () => {
     expect(parseSlotDay("Fri, Oct 3 · 4:00 PM")).toMatch(/^202\d-10-03$/);
+    expect(parseSlotDay("Tue, 6 Oct · 11:00 AM")).toMatch(/^202\d-10-06$/);
     expect(parseSlotDay("nonsense")).toBeNull();
   });
 });
