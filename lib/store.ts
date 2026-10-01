@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { randomBytes, createHash } from "node:crypto";
+import { embed, cosine, parseVec } from "./vectors";
 
 function dbPath(): string {
   const url = process.env.DATABASE_URL ?? "file:./dev.db";
@@ -117,6 +118,9 @@ export function getDb(): DatabaseSync {
       runtime TEXT NOT NULL DEFAULT 'none',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS ChatMemory USING fts5(threadId, role, body)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS ChatVec (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER NOT NULL,
+      role TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '', vec TEXT NOT NULL DEFAULT '')`);
     db.exec(`CREATE TABLE IF NOT EXISTS Vote (
       id INTEGER PRIMARY KEY AUTOINCREMENT, threadId INTEGER NOT NULL,
       turnIdx INTEGER NOT NULL DEFAULT 0, vote TEXT NOT NULL DEFAULT '',
@@ -162,9 +166,26 @@ export function remember(threadId: number, role: string, body: string) {
   try {
     getDb().prepare("INSERT INTO ChatMemory (threadId, role, body) VALUES (?,?,?)").run(threadId, role, body.slice(0, 2000));
   } catch { /* memory never breaks chat */ }
+  try {
+    getDb().prepare("INSERT INTO ChatVec (threadId, role, body, vec) VALUES (?,?,?,?)")
+      .run(threadId, role, body.slice(0, 2000), JSON.stringify(embed(body)));
+  } catch { /* vectors never break chat either */ }
 }
 
 export function recall(threadId: number, query: string, limit = 3): string[] {
+  const out: string[] = [];
+  try {
+    const q = embed(query);
+    const rows = getDb().prepare("SELECT role, body, vec FROM ChatVec WHERE threadId=? ORDER BY id DESC LIMIT 40").all(threadId) as
+      { role: string; body: string; vec: string }[];
+    const scored = rows
+      .map((r) => ({ r, s: parseVec(r.vec) ? cosine(q, parseVec(r.vec)!) : -1 }))
+      .filter((x) => x.s > 0.12)
+      .sort((a, b) => b.s - a.s)
+      .slice(0, limit);
+    for (const x of scored) out.push(`${x.r.role}: ${x.r.body.slice(0, 160)}`);
+  } catch { /* fall through to FTS */ }
+  if (out.length > 0) return out;
   try {
     const q = query.replace(/["*]/g, " ").split(/\s+/).filter((w) => w.length > 2).slice(0, 6).join(" ");
     if (!q.trim()) return [];

@@ -70,12 +70,16 @@ export interface WizardOption {
 }
 
 export interface MsgBlock {
-  kind: "table" | "links" | "buttons" | "bars";
+  kind: "table" | "links" | "buttons" | "bars" | "service";
   title?: string;
+  tagline?: string;
   columns?: string[];
   rows?: string[][];
   items?: { label: string; href: string }[];
   pairs?: { label: string; value: number }[];
+  points?: string[];
+  price?: string;
+  href?: string;
 }
 
 export interface AgentReply {
@@ -197,6 +201,25 @@ function nextSlots(): WizardOption[] {
     }
   }
   return out;
+}
+
+const SERVICE_SYNONYMS: [RegExp, string][] = [
+  [/\bgmb\b|maps|rank|reviews?|profile/i, "google-business-profile"],
+  [/\bweb(site)?\b|landing|page speed|redesign/i, "website-development"],
+  [/\bseo\b|organic|keywords?|citations?/i, "local-seo"],
+  [/content|link building|blog|traffic/i, "seo-marketing"],
+  [/\bads?\b|campaign|funnel|pipeline/i, "lead-generation"],
+  [/chat|whatsapp|\bbot\b|dm|instagram/i, "chat-automation"],
+];
+
+function findService(msg: string) {
+  const t = msg.toLowerCase();
+  const direct = SERVICES.find((s) => t.includes(s.title.toLowerCase().split(" ")[0]));
+  if (direct) return direct;
+  for (const [re, slug] of SERVICE_SYNONYMS) {
+    if (re.test(msg)) return SERVICES.find((s) => s.slug === slug);
+  }
+  return undefined;
 }
 
 function routeAgent(message: string): Exclude<Scope, "infra"> {
@@ -568,9 +591,9 @@ export async function runNetwork(opts: {
     };
   }
   let context = "";
-  if (scope === "product") {
-    const hit = SERVICES.find((s) => msg.toLowerCase().includes(s.title.toLowerCase().split(" ")[0]));
-    if (hit) context = await callTool({ userId: opts.userId }, "service_briefing", { q: hit.title }, isTeam ? "team" : "enquiry");
+  const svc = findService(msg);
+  if (scope === "product" && svc) {
+    context = await callTool({ userId: opts.userId }, "service_briefing", { q: svc.title }, isTeam ? "team" : "enquiry");
   }
   if (scope === "pricing") context = await callTool({ userId: opts.userId }, "pricing_estimate", {}, isTeam ? "team" : "enquiry");
   if (!isTeam && opts.threadId) {
@@ -580,7 +603,17 @@ export async function runNetwork(opts: {
   const system = `${SYSTEMS[scope]}${context ? `\nContext: ${context}` : ""}`;
   const { infer } = await import("./ai-gateway");
   const r = await infer({ scope, userId: opts.userId, system, user: msg, model: pickModel(msg, scope) });
-  return { ...r, scope };
+  const out: AgentReply = { ...r, scope };
+  if (!isTeam && svc) {
+    out.blocks = [
+      {
+        kind: "service", title: svc.title, tagline: svc.tagline,
+        points: svc.includes.slice(0, 3), price: `${svc.timeline} · ${svc.priceHint}`,
+        href: `/services/${svc.slug}`,
+      },
+    ];
+  }
+  return out;
 }
 
 function askStage(st: IntakeState, scope: Exclude<Scope, "infra">, _userId: number) {

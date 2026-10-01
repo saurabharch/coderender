@@ -3,12 +3,16 @@
 import { useMemo, useState } from "react";
 
 export interface Block {
-  kind: "table" | "links" | "buttons" | "bars";
+  kind: "table" | "links" | "buttons" | "bars" | "service";
   title?: string;
+  tagline?: string;
   columns?: string[];
   rows?: string[][];
   items?: { label: string; href: string }[];
   pairs?: { label: string; value: number }[];
+  points?: string[];
+  price?: string;
+  href?: string;
 }
 
 // Renders markdown-lite links [text](url) as anchors.
@@ -90,6 +94,23 @@ export function Blocks({ blocks }: { blocks?: Block[] }) {
   return (
     <div className="mt-2 space-y-2">
       {blocks.map((b, i) => {
+        if (b.kind === "service") {
+          return (
+            <div key={i} className="rounded-xl border border-brand/30 bg-brand-soft/50 p-3 dark:bg-white/5">
+              <p className="text-sm font-extrabold">{b.title}</p>
+              {b.tagline && <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{b.tagline}</p>}
+              {(b.points ?? []).length > 0 && (
+                <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs">
+                  {(b.points ?? []).map((p) => <li key={p}>{p}</li>)}
+                </ul>
+              )}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-zinc-500">{b.price}</span>
+                {b.href && <a href={b.href} className="inline-flex min-h-[36px] items-center rounded-full bg-zinc-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">Explore →</a>}
+              </div>
+            </div>
+          );
+        }
         if (b.kind === "table") return <TableBlock key={i} columns={b.columns} rows={b.rows} title={b.title} />;
         if (b.kind === "links" || b.kind === "buttons") {
           return (
