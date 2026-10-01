@@ -97,6 +97,7 @@ export interface IntakeState {
   mode?: "enquiry" | "support" | "partner";
   meet?: string;
   qcount?: number;
+  tries?: number;
   email?: string;
   phone?: string;
   business?: string;
@@ -396,6 +397,20 @@ export async function runNetwork(opts: {
           saveState(opts.threadId, { stage: "done" });
           return { text: "Welcome back! Since you're already with us, what can I help with today — support, a new service, or billing?", scope: "support", runtime: "none" };
         }
+        // Recognition: known phone/email skips the interrogation entirely.
+        const { extractContact, findKnown, addressAs } = await import("./identity");
+        const found = extractContact(msg);
+        const known = findKnown(found.phone || undefined, found.email || undefined);
+        if (known && (found.phone || found.email)) {
+          saveState(opts.threadId, {
+            stage: "done", name: known.name || "friend",
+            contact: known.phone || known.email, business: known.business || undefined,
+          });
+          return {
+            text: `Welcome back, ${addressAs(known.name || "friend")}! I have you on file${known.business ? ` (${known.business})` : ""} — no need to repeat anything. What can I do for you today: support, prices, or booking?`,
+            scope: "support", runtime: "none",
+          };
+        }
         if (/partner|affiliate|reseller|earn|commission/.test(lower)) {
           saveState(opts.threadId, { stage: "detect", mode: "partner" });
           return {
@@ -439,21 +454,26 @@ export async function runNetwork(opts: {
         };
       }
       if (st.stage === "contact") {
-        const phone = (msg.match(/\+?\d[\d\s-]{7,}\d/) || [])[0] ?? "";
-        const email = (msg.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] ?? "";
-        const name = msg.replace(phone, "").replace(email, "").replace(/[,;]+/g, " ").trim().slice(0, 80);
-        if (!phone && !email) {
+        const { extractContact, findKnown, addressAs } = await import("./identity");
+        const found = extractContact(msg);
+        const tries = (st.tries ?? 0) + 1;
+        if (!found.phone && !found.email && tries < 3) {
+          saveState(opts.threadId, { ...st, tries });
           return { text: "I need at least a phone number or an email to continue — what works for you?", scope, runtime: "none", back: true };
         }
-        const advanced = bumped({ stage: "mode", business: st.business, goals: st.goals, nature: st.nature, name: name || "friend", contact: phone || email, qcount: st.qcount });
+        const rawName = found.rest || "friend";
+        const name = rawName.length >= 2 && /[aeiou]/i.test(rawName) ? rawName : "friend";
+        const known = findKnown(found.phone || undefined, found.email || undefined);
+        const who = addressAs(known?.name || name);
+        const advanced = bumped({ stage: "mode", business: st.business || known?.business, goals: st.goals, nature: st.nature, name: known?.name || name, contact: found.phone || found.email, qcount: st.qcount, tries: 0 });
         if ((advanced.qcount ?? 0) >= 25) {
           saveState(opts.threadId, { ...advanced, stage: "done" });
-          return { text: `We've covered a lot, ${name || "friend"}! Let's continue on a quick call — our team will reach you at ${phone || email} within one business day with researched prices.`, scope, runtime: "none", done: true };
+          return { text: `We've covered a lot, ${who}! Let's continue on a quick call — our team will reach you at ${found.phone || found.email || "your contact"} within one business day with researched prices.`, scope, runtime: "none", done: true };
         }
         saveState(opts.threadId, advanced);
         const q = await glue(opts.userId, PERSONA_FLAVOR.enquiry,
-          `Customer ${name || "friend"} runs ${st.business || "a local business"} and wants ${st.goals?.join(", ") || "growth"}. Ask them to pick a meeting style: Google Meet, Zoom, voice call, or video call.`,
-          `Thanks ${name || "friend"}! Last step — how should we meet for a free 20-minute walkthrough?`);
+          `Customer ${who} runs ${st.business || known?.business || "a local business"} and wants ${st.goals?.join(", ") || "growth"}. Ask them to pick a meeting style: Google Meet, Zoom, voice call, or video call.`,
+          `Thanks ${who}! Last step — how should we meet for a free 20-minute walkthrough?`);
         return { text: q, scope, runtime: "none", back: true, options: MODES };
       }
       if (st.stage === "mode") {
@@ -493,8 +513,9 @@ export async function runNetwork(opts: {
         const joinLine = st.meet === "voice"
           ? `We'll call you sharp on time at ${st.contact}.`
           : `The ${modeLabel} link will be shared on your contact (${st.contact}) an hour before.`;
+        const { addressAs } = await import("./identity");
         return {
-          text: `Locked in, ${st.name || "friend"}! ${modeLabel} on ${slot} (IST), 20 minutes. Before we meet: keep 2–3 examples of customers you love plus your monthly budget range handy. ${joinLine} Anything else I can research meanwhile?`,
+          text: `Locked in, ${addressAs(st.name || "friend")}! ${modeLabel} on ${slot} (IST), 20 minutes. Before we meet: keep 2–3 examples of customers you love plus your monthly budget range handy. ${joinLine} Anything else I can research meanwhile?`,
           scope, runtime: "none", done: true,
         };
       }
