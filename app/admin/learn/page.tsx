@@ -40,7 +40,7 @@ export default async function LearnAdmin() {
               <button className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Delete</button></form>
           </li>
         ))}
-        {rows.length === 0 && <li className="text-zinc-500">No exemplars yet — downvote answers or wait for tonight's run.</li>}
+        {rows.length === 0 && <li className="text-zinc-500">No exemplars yet — downvote answers or wait for the nightly run.</li>}
       </ul>
     </>
   );
