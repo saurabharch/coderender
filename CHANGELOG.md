@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-
+## [0.5.0] - 2026-10-01
+- Guided agent, glass system, KB answers, moderation, memory, automation
 ## [0.5.0] - 2026-10-01
 
 - Guided sales agent: wizard intake, captcha + OTP/PIN identity, appointment booking.
