@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.6.1] - 2026-10-01
+## [0.7.0] - 2026-10-02
+- Calendar views + Gantt, Google sync scaffold, job queue, data tables, UI builder, slider captcha, media library## [0.6.1] - 2026-10-01
 - Kanban boards, threaded comments with auto-hide spam, media library## [0.6.0] - 2026-10-01
 - Identity chat, vector memory, moderation, plugins, AI platform, self-learning
 ## [0.6.0] - 2026-10-01
