@@ -206,7 +206,7 @@ function nextSlots(): WizardOption[] {
 }
 
 const SERVICE_SYNONYMS: [RegExp, string][] = [
-  [/\bgmb\b|maps|rank|reviews?|profile/i, "google-business-profile"],
+  [/\bgmb\b|\bgbp\b|audit|maps|rank|reviews?|profile/i, "google-business-profile"],
   [/\bweb(site)?\b|landing|page speed|redesign/i, "website-development"],
   [/\bseo\b|organic|keywords?|citations?/i, "local-seo"],
   [/content|link building|blog|traffic/i, "seo-marketing"],
@@ -451,12 +451,19 @@ export async function runNetwork(opts: {
             scope: "partner", runtime: "none", verify: "partner",
           };
         }
-        saveState(opts.threadId, { stage: "vertical" });
-        return {
+        // Explicit product/pricing questions skip the wizard and go straight to answers.
+        const direct = /what|how much|how does|cost|price|plan|package|audit|compare|difference|tell me about|explain|detail/i.test(msg)
+          && (findService(msg) || /price|cost|plan|package|audit|compar/i.test(msg));
+        if (direct) {
+          saveState(opts.threadId, { stage: "done" });
+        } else {
+          saveState(opts.threadId, { stage: "vertical" });
+          return {
           text: "Hi there, welcome to CodeRender! First, pick your business type — or just type it:",
           scope, runtime: "none", back: false,
           options: VERTICALS.map((v) => ({ id: v.slug, label: v.label })),
-        };
+          };
+        }
       }
       if (st.stage === "vertical") {
         const hit = VERTICALS.find((v) => v.slug === msg.trim() || v.label.toLowerCase() === lower);
@@ -558,10 +565,53 @@ export async function runNetwork(opts: {
   // ---- researched direct answer: KB first, gateway grounded, human last ----
   const { kbSearch } = await import("./kb");
   const kb = kbSearch(msg);
+  const svcEarly = findService(msg);
+  async function serviceBlocks() {
+    if (isTeam || !svcEarly) return undefined;
+    const { listPackages } = await import("./store");
+    const { GBP_AUDIT, RELATED } = await import("./packages");
+    const pkgs = listPackages(svcEarly.slug);
+    const rel = RELATED[svcEarly.slug];
+    const blocks: NonNullable<AgentReply["blocks"]> = [
+      {
+        kind: "service", title: svcEarly.title, tagline: svcEarly.tagline,
+        points: svcEarly.includes.slice(0, 3), price: `${svcEarly.timeline} · ${svcEarly.priceHint}`,
+        href: `/services/${svcEarly.slug}`,
+      },
+    ];
+    if (pkgs.length > 0) {
+      blocks.push({
+        kind: "table", title: `${svcEarly.title} packages (DRAFT, final quote in writing)`,
+        columns: ["Package", "Price", "Timeline", "Best for"],
+        rows: pkgs.map((p) => [p.name, `₹${p.price.toLocaleString("en-IN")}${p.per === "one-time" ? "" : p.per}`, p.timeline, p.bestFor]),
+      });
+    }
+    if (rel) {
+      blocks.push({
+        kind: "table", title: "What comes with it",
+        columns: ["Area", "Included"],
+        rows: [
+          ["Integrations", rel.integrations.join(", ")],
+          ["Automation", rel.automation.join(", ")],
+          ["Social", rel.social.join(", ")],
+        ],
+      });
+    }
+    const wantsAudit = svcEarly.slug === "google-business-profile" || /audit|rank|review|maps|gbp/i.test(msg);
+    if (wantsAudit) {
+      blocks.push({
+        kind: "table", title: "GBP audit: 12 points we check",
+        columns: ["#", "Area", "What we verify"],
+        rows: GBP_AUDIT.map(([a, b], i) => [String(i + 1), a, b]),
+      });
+    }
+    return blocks;
+  }
   if (kb.length > 0 && kb[0].score >= 0.6 && !isTeam) {
     const prev = loadState(opts.threadId);
     saveState(opts.threadId, { ...prev, fb: 0 });
-    return { text: `${kb[0].entry.a}\n\n— from our ${kb[0].entry.source}`, scope, runtime: "kb", source: "kb" };
+    const svcKb = findService(msg);
+    return { text: `${kb[0].entry.a}\n\n— from our ${kb[0].entry.source}`, scope, runtime: "kb", source: "kb", blocks: svcKb ? await serviceBlocks() : undefined };
   }
   const cmp = /compar|differen|vs\.? |versus|which (is|one)|best (plan|option|pack)/i.test(msg);
   if (cmp && !isTeam) {
@@ -645,16 +695,11 @@ export async function runNetwork(opts: {
   }
   const out: AgentReply = { ...r, scope, source: r.text ? "ai" : undefined };
   if (!isTeam && svc) {
-    out.blocks = [
-      {
-        kind: "service", title: svc.title, tagline: svc.tagline,
-        points: svc.includes.slice(0, 3), price: `${svc.timeline} · ${svc.priceHint}`,
-        href: `/services/${svc.slug}`,
-      },
-    ];
+    out.blocks = await serviceBlocks();
   }
   return out;
 }
+
 
 function askStage(st: IntakeState, scope: Exclude<Scope, "infra">, _userId: number) {
   void _userId;

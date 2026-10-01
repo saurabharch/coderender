@@ -158,6 +158,13 @@ export function getDb(): DatabaseSync {
       id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL UNIQUE,
       p256dh TEXT NOT NULL DEFAULT '', auth TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS ServicePackage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, serviceSlug TEXT NOT NULL,
+      name TEXT NOT NULL, price INTEGER NOT NULL DEFAULT 0, per TEXT NOT NULL DEFAULT 'one-time',
+      timeline TEXT NOT NULL DEFAULT '', includes TEXT NOT NULL DEFAULT '[]',
+      bestFor TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    seedPackages(db);
   }
   return db;
 }
@@ -200,6 +207,64 @@ export function recall(threadId: number, query: string, limit = 3): string[] {
 
 export function uid(bytes = 24): string {
   return randomBytes(bytes).toString("hex");
+}
+
+export interface PackageRow {
+  id: number;
+  serviceSlug: string;
+  name: string;
+  price: number;
+  per: string;
+  timeline: string;
+  includes: string[];
+  bestFor: string;
+}
+
+const SEED_PACKAGES: [string, string, number, string, string, string[], string][] = [
+  ["google-business-profile", "Profile Tune-up Sprint", 4999, "one-time", "1 week",
+    ["Categories, hours, services + photo refresh", "Keyword map for Maps + Search", "Review reply catch-up (last 90 days)"], "rank leaks"],
+  ["google-business-profile", "Maps Dominance Monthly", 11999, "/mo", "ongoing",
+    ["Weekly SEO posts", "Every review answered in 48h", "Monthly rank + calls report"], "staying #1"],
+  ["website-development", "Launch Site", 29999, "one-time", "3–4 weeks",
+    ["Mobile-first custom design", "Call/WhatsApp CTAs every screen", "Local SEO basics + speed"], "new presence"],
+  ["website-development", "Scale Site", 49999, "one-time", "5–6 weeks",
+    ["Everything in Launch", "Blog + service templates", "Analytics + quarterly tune"], "growing brands"],
+  ["local-seo", "Local Cleanup", 9999, "one-time", "month 1",
+    ["NAP + citation cleanup", "Hyper-local keyword map", "Directory submissions"], "inconsistent listings"],
+  ["local-seo", "Local Rank Retainer", 11999, "/mo", "ongoing",
+    ["Monthly citations + links", "Quarterly content refresh", "Rank tracking"], "compounding rank"],
+  ["seo-marketing", "Content Engine", 14999, "/mo", "ongoing",
+    ["4 answer-first articles/mo", "Technical audit + fixes", "Traffic + leads dashboard"], "organic growth"],
+  ["seo-marketing", "Authority", 24999, "/mo", "ongoing",
+    ["8 articles/mo", "Outreach link-building", "Quarterly strategy"], "competitive niches"],
+  ["lead-generation", "Funnel Sprint", 19999, "one-time", "2–3 weeks",
+    ["Offer + landing page", "WhatsApp-first capture", "CRM handoff"], "first pipeline"],
+  ["lead-generation", "Managed Pipeline", 19999, "/mo + spend", "ongoing",
+    ["Meta + Google management", "Weekly creative refresh", "Honest cost-per-lead reporting"], "steady flow"],
+  ["chat-automation", "WhatsApp Flows", 14999, "one-time", "2 weeks",
+    ["Business API setup + templates", "Flows trained on your tone", "Lead qualification"], "instant replies"],
+  ["chat-automation", "Always-on Care", 7999, "/mo", "ongoing",
+    ["Monthly flow training", "Broadcasts to past buyers", "Fallback to human"], "never missing out"],
+];
+
+function seedPackages(db: DatabaseSync) {
+  try {
+    const n = (db.prepare("SELECT COUNT(*) c FROM ServicePackage").get() as { c: number }).c;
+    if (n > 0) return;
+    for (const [slug, name, price, per, timeline, includes, bestFor] of SEED_PACKAGES) {
+      db.prepare("INSERT INTO ServicePackage (serviceSlug, name, price, per, timeline, includes, bestFor) VALUES (?,?,?,?,?,?,?)")
+        .run(slug, name, price as number, per, timeline, JSON.stringify(includes), bestFor);
+    }
+  } catch { /* seeding never breaks boot */ }
+}
+
+export function listPackages(serviceSlug: string): PackageRow[] {
+  return getDb().prepare("SELECT * FROM ServicePackage WHERE serviceSlug=? AND active=1 ORDER BY price").all(serviceSlug).map((r) => {
+    const row = r as Omit<PackageRow, "includes"> & { includes: string };
+    let includes: string[] = [];
+    try { includes = JSON.parse(row.includes); } catch { /* keep empty */ }
+    return { ...row, includes };
+  });
 }
 
 export function newLicenseKey(): string {
