@@ -91,11 +91,22 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS FormDef (
       id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL,
       fields TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1,
+      schema TEXT NOT NULL DEFAULT '', successMessage TEXT NOT NULL DEFAULT '',
+      redirectUrl TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'active',
+      createdBy TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    try { db.exec("ALTER TABLE FormDef ADD COLUMN schema TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE FormDef ADD COLUMN successMessage TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE FormDef ADD COLUMN redirectUrl TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE FormDef ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE FormDef ADD COLUMN createdBy TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     db.exec(`CREATE TABLE IF NOT EXISTS Submission (
       id INTEGER PRIMARY KEY AUTOINCREMENT, formId INTEGER NOT NULL, data TEXT NOT NULL DEFAULT '{}',
+      ipAddress TEXT NOT NULL DEFAULT '', userAgent TEXT NOT NULL DEFAULT '', submittedBy TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS ContentBlock (
+    try { db.exec("ALTER TABLE Submission ADD COLUMN ipAddress TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Submission ADD COLUMN userAgent TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Submission ADD COLUMN submittedBy TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }    db.exec(`CREATE TABLE IF NOT EXISTS ContentBlock (
       key TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '',
       body TEXT NOT NULL DEFAULT '', published INTEGER NOT NULL DEFAULT 1)`);
     db.exec(`CREATE TABLE IF NOT EXISTS ChatThread (

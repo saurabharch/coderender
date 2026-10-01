@@ -1,47 +1,42 @@
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { getDb } from "@/lib/store";
+import { deleteForm, listForms } from "@/lib/forms";
 import { requireTeam } from "@/lib/auth";
 
-async function save(form: FormData) {
+async function remove(id: number) {
   "use server";
   await requireTeam();
-  const slug = String(form.get("slug") || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
-  const title = String(form.get("title") || "").slice(0, 120);
-  if (!slug || !title) return;
-  try {
-    const fields = JSON.parse(String(form.get("fields") || "[]"));
-    if (!Array.isArray(fields)) return;
-    getDb().prepare("INSERT INTO FormDef (slug, title, fields) VALUES (?,?,?) ON CONFLICT(slug) DO UPDATE SET title=excluded.title, fields=excluded.fields")
-      .run(slug, title, JSON.stringify(fields));
-  } catch { /* bad json ignored */ }
+  await deleteForm(id);
   revalidatePath("/admin/forms");
 }
 
 export default async function FormsAdmin() {
-  const forms = getDb().prepare("SELECT * FROM FormDef ORDER BY id DESC").all() as
-    { id: number; slug: string; title: string; fields: string; active: number }[];
-  const subs = getDb().prepare(
-    "SELECT s.id, s.data, s.createdAt, f.title FROM Submission s JOIN FormDef f ON f.id=s.formId ORDER BY s.id DESC LIMIT 30").all() as
-    { id: number; data: string; createdAt: string; title: string }[];
+  const forms = listForms({ limit: 100 });
   return (
     <>
-      <h1 className="text-2xl font-extrabold">Form Builder</h1>
-      <form action={save} className="mt-4 grid max-w-2xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
-        <div className="grid gap-2 md:grid-cols-2">
-          <input name="title" required placeholder="Form title" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input name="slug" required placeholder="slug" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-        </div>
-        <textarea name="fields" rows={4} defaultValue='[{"name":"name","label":"Name","type":"text","required":true},{"name":"phone","label":"Phone","type":"tel","required":true}]'
-          className="rounded-xl border border-black/15 bg-transparent px-3 py-2 font-mono text-xs dark:border-white/20" />
-        <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save form</button>
-      </form>
-      <h2 className="mt-6 font-bold">Forms</h2>
-      <ul className="mt-2 space-y-1 text-sm">
-        {forms.map((f) => <li key={f.id}><a className="underline" href={`/f/${f.slug}`}>{f.title}</a> · /f/{f.slug}</li>)}
-      </ul>
-      <h2 className="mt-6 font-bold">Latest submissions</h2>
-      <ul className="mt-2 space-y-1 font-mono text-xs">
-        {subs.map((s) => <li key={s.id} className="rounded-xl border border-black/10 p-2 dark:border-white/10">{s.title} · {s.createdAt.slice(0, 16).replace("T", " ")} · {s.data.slice(0, 160)}</li>)}
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-extrabold">Form Builder</h1>
+        <Link href="/admin/forms/new" className="ml-auto min-h-[44px] rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white">+ New form</Link>
+      </div>
+      <p className="mt-1 text-sm text-zinc-500">Design forms visually, publish at <code>/f/[slug]</code>, review validated submissions.</p>
+      <ul className="mt-4 space-y-2">
+        {forms.map((f) => (
+          <li key={f.id} className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 p-3 text-sm dark:border-white/10">
+            <div className="min-w-0">
+              <b>{f.title}</b>
+              <p className="truncate font-mono text-xs text-zinc-500">/f/{f.slug} · {f.status} · {f.fields.length} fields · {f.submissions} submissions</p>
+            </div>
+            <div className="ml-auto flex flex-wrap gap-1">
+              <Link href={`/f/${f.slug}`} className="min-h-[44px] rounded-xl border border-black/15 px-3 py-2.5 text-xs font-semibold dark:border-white/20">View</Link>
+              <Link href={`/admin/forms/${f.id}/edit`} className="min-h-[44px] rounded-xl border border-black/15 px-3 py-2.5 text-xs font-semibold dark:border-white/20">Edit</Link>
+              <Link href={`/admin/forms/${f.id}/submissions`} className="min-h-[44px] rounded-xl border border-black/15 px-3 py-2.5 text-xs font-semibold dark:border-white/20">Submissions</Link>
+              <form action={remove.bind(null, f.id)}>
+                <button className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Delete</button>
+              </form>
+            </div>
+          </li>
+        ))}
+        {forms.length === 0 && <li className="text-sm text-zinc-500">No forms yet — create the first above.</li>}
       </ul>
     </>
   );

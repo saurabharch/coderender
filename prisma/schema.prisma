@@ -152,3 +152,27 @@ model CmsItem {
   published Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+model FormDef {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
+  title          String
+  fields         String   @default("[]")
+  active         Boolean  @default(true)
+  schema         String   @default("")
+  successMessage String   @default("")
+  redirectUrl    String   @default("")
+  status         String   @default("active")
+  createdBy      String   @default("")
+  createdAt      DateTime @default(now())
+}
+
+model Submission {
+  id          Int      @id @default(autoincrement())
+  formId      Int
+  data        String   @default("{}")
+  ipAddress   String   @default("")
+  userAgent   String   @default("")
+  submittedBy String   @default("")
+  createdAt   DateTime @default(now())
+}
