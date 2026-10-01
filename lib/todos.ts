@@ -6,10 +6,10 @@ export interface Todo {
 }
 
 // ---- per-task checklist (kanban-todo threads attach to these ids) ----
-export interface ChecklistItem { id: number; label: string; done: number; ord: number }
+export interface ChecklistItem { id: number; label: string; done: number; ord: number; note: string }
 
 export function listChecklist(taskId: number): ChecklistItem[] {
-  return getDb().prepare("SELECT id, label, done, ord FROM KanbanTodo WHERE taskId=? ORDER BY ord, id").all(taskId) as unknown as ChecklistItem[];
+  return getDb().prepare("SELECT id, label, done, ord, note FROM KanbanTodo WHERE taskId=? ORDER BY ord, id").all(taskId) as unknown as ChecklistItem[];
 }
 
 export function addChecklist(taskId: number, label: string): number {
@@ -22,6 +22,16 @@ export function addChecklist(taskId: number, label: string): number {
 
 export function toggleChecklist(id: number, done: boolean): void {
   getDb().prepare("UPDATE KanbanTodo SET done=? WHERE id=?").run(done ? 1 : 0, id);
+}
+
+export function editChecklist(id: number, input: { label?: string; note?: string }): void {
+  const cur = getDb().prepare("SELECT label, note FROM KanbanTodo WHERE id=?").get(id) as
+    { label: string; note: string } | undefined;
+  if (!cur) throw new Error("not found");
+  getDb().prepare("UPDATE KanbanTodo SET label=?, note=? WHERE id=?").run(
+    input.label !== undefined ? String(input.label).slice(0, 160) : cur.label,
+    input.note !== undefined ? String(input.note).slice(0, 1000) : cur.note,
+    id);
 }
 
 export function deleteChecklist(id: number): void {

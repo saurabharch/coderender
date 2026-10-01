@@ -19,7 +19,8 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
       {board.description && <p className="mt-1 text-sm text-zinc-500">{board.description}</p>}
       <div className="mt-4"><KanbanBoard initial={board} forms={forms} /></div>
       <h2 className="mt-8 text-xl font-extrabold">Plans</h2>
-      <BoardViews tasks={board.tasks} boardId={board.id} designations={designations} />
+      <BoardViews boardId={board.id} initialTasks={board.tasks}
+        columns={board.columns.map((c) => ({ id: c.id, name: c.name }))} designations={designations} />
     </>
   );
 }

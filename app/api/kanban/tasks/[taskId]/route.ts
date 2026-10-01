@@ -10,8 +10,9 @@ const schema = z.object({
   assigneeEmail: z.string().max(120).optional(),
   archived: z.boolean().optional(),
   attachments: z.array(z.string().max(500)).max(10).optional(),
-  startAt: z.string().max(10).optional(),
-  dueAt: z.string().max(10).optional(),
+  startAt: z.string().max(16).optional(),
+  dueAt: z.string().max(16).optional(),
+  submissionId: z.number().int().nullable().optional(),
 });
 
 export async function PUT(req: Request, { params }: { params: Promise<{ taskId: string }> }) {

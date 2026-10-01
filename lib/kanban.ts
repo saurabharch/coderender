@@ -65,9 +65,15 @@ function parseAttachments(raw: unknown): string[] {
   return raw.map((u) => String(u).slice(0, 500)).filter((u) => /^(\/|https?:\/\/)/.test(u)).slice(0, 5);
 }
 
-function dayStr(v: unknown): string {
-  const s = String(v ?? "").slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+export function dayStr(v: unknown): string {
+  const s = String(v ?? "").slice(0, 16);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  return "";
+}
+
+export function dayPart(v: unknown): string {
+  return String(v ?? "").slice(0, 10);
 }
 
 export interface BoardDetail {
@@ -199,7 +205,7 @@ export async function createTask(boardId: number, input: {
 
 export async function updateTask(taskId: number, input: {
   title?: string; body?: string; priority?: string; assigneeEmail?: string; archived?: boolean;
-  attachments?: unknown; startAt?: string; dueAt?: string;
+  attachments?: unknown; startAt?: string; dueAt?: string; submissionId?: number | null;
 }): Promise<void> {
   const d = getDb();
   const cur = d.prepare("SELECT * FROM KanbanTask WHERE id=?").get(taskId) as (BoardTask & { attachments: string }) | undefined;
@@ -212,14 +218,16 @@ export async function updateTask(taskId: number, input: {
   let attachments: string[] = [];
   try { attachments = JSON.parse(String(cur.attachments ?? "[]")); } catch { /* keep empty */ }
   if (!Array.isArray(attachments)) attachments = [];
-  d.prepare("UPDATE KanbanTask SET title=?, body=?, priority=?, assigneeEmail=?, archived=?, attachments=?, startAt=?, dueAt=? WHERE id=?").run(
+  d.prepare("UPDATE KanbanTask SET title=?, body=?, priority=?, assigneeEmail=?, archived=?, attachments=?, startAt=?, dueAt=?, submissionId=? WHERE id=?").run(
     input.title !== undefined ? String(input.title).slice(0, 160) : cur.title,
     input.body !== undefined ? String(input.body).slice(0, 4000) : cur.body,
     priority,
     input.assigneeEmail !== undefined ? String(input.assigneeEmail).slice(0, 120) : cur.assigneeEmail,
     input.archived !== undefined ? (input.archived ? 1 : 0) : cur.archived,
     input.attachments !== undefined ? JSON.stringify(parseAttachments(input.attachments)) : JSON.stringify(attachments),
-    startAt, dueAt, taskId);
+    startAt, dueAt,
+    input.submissionId !== undefined ? input.submissionId : cur.submissionId,
+    taskId);
   track("kanban", cur.boardId, { op: "task.update", id: taskId });
 }
 
@@ -259,7 +267,32 @@ export async function deleteTask(taskId: number): Promise<void> {
   if (cur) track("kanban", cur.boardId, { op: "task.delete", id: taskId });
 }
 
-// ---- assignee resolvers over team AppUsers ----
+// ---- board members (team invites for boards + todos) ----
+export interface BoardMember { email: string; role: string; designation: string }
+
+export function listMembers(boardId: number): BoardMember[] {
+  const rows = getDb().prepare(
+    `SELECT m.email, m.role, COALESCE(u.designation,'') designation FROM BoardMember m
+     LEFT JOIN AppUser u ON u.email=m.email WHERE m.boardId=? ORDER BY m.email`).all(boardId) as unknown as BoardMember[];
+  return rows;
+}
+
+export async function inviteMember(boardId: number, email: string, role?: string): Promise<void> {
+  if (!getBoard(boardId)) throw new Error("not found");
+  const e = String(email).trim().toLowerCase().slice(0, 120);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error("bad email");
+  const r = role === "lead" ? "lead" : "member";
+  getDb().prepare("INSERT INTO BoardMember (boardId, email, role) VALUES (?,?,?) ON CONFLICT(boardId, email) DO UPDATE SET role=excluded.role")
+    .run(boardId, e, r);
+  try {
+    getDb().prepare("INSERT INTO Notification (title, body, audience) VALUES (?,?,?)").run(
+      `Board invite: ${e}`, `added to board #${boardId} as ${r}`, "team");
+  } catch { /* ignore */ }
+}
+
+export async function removeMember(boardId: number, email: string): Promise<void> {
+  getDb().prepare("DELETE FROM BoardMember WHERE boardId=? AND email=?").run(boardId, String(email).toLowerCase());
+}
 
 export interface KanbanUser { id: string; name: string; email: string; designation?: string }
 

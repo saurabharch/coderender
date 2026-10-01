@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { addChecklist, deleteChecklist, listChecklist, toggleChecklist } from "@/lib/todos";
+import { addChecklist, deleteChecklist, editChecklist, listChecklist, toggleChecklist } from "@/lib/todos";
 import { sessionUser } from "@/lib/auth";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ taskId: string }> }) {
@@ -27,10 +27,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ taskId:
 export async function PUT(req: Request) {
   const user = await sessionUser();
   if (!user) return NextResponse.json({ error: "login required" }, { status: 401 });
-  const parsed = z.object({ id: z.number().int(), done: z.boolean() }).safeParse(await req.json().catch(() => null));
+  const parsed = z.object({
+    id: z.number().int(), done: z.boolean().optional(),
+    label: z.string().min(1).max(160).optional(), note: z.string().max(1000).optional(),
+  }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad toggle" }, { status: 422 });
-  toggleChecklist(parsed.data.id, parsed.data.done);
-  return NextResponse.json({ ok: true });
+  const d = parsed.data;
+  try {
+    if (d.label !== undefined || d.note !== undefined) editChecklist(d.id, { label: d.label, note: d.note });
+    else if (d.done !== undefined) toggleChecklist(d.id, d.done);
+    else return NextResponse.json({ error: "nothing to change" }, { status: 422 });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 }
 
 export async function DELETE(req: Request) {

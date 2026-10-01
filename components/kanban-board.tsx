@@ -23,10 +23,55 @@ function initials(email: string): string {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
 }
 
+function toLocal(v: string | undefined): string {
+  const s = String(v ?? "");
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T09:00`;
+  return "";
+}
+
+function BoardMembers({ boardId }: { boardId: number }) {
+  const [members, setMembers] = useState<{ email: string; role: string; designation: string }[]>([]);
+  const [email, setEmail] = useState("");
+
+  async function load() {
+    const d = await api(`/api/kanban/boards/${boardId}/members`).catch(() => null);
+    if (d?.members) setMembers(d.members);
+  }
+
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs">
+      <b>Team ({members.length}):</b>
+      {members.map((m) => (
+        <span key={m.email} title={`${m.email}${m.designation ? ` · ${m.designation}` : ""} · ${m.role}`}
+          className="flex items-center gap-1 rounded-full bg-black/10 py-1 pl-1 pr-2 dark:bg-white/15">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">{initials(m.email)}</span>
+          {m.email.split("@")[0]}{m.designation ? ` · ${m.designation}` : ""}
+          <button aria-label={`Remove ${m.email}`} onClick={async () => {
+            await api(`/api/kanban/boards/${boardId}/members?email=${encodeURIComponent(m.email)}`, { method: "DELETE" }).catch(() => {});
+            void load();
+          }} className="opacity-60 hover:opacity-100">✕</button>
+        </span>
+      ))}
+      <span className="flex gap-1">
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Invite by email…" maxLength={120}
+          onKeyDown={(e) => { if (e.key === "Enter" && email.trim()) { void api(`/api/kanban/boards/${boardId}/members`, { method: "POST", body: JSON.stringify({ email: email.trim() }) }).then(() => { setEmail(""); void load(); }); } }}
+          className="min-h-[44px] w-44 rounded-xl border border-dashed border-black/20 bg-transparent px-3 dark:border-white/20" />
+      </span>
+    </div>
+  );
+}
+
 function TaskExtras({ taskId }: { taskId: number }) {
-  const [items, setItems] = useState<{ id: number; label: string; done: number }[]>([]);
+  const [items, setItems] = useState<{ id: number; label: string; done: number; note: string }[]>([]);
   const [label, setLabel] = useState("");
   const [openDiscuss, setOpenDiscuss] = useState<number | null>(null);
+  const [editNote, setEditNote] = useState<number | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [renameId, setRenameId] = useState<number | null>(null);
+  const [renameText, setRenameText] = useState("");
 
   async function load() {
     const d = await api(`/api/kanban/tasks/${taskId}/checklist`).catch(() => null);
@@ -35,6 +80,11 @@ function TaskExtras({ taskId }: { taskId: number }) {
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const done = items.filter((i) => i.done).length;
+
+  async function put(id: number, body: Record<string, unknown>) {
+    await api("/api/kanban/tasks/checklist", { method: "PUT", body: JSON.stringify({ id, ...body }) });
+    void load();
+  }
 
   return (
     <div className="grid gap-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">
@@ -49,18 +99,42 @@ function TaskExtras({ taskId }: { taskId: number }) {
           <li key={it.id}>
             <div className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={!!it.done} aria-label={it.label}
-                onChange={async (e) => {
-                  await api("/api/kanban/tasks/checklist", { method: "PUT", body: JSON.stringify({ id: it.id, done: e.target.checked }) });
-                  void load();
-                }} className="h-5 w-5" />
-              <span className={it.done ? "line-through opacity-60" : ""}>{it.label}</span>
+                onChange={(e) => { void put(it.id, { done: e.target.checked }); }} className="h-5 w-5" />
+              {renameId === it.id ? (
+                <input value={renameText} autoFocus maxLength={160}
+                  onChange={(e) => setRenameText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && renameText.trim()) { setRenameId(null); void put(it.id, { label: renameText.trim() }); }
+                    if (e.key === "Escape") setRenameId(null);
+                  }}
+                  onBlur={() => setRenameId(null)}
+                  className="min-h-[36px] min-w-0 flex-1 rounded-lg border border-black/15 bg-transparent px-2 dark:border-white/20" />
+              ) : (
+                <button onDoubleClick={() => { setRenameId(it.id); setRenameText(it.label); }} title="Double-click to rename"
+                  className={`min-h-[36px] flex-1 truncate text-left ${it.done ? "line-through opacity-60" : ""}`}>{it.label}</button>
+              )}
+              <button onClick={() => {
+                if (editNote === it.id) setEditNote(null);
+                else { setEditNote(it.id); setNoteText(it.note ?? ""); }
+              }} aria-label="Sub-note" title={it.note ? it.note.slice(0, 120) : "Add a sub-note"}
+                className={`min-h-[36px] rounded-lg border px-2 text-xs ${it.note ? "border-brand font-bold" : "border-black/10 opacity-60 dark:border-white/15"}`}>📝</button>
               <button onClick={() => setOpenDiscuss((o) => (o === it.id ? null : it.id))}
-                className="ml-auto min-h-[36px] rounded-lg border border-black/10 px-2 text-xs dark:border-white/15">💬</button>
+                className="min-h-[36px] rounded-lg border border-black/10 px-2 text-xs dark:border-white/15">💬</button>
               <button aria-label="Remove item" onClick={async () => {
                 await api(`/api/kanban/tasks/checklist?id=${it.id}`, { method: "DELETE" });
                 void load();
               }} className="min-h-[36px] px-1.5 text-xs opacity-60 hover:opacity-100">✕</button>
             </div>
+            {editNote === it.id && (
+              <div className="mb-1 ml-7 mt-1 flex gap-1">
+                <input value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Sub-note…" maxLength={1000}
+                  onKeyDown={(e) => { if (e.key === "Enter") { setEditNote(null); void put(it.id, { note: noteText }); } }}
+                  className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                <button onClick={() => { setEditNote(null); void put(it.id, { note: noteText }); }}
+                  className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white">Save</button>
+              </div>
+            )}
+            {editNote !== it.id && it.note ? <p className="mb-1 ml-7 text-xs text-zinc-500">📝 {it.note}</p> : null}
             {openDiscuss === it.id && (
               <div className="mb-1 ml-7 mt-1">
                 <CommentThread resourceType="kanban-todo" resourceId={String(it.id)} compact />
@@ -82,6 +156,28 @@ function TaskExtras({ taskId }: { taskId: number }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function SubmissionPicker({ formId, value, onPick }: {
+  formId: number | null; value: number | null; onPick: (id: number | null) => void;
+}) {
+  const [subs, setSubs] = useState<{ id: number; submittedAt: string }[]>([]);
+  useEffect(() => {
+    if (!formId) return;
+    fetch(`/api/forms/${formId}/submissions?limit=20`).then((r) => r.json()).then((d) => {
+      if (Array.isArray(d?.submissions)) setSubs(d.submissions);
+    }).catch(() => {});
+  }, [formId]);
+  if (!formId) return null;
+  return (
+    <label className="grid gap-1 text-sm">Linked form entry
+      <select value={value ?? ""} onChange={(e) => onPick(e.target.value ? Number(e.target.value) : null)}
+        className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
+        <option value="">— none —</option>
+        {subs.map((s) => <option key={s.id} value={s.id}>#{s.id} · {String(s.submittedAt).slice(0, 16).replace("T", " ")}</option>)}
+      </select>
+    </label>
   );
 }
 
@@ -141,6 +237,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
           assigneeEmail: editing.assigneeEmail, archived: !!editing.archived,
           attachments: editing.attachments ?? [],
           startAt: editing.startAt ?? "", dueAt: editing.dueAt ?? "",
+          submissionId: editing.submissionId ?? null,
         }),
       });
       setEditing(null);
@@ -155,6 +252,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
   return (
     <div>
       {notice && <p role="alert" className="mb-2 rounded-xl bg-red-500/10 p-2 text-sm text-red-700">{notice}</p>}
+      <BoardMembers boardId={initial.id} />
 
       {stats && (
         <section aria-label="Board analytics" className="grid gap-2 rounded-2xl border border-black/10 p-3 text-xs dark:border-white/10 md:grid-cols-4">
@@ -255,6 +353,10 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
                       <p className="min-w-0 flex-1 font-semibold leading-snug">{t.title}</p>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${priorityBadge(t.priority)}`}>{t.priority}</span>
                     </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-bold text-brand-deep">{c.name}</span>
+                      {t.dueAt && <span className="text-[11px] text-zinc-500">📅 {t.dueAt.slice(0, 10)}{t.dueAt.length > 10 ? ` ${t.dueAt.slice(11)}` : ""}</span>}
+                    </div>
                     {t.body && <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{t.body}</p>}
                     <div className="mt-2 flex items-center gap-2">
                       {t.assigneeEmail ? (
@@ -289,12 +391,17 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
                 className="rounded-xl border border-black/15 bg-transparent px-3 py-2 dark:border-white/20" /></label>
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1 text-sm">Start
-                <input type="date" value={editing.startAt ?? ""} onChange={(e) => setEditing({ ...editing, startAt: e.target.value })}
+                <input type="datetime-local" value={toLocal(editing.startAt)} onChange={(e) => setEditing({ ...editing, startAt: e.target.value })}
                   className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
               <label className="grid gap-1 text-sm">Due
-                <input type="date" value={editing.dueAt ?? ""} onChange={(e) => setEditing({ ...editing, dueAt: e.target.value })}
+                <input type="datetime-local" value={toLocal(editing.dueAt)} onChange={(e) => setEditing({ ...editing, dueAt: e.target.value })}
                   className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
             </div>
+            <SubmissionPicker
+              formId={board.formId}
+              value={editing.submissionId}
+              onPick={(id) => setEditing({ ...editing, submissionId: id })}
+            />
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1 text-sm">Priority
                 <select value={editing.priority} onChange={(e) => setEditing({ ...editing, priority: e.target.value })}

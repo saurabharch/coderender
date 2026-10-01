@@ -70,6 +70,23 @@ export function barSpan(startAt: string, dueAt: string, from: string, to: string
   };
 }
 
+// Parse booked slot text ("Fri, Oct 3 · 4:00 PM", IST) to a day key.
+// Year is inferred: nearest future date, else current year.
+export function parseSlotDay(slot: string): string | null {
+  const m = /(\w{3}),?\s+(\w{3})\s+(\d{1,2})/.exec(String(slot ?? ""));
+  if (!m) return null;
+  const months: Record<string, number> = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  };
+  const mi = months[m[2].slice(0, 3).toLowerCase()];
+  if (mi === undefined) return null;
+  const now = new Date();
+  let d = new Date(now.getFullYear(), mi, Number(m[3]));
+  if (d.getTime() < now.getTime() - 864e5) d = new Date(now.getFullYear() + 1, mi, Number(m[3]));
+  return dayKey(d);
+}
+
 // Unique sync identity: one key per task per day — idempotent across retries.
 export function syncKey(taskId: number, day: string): string {
   return `cr-task-${taskId}-${day}`;

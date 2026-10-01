@@ -243,6 +243,7 @@ model KanbanTodo {
   taskId Int
   label  String
   done   Boolean @default(false)
+  note   String  @default("")
   ord    Int     @default(0)
 }
 
@@ -328,4 +329,13 @@ model Job {
   runAfter DateTime @default(now())
   error    String   @default("")
   createdAt DateTime @default(now())
+}
+
+model BoardMember {
+  id        Int      @id @default(autoincrement())
+  boardId   Int
+  email     String
+  role      String   @default("member")
+  createdAt DateTime @default(now())
+  @@unique([boardId, email])
 }

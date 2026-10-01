@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, barSpan, groupByDay, monthGrid, syncKey, taskDay } from "@/lib/calendar-core";
+import { addDays, barSpan, groupByDay, monthGrid, parseSlotDay, syncKey, taskDay } from "@/lib/calendar-core";
 
 describe("calendar-core", () => {
   it("builds a Monday-first 42-cell month grid", () => {
@@ -28,5 +28,10 @@ describe("calendar-core", () => {
 
   it("keys syncs per task per day", () => {
     expect(syncKey(7, "2026-10-05")).toBe("cr-task-7-2026-10-05");
+  });
+
+  it("parses slot text to day keys", () => {
+    expect(parseSlotDay("Fri, Oct 3 · 4:00 PM")).toMatch(/^202\d-10-03$/);
+    expect(parseSlotDay("nonsense")).toBeNull();
   });
 });

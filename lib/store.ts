@@ -97,7 +97,12 @@ export function getDb(): DatabaseSync {
       commentId INTEGER NOT NULL, key TEXT NOT NULL, UNIQUE(commentId, key))`);
     db.exec(`CREATE TABLE IF NOT EXISTS KanbanTodo (
       id INTEGER PRIMARY KEY AUTOINCREMENT, taskId INTEGER NOT NULL,
-      label TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, ord INTEGER NOT NULL DEFAULT 0)`);
+      label TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, ord INTEGER NOT NULL DEFAULT 0,
+      note TEXT NOT NULL DEFAULT '')`);
+    try { db.exec("ALTER TABLE KanbanTodo ADD COLUMN note TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS BoardMember (
+      boardId INTEGER NOT NULL, email TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(boardId, email))`);
     db.exec(`CREATE TABLE IF NOT EXISTS TeamTodo (
       id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'open', assigneeEmail TEXT NOT NULL DEFAULT '',
