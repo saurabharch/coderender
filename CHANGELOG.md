@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-01
+
+- Verified-identity chat: entry modes, OTP + gate PIN, account snapshots, booking.
+- Vector memory, service recognition cards, anti-loop recognition, honorifics.
+- Moderation dataset, geo abuse console, push notifications, rich chat blocks.
+- Platform plugins: blog, kanban, forms, CMS, media, AI chat, OpenAPI docs.
+- Inngest capabilities, secure local AI gateway, agent network, self-distillation.
+- Ship automation: CI, releases, gated deploy with rollback.
+
 ## [0.5.0] - 2026-10-01
 
 - Guided sales agent: wizard intake, captcha + OTP/PIN identity, appointment booking.
