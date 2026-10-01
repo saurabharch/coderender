@@ -44,7 +44,7 @@ export function SliderWidget({ onPass, onSolve, challengeUrl }: {
     return (
       <span className="grid gap-2">
         <button type="button" onClick={() => void load()}
-          className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Verify you're human →</button>
+          className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Verify you are human →</button>
         {error && <span className="text-xs text-red-600">{error}</span>}
       </span>
     );
