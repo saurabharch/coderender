@@ -143,3 +143,12 @@ model Eval {
   rubric    String   @default("")
   createdAt DateTime @default(now())
 }
+
+model CmsItem {
+  id        Int      @id @default(autoincrement())
+  type      String
+  slug      String
+  data      String   @default("{}")
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

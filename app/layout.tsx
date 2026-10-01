@@ -9,6 +9,7 @@ import { ChatWidget } from "@/components/chat-widget";
 import { ServiceWorker } from "@/components/service-worker";
 import { JsonLd } from "@/components/json-ld";
 import { getDb } from "@/lib/store";
+import { activeAnnouncement } from "@/lib/cms";
 import { display, body } from "@/lib/fonts";
 import "./globals.css";
 
@@ -30,9 +31,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   let announcement = "";
   try {
-    const b = getDb().prepare("SELECT body FROM ContentBlock WHERE key='announcement' AND published=1").get() as
-      { body: string } | undefined;
-    announcement = b?.body ?? "";
+    const hit = activeAnnouncement();
+    if (hit?.text) {
+      announcement = hit.text;
+    } else {
+      const b = getDb().prepare("SELECT body FROM ContentBlock WHERE key='announcement' AND published=1").get() as
+        { body: string } | undefined;
+      announcement = b?.body ?? "";
+    }
   } catch { /* first boot before tables exist */ }
   return (
     <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable}`}>

@@ -175,6 +175,10 @@ export function getDb(): DatabaseSync {
       ord INTEGER NOT NULL DEFAULT 0, type TEXT NOT NULL DEFAULT 'text',
       title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS CmsItem (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL,
+      slug TEXT NOT NULL, data TEXT NOT NULL DEFAULT '{}', published INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;
 }
