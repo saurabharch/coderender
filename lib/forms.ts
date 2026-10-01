@@ -12,6 +12,7 @@ export interface FormRecord {
   status: "active" | "inactive" | "archived";
   active: number;
   createdBy: string;
+  captcha: "off" | "default" | "slider";
 }
 
 export interface SubmissionMeta {
@@ -46,6 +47,7 @@ export function slugify(s: string): string {
 interface FormRow {
   id: number; slug: string; title: string; fields: string; active: number;
   schema: string; successMessage: string; redirectUrl: string; status: string; createdBy: string;
+  captcha: string;
 }
 
 function toRecord(r: FormRow): FormRecord {
@@ -59,6 +61,7 @@ function toRecord(r: FormRow): FormRecord {
     successMessage: r.successMessage ?? "", redirectUrl: r.redirectUrl ?? "",
     status: (r.status === "inactive" || r.status === "archived" ? r.status : "active"),
     active: r.active ?? 1, createdBy: r.createdBy ?? "",
+    captcha: r.captcha === "default" || r.captcha === "slider" ? r.captcha : "off",
   };
 }
 
@@ -87,6 +90,7 @@ export function getActiveFormBySlug(slug: string): FormRecord | null {
 export async function createForm(input: {
   title: string; slug: string; fields: unknown; schema?: unknown;
   successMessage?: string; redirectUrl?: string; status?: string; createdBy?: string;
+  captcha?: string;
 }): Promise<number> {
   const title = String(input.title ?? "").slice(0, 120);
   const slug = slugify(String(input.slug ?? ""));
@@ -94,16 +98,18 @@ export async function createForm(input: {
   if (!title || !slug || fields.length === 0) throw new Error("title, slug and at least one field required");
   await hooks.onBeforeCreateForm?.({ title, slug });
   const status = input.status === "inactive" || input.status === "archived" ? input.status : "active";
+  const captcha = input.captcha === "default" || input.captcha === "slider" ? input.captcha : "off";
   const schemaStr = input.schema && typeof input.schema === "object"
     ? JSON.stringify(input.schema).slice(0, 50000) : "";
   const r = getDb().prepare(
-    `INSERT INTO FormDef (slug, title, fields, active, schema, successMessage, redirectUrl, status, createdBy)
-     VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET
+    `INSERT INTO FormDef (slug, title, fields, active, schema, successMessage, redirectUrl, status, createdBy, captcha)
+     VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET
      title=excluded.title, fields=excluded.fields, schema=excluded.schema,
-     successMessage=excluded.successMessage, redirectUrl=excluded.redirectUrl, status=excluded.status`
+     successMessage=excluded.successMessage, redirectUrl=excluded.redirectUrl, status=excluded.status,
+     captcha=excluded.captcha`
   ).run(slug, title, JSON.stringify(fields), status === "active" ? 1 : 0, schemaStr,
     String(input.successMessage ?? "").slice(0, 500), String(input.redirectUrl ?? "").slice(0, 300),
-    status, String(input.createdBy ?? "").slice(0, 120));
+    status, String(input.createdBy ?? "").slice(0, 120), captcha);
   const row = getDb().prepare("SELECT id FROM FormDef WHERE slug=?").get(slug) as { id: number };
   void r;
   await hooks.onAfterCreateForm?.({ id: row.id, slug });
@@ -115,7 +121,7 @@ export async function createForm(input: {
 
 export async function updateForm(id: number, input: {
   title?: string; fields?: unknown; schema?: unknown;
-  successMessage?: string; redirectUrl?: string; status?: string;
+  successMessage?: string; redirectUrl?: string; status?: string; captcha?: string;
 }): Promise<void> {
   const cur = getFormById(id);
   if (!cur) throw new Error("not found");
@@ -129,11 +135,14 @@ export async function updateForm(id: number, input: {
     ? JSON.stringify(input.schema).slice(0, 50000)
     : JSON.stringify(cur.schema);
   getDb().prepare(
-    `UPDATE FormDef SET title=?, fields=?, active=?, schema=?, successMessage=?, redirectUrl=?, status=? WHERE id=?`
+    `UPDATE FormDef SET title=?, fields=?, active=?, schema=?, successMessage=?, redirectUrl=?, status=?, captcha=? WHERE id=?`
   ).run(title, JSON.stringify(fields), status === "active" ? 1 : 0, schemaStr,
     input.successMessage !== undefined ? String(input.successMessage).slice(0, 500) : cur.successMessage,
     input.redirectUrl !== undefined ? String(input.redirectUrl).slice(0, 300) : cur.redirectUrl,
-    status, id);
+    status,
+    input.captcha === "default" || input.captcha === "slider" ? input.captcha
+      : input.captcha === "off" ? "off" : cur.captcha,
+    id);
   await hooks.onAfterUpdateForm?.({ id, slug: cur.slug });
 }
 

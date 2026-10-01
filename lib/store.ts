@@ -124,13 +124,14 @@ export function getDb(): DatabaseSync {
       fields TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1,
       schema TEXT NOT NULL DEFAULT '', successMessage TEXT NOT NULL DEFAULT '',
       redirectUrl TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'active',
-      createdBy TEXT NOT NULL DEFAULT '',
+      createdBy TEXT NOT NULL DEFAULT '', captcha TEXT NOT NULL DEFAULT 'off',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     try { db.exec("ALTER TABLE FormDef ADD COLUMN schema TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE FormDef ADD COLUMN successMessage TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE FormDef ADD COLUMN redirectUrl TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE FormDef ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE FormDef ADD COLUMN createdBy TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE FormDef ADD COLUMN captcha TEXT NOT NULL DEFAULT 'off'"); } catch { /* exists */ }
     db.exec(`CREATE TABLE IF NOT EXISTS Submission (
       id INTEGER PRIMARY KEY AUTOINCREMENT, formId INTEGER NOT NULL, data TEXT NOT NULL DEFAULT '{}',
       ipAddress TEXT NOT NULL DEFAULT '', userAgent TEXT NOT NULL DEFAULT '', submittedBy TEXT NOT NULL DEFAULT '',

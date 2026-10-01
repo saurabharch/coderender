@@ -164,6 +164,7 @@ model FormDef {
   redirectUrl    String   @default("")
   status         String   @default("active")
   createdBy      String   @default("")
+  captcha        String   @default("off")
   createdAt      DateTime @default(now())
 }
 

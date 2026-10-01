@@ -16,6 +16,7 @@ export default async function EditFormPage({ params }: { params: Promise<{ id: s
         <FormBuilder initial={{
           id: form.id, title: form.title, slug: form.slug, fields: form.fields,
           successMessage: form.successMessage, redirectUrl: form.redirectUrl, status: form.status,
+          captcha: form.captcha,
         }} />
       </div>
     </>

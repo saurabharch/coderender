@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import { stepsFromSchema, validateValues, type FormField } from "@/lib/form-schema";
 import { FieldInput, type FieldWidgetProps } from "./form-field-input";
+import { SliderWidget } from "./slider-captcha";
 
 interface PublicForm {
   title: string;
@@ -11,6 +12,7 @@ interface PublicForm {
   schema: Record<string, unknown>;
   successMessage: string;
   redirectUrl: string;
+  captcha: "off" | "default" | "slider";
 }
 
 export function FormRenderer({ slug, submitButtonText, successMessage, onSuccess, onError, fieldComponents, className }: {
@@ -29,6 +31,9 @@ export function FormRenderer({ slug, submitButtonText, successMessage, onSuccess
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
+  const [math, setMath] = useState<{ id: string; question: string } | null>(null);
+  const [mathAnswer, setMathAnswer] = useState("");
+  const [slider, setSlider] = useState<{ id: string; sig: string; dx: number; nonce: string } | null>(null);
 
   useEffect(() => {
     fetch(`/api/forms/by-slug/${encodeURIComponent(slug)}`).then((r) => r.json()).then((d) => {
@@ -64,12 +69,25 @@ export function FormRenderer({ slug, submitButtonText, successMessage, onSuccess
     const { ok, errors: errs } = validateValues(form!.fields, values);
     setErrors(errs);
     if (!ok) return;
+    if (form!.captcha === "default" && !math) {
+      setErrors({ _: "Solve the quick math check first." });
+      return;
+    }
+    if (form!.captcha === "slider" && !slider) {
+      setErrors({ _: "Slide the puzzle first." });
+      return;
+    }
     setBusy(true);
     try {
+      const gated = form!.captcha === "default"
+        ? { captchaId: math!.id, captchaAnswer: Number(mathAnswer) }
+        : form!.captcha === "slider"
+          ? { sliderId: slider!.id, sliderSig: slider!.sig, sliderDx: slider!.dx, sliderNonce: slider!.nonce }
+          : {};
       const res = await fetch("/api/forms/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, values }),
+        body: JSON.stringify({ slug, values: { ...values, ...gated } }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Submission failed");
@@ -87,6 +105,15 @@ export function FormRenderer({ slug, submitButtonText, successMessage, onSuccess
       setBusy(false);
     }
   }
+
+function CaptchaLoader({ onLoad }: { onLoad: (m: { id: string; question: string }) => void }) {
+  useEffect(() => {
+    fetch("/api/forms/captcha?kind=default").then((r) => r.json()).then((d) => {
+      if (d?.id) onLoad(d);
+    }).catch(() => {});
+  }, [onLoad]);
+  return <p className="text-sm text-zinc-500">Loading check…</p>;
+}
 
   if (done) return <p className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm font-semibold">{done}</p>;
 
@@ -106,6 +133,28 @@ export function FormRenderer({ slug, submitButtonText, successMessage, onSuccess
         );
       })}
       {errors._ && <p className="text-sm text-red-600">{errors._}</p>}
+      {form.captcha !== "off" && step === steps.length - 1 && (
+        <div className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Human check</p>
+          {form.captcha === "slider" ? (
+            slider ? (
+              <p className="text-sm font-semibold text-emerald-700">✓ Puzzle solved — ready to submit.</p>
+            ) : (
+              <SliderWidget onSolve={setSlider} challengeUrl="/api/forms/captcha?kind=slider" />
+            )
+          ) : math ? (
+            <span className="flex gap-2">
+              <span className="flex min-h-[44px] items-center text-sm font-semibold">{math.question}</span>
+              <input value={mathAnswer} onChange={(e) => setMathAnswer(e.target.value)} inputMode="numeric"
+                placeholder="Answer" aria-label="Captcha answer"
+                className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <button type="button" onClick={() => setMath(null)} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">New</button>
+            </span>
+          ) : (
+            <CaptchaLoader onLoad={setMath} />
+          )}
+        </div>
+      )}
       <div className="flex gap-2">
         {step > 0 && (
           <button type="button" onClick={() => setStep((s) => s - 1)}

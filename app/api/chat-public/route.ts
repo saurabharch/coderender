@@ -81,7 +81,8 @@ export async function POST(req: Request) {
   if (replay) return NextResponse.json({ ...JSON.parse(replay), replayed: true });
   const jar = await cookies();
   const verified = checkVerifiedCookie(jar.get("cr_verified")?.value);
-  if (jar.get("cr_human")?.value !== humanCookie() && !verified)
+  const { activeProvider } = await import("@/lib/slider-captcha");
+  if (activeProvider() !== "off" && jar.get("cr_human")?.value !== humanCookie() && !verified)
     return NextResponse.json({ error: "Prove you're human first — solve the quick check in the chat." }, { status: 403 });
   if (rateLimited(clientKey(fp, req), 20, 3600_000))
     return NextResponse.json(slowDown(), { status: 429 });

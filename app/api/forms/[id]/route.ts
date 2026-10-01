@@ -10,6 +10,7 @@ const updateSchema = z.object({
   successMessage: z.string().max(500).optional(),
   redirectUrl: z.string().max(300).optional(),
   status: z.enum(["active", "inactive", "archived"]).optional(),
+  captcha: z.enum(["off", "default", "slider"]).optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {

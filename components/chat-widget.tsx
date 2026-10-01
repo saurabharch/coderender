@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw, History } from "lucide-react";
 
 import { Blocks, RichText, type Block } from "./rich-blocks";
+import { SliderWidget } from "./slider-captcha";
 import { chime } from "@/lib/chime";
 
 interface Turn {
@@ -68,6 +69,7 @@ export function ChatWidget() {
   const [gate, setGate] = useState<"entry" | "captcha" | "otp" | "chat">("entry");
   const [human, setHuman] = useState(false);
   const [captcha, setCaptcha] = useState<{ id: string; question: string; at: number } | null>(null);
+  const [provider, setProvider] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const [otpMode, setOtpMode] = useState<"support" | "partner">("support");
   const [otpEmail, setOtpEmail] = useState("");
@@ -141,7 +143,15 @@ export function ChatWidget() {
 
   function chooseEntry(mode: "enquiry" | "support" | "partner") {
     if (mode === "enquiry") {
-      setGate("captcha");
+      fetch("/api/captcha/mode").then((r) => r.json()).then((d) => {
+        setProvider(d.provider ?? "default");
+        if (d.provider === "off") {
+          setHuman(true);
+          setGate("chat");
+        } else {
+          setGate("captcha");
+        }
+      }).catch(() => setGate("captcha"));
       return;
     }
     setOtpMode(mode);
@@ -235,8 +245,11 @@ export function ChatWidget() {
   }
 
   useEffect(() => {
-    if (open && gate === "captcha" && !captcha) void loadCaptcha();
-  }, [open, gate, captcha]);
+    if (open && gate === "captcha" && !captcha && provider !== "slider") void loadCaptcha();
+    if (open && gate === "captcha" && provider === null) {
+      fetch("/api/captcha/mode").then((r) => r.json()).then((d) => setProvider(d.provider ?? "default")).catch(() => setProvider("default"));
+    }
+  }, [open, gate, captcha, provider]);
 
   async function solve(e: React.FormEvent) {
     e.preventDefault();
@@ -459,16 +472,22 @@ export function ChatWidget() {
               {gatePinShown && <p className="rounded-xl bg-brand-soft p-3 text-sm dark:bg-white/10">Your forever gate PIN: <b>{gatePinShown}</b> — save it, you will use it instead of email codes next time.</p>}
             </div>
           ) : gate === "captcha" ? (
-            <form onSubmit={solve} className="grid gap-2 p-4">
+            <div className="grid gap-2 p-4">
               <p className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck size={16} /> Quick check — are you human?</p>
-              <p className="text-sm">{captcha ? captcha.question : "Loading…"}</p>
-              <div className="flex gap-2">
-                <input value={answer} onChange={(e) => setAnswer(e.target.value)} inputMode="numeric" placeholder="Your answer"
-                  aria-label="Captcha answer"
-                  className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-                <button className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white">Go</button>
-              </div>
-            </form>
+              {provider === "slider" ? (
+                <SliderWidget onPass={() => { setHuman(true); setGate("chat"); }} />
+              ) : (
+                <form onSubmit={solve} className="grid gap-2">
+                  <p className="text-sm">{captcha ? captcha.question : "Loading…"}</p>
+                  <div className="flex gap-2">
+                    <input value={answer} onChange={(e) => setAnswer(e.target.value)} inputMode="numeric" placeholder="Your answer"
+                      aria-label="Captcha answer"
+                      className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                    <button className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white">Go</button>
+                  </div>
+                </form>
+              )}
+            </div>
           ) : (
             <>
               <div className="flex-1 space-y-2 overflow-y-auto p-4">

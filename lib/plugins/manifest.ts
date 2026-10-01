@@ -1,3 +1,5 @@
+import { version } from "../../package.json";
+
 export interface RouteDoc {
   method: string;
   path: string;
@@ -83,6 +85,10 @@ export const ROUTES: RouteDoc[] = [
   { method: "GET", path: "/api/push/key", auth: "public", desc: "VAPID public key for subscribing." },
   { method: "POST", path: "/api/push/test", auth: "team", desc: "Send yourself a test push." },
   { method: "POST", path: "/api/otp", auth: "public", desc: "Request/verify email OTP or gate PIN." },
+  { method: "GET", path: "/api/captcha/mode", auth: "public", desc: "Active human gate (default|slider|off) — chat + forms read this." },
+  { method: "GET", path: "/api/slider-captcha", auth: "public", desc: "Issue a slide-puzzle challenge (chat gate only)." },
+  { method: "POST", path: "/api/slider-captcha", auth: "public", desc: "Verify puzzle + hashcash, set human cookie.", body: "{id, sig, dx, nonce}" },
+  { method: "GET", path: "/api/forms/captcha?kind=", auth: "public", desc: "Form-scoped challenge (math or slider, no cookie)." },
   { method: "GET", path: "/api/inngest", auth: "public", desc: "Inngest serve endpoint (needs keys to execute remotely)." },
   { method: "GET", path: "/api/cron", auth: "public", desc: "Ensures the local scheduler is running." },
   { method: "GET", path: "/api/openapi.json", auth: "public", desc: "This manifest as OpenAPI 3.1." },
@@ -123,7 +129,7 @@ export function openApiDoc() {
   }
   return {
     openapi: "3.1.0",
-    info: { title: "CodeRender API", version: "0.6.1" },
+    info: { title: "CodeRender API", version },
     servers: [{ url: "/api", description: "This deployment" }],
     tags: [...new Set(ROUTES.map((r) => tagOf(r.path)))].map((name) => ({ name })),
     paths,

@@ -11,6 +11,9 @@ async function save(form: FormData) {
     const v = form.get(k);
     if (typeof v === "string") setPref(k, v.slice(0, 4000));
   }
+  const provider = String(form.get("captcha_provider") || "default");
+  // Single active gate — default, slider, or off. Never more than one.
+  setPref("captcha_provider", provider === "slider" || provider === "off" ? provider : "default");
   revalidatePath("/admin/settings");
 }
 
@@ -92,6 +95,14 @@ export default async function SettingsPage() {
           <input name="contact_phone" defaultValue={getPref("contact_phone", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
         <label className="grid gap-1 text-sm">Contact email
           <input name="contact_email" defaultValue={getPref("contact_email", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+        <fieldset className="grid gap-1 text-sm">Human gate — exactly one active
+          {(["default", "slider", "off"] as const).map((p) => (
+            <label key={p} className="flex min-h-[44px] items-center gap-2">
+              <input type="radio" name="captcha_provider" value={p} defaultChecked={getPref("captcha_provider", "default") === p} className="h-5 w-5" />
+              {p === "default" ? "Math check (classic)" : p === "slider" ? "Slide puzzle (visual)" : "Off (no gate)"}
+            </label>
+          ))}
+        </fieldset>
         <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save</button>
       </form>
       <form action={runReport} className="mt-3">

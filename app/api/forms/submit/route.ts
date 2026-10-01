@@ -22,6 +22,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad submission" }, { status: 422 });
   const form = getActiveFormBySlug(parsed.data.slug);
   if (!form) return NextResponse.json({ error: "no form" }, { status: 404 });
+  // Optional per-form captcha gate (chosen in the builder).
+  if (form.captcha === "default") {
+    const { verifyChallenge } = await import("@/lib/captcha");
+    const v = parsed.data.values ?? {};
+    if (!verifyChallenge(String(v.captchaId ?? ""), Number(v.captchaAnswer)))
+      return NextResponse.json({ error: "captcha required" }, { status: 403 });
+  }
+  if (form.captcha === "slider") {
+    const { verifySlider } = await import("@/lib/slider-captcha");
+    const v = parsed.data.values ?? {};
+    if (!verifySlider(String(v.sliderId ?? ""), String(v.sliderSig ?? ""), Number(v.sliderDx), String(v.sliderNonce ?? "")))
+      return NextResponse.json({ error: "captcha required" }, { status: 403 });
+  }
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
   try {
     const { id } = await createSubmission(form, parsed.data.values ?? {}, {

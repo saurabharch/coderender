@@ -13,6 +13,7 @@ export interface BuilderInitial {
   successMessage?: string;
   redirectUrl?: string;
   status?: "active" | "inactive" | "archived";
+  captcha?: "off" | "default" | "slider";
 }
 
 function blank(t: string, n: number): FormField {
@@ -32,6 +33,7 @@ export function FormBuilder({ initial }: { initial?: BuilderInitial }) {
   const [successMessage, setSuccessMessage] = useState(initial?.successMessage ?? "");
   const [redirectUrl, setRedirectUrl] = useState(initial?.redirectUrl ?? "");
   const [status, setStatus] = useState(initial?.status ?? "active");
+  const [captcha, setCaptcha] = useState<"off" | "default" | "slider">(initial?.captcha ?? "off");
   const [tab, setTab] = useState<"build" | "preview" | "json">("build");
   const [importJson, setImportJson] = useState("");
   const [saved, setSaved] = useState<{ id: number } | null>(initial?.id ? { id: initial.id } : null);
@@ -50,7 +52,7 @@ export function FormBuilder({ initial }: { initial?: BuilderInitial }) {
     setError("");
     const body = {
       title: title.trim(), slug: slug.trim(), fields,
-      schema, successMessage: successMessage.trim(), redirectUrl: redirectUrl.trim(), status,
+      schema, successMessage: successMessage.trim(), redirectUrl: redirectUrl.trim(), status, captcha,
     };
     try {
       const res = await fetch(saved?.id ? `/api/forms/${saved.id}` : "/api/forms", {
@@ -88,6 +90,14 @@ export function FormBuilder({ initial }: { initial?: BuilderInitial }) {
             {t === "build" ? "Build" : t === "preview" ? "Preview" : "JSON Schema"}
           </button>
         ))}
+        <label className="flex min-h-[44px] items-center gap-2 text-sm">Captcha
+          <select value={captcha} onChange={(e) => setCaptcha(e.target.value as typeof captcha)}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
+            <option value="off">off</option>
+            <option value="default">math check</option>
+            <option value="slider">slide puzzle</option>
+          </select>
+        </label>
         <label className="ml-auto flex min-h-[44px] items-center gap-2 text-sm">Status
           <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
