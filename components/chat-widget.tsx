@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw, History } from "lucide-react";
+import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw, History, Check, ChevronRight, Square } from "lucide-react";
 
 import { Blocks, RichText, type Block } from "./rich-blocks";
 import { SliderWidget } from "./slider-captcha";
@@ -14,6 +14,11 @@ interface Turn {
   voted?: string;
   blocks?: Block[];
   source?: string;
+  options?: Opt[];
+  multi?: boolean;
+  submitLabel?: string;
+  back?: boolean;
+  used?: boolean;
 }
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -30,7 +35,6 @@ interface Opt {
 
 type Phase = "idle" | "thinking" | "researching" | "typing";
 
-const HINTS = ["@pricing rates?", "#booking weekend slot", "/demo", "/human"];
 const STORE_KEY = "cr_chat";
 
 function loadSaved(): { threadId?: number; turns: Turn[] } {
@@ -87,15 +91,12 @@ export function ChatWidget() {
   const [draftRestored, setDraftRestored] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [limited, setLimited] = useState(false);
-  const [options, setOptions] = useState<Opt[] | undefined>();
-  const [multi, setMulti] = useState(false);
+  const [activeTurn, setActiveTurn] = useState<number | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
-  const [submitLabel, setSubmitLabel] = useState("Submit");
-  const [canBack, setCanBack] = useState(false);
   const [showThreads, setShowThreads] = useState(false);
+  const bottom = useRef<HTMLDivElement>(null);
   const [threadList, setThreadList] = useState<{ id: number; title: string }[]>([]);
   const [solveMs, setSolveMs] = useState<number | undefined>();
-  const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const toggle = () => setOpen((o) => !o);
@@ -105,7 +106,7 @@ export function ChatWidget() {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns, busy, phase, options]);
+  }, [turns, busy, phase, activeTurn]);
 
   // Guest persistence: mirror thread + history to localStorage (no auth needed).
   // Logged-in team history lives server-side under /ai-chat instead.
@@ -132,7 +133,7 @@ export function ChatWidget() {
     try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ }
     setThreadId(undefined);
     setTurns([]);
-    setOptions(undefined);
+    setActiveTurn(null);
     setPicked([]);
     setLimited(false);
     setGate("entry");
@@ -270,8 +271,8 @@ export function ChatWidget() {
 
   async function post(message: string, retry = true): Promise<void> {
     setBusy(true);
+    setActiveTurn(null);
     setPhase("thinking");
-    setOptions(undefined);
     setPicked([]);
     const researchTimer = setTimeout(() => setPhase("researching"), 3000);
     let fp: string | undefined;
@@ -313,13 +314,22 @@ export function ChatWidget() {
         return;
       }
       setPhase("typing");
+      const idxRef: { i: number } = { i: -1 };
       setTimeout(() => {
-        setTurns((t) => [...t, { role: "assistant", body: data.reply, turnIdx: data.turnIdx, blocks: data.blocks, source: data.source }]);
+        setTurns((t) => {
+          idxRef.i = t.length;
+          return [...t, {
+            role: "assistant", body: data.reply, turnIdx: data.turnIdx,
+            blocks: data.blocks, source: data.source,
+            options: data.options, multi: !!data.multi,
+            submitLabel: data.submitLabel || "Submit", back: !!data.back,
+          }];
+        });
         chime("reply");
-        setOptions(data.options);
-        setMulti(!!data.multi);
-        setSubmitLabel(data.submitLabel || "Submit");
-        setCanBack(!!data.back);
+        if (data.options?.length) {
+          setPicked([]);
+          setTimeout(() => setActiveTurn(idxRef.i), 0);
+        }
         setPhase("idle");
       }, 700);
     } else {
@@ -336,26 +346,35 @@ export function ChatWidget() {
     await post(msg);
   }
 
-  async function tapOption(id: string, label: string) {
-    if (busy) return;
-    if (!multi) {
-      setTurns((t) => [...t, { role: "user", body: label }]);
-      await post(id);
+  async function tapOption(turnIdx: number, id: string, label: string) {
+    if (busy || turnIdx !== activeTurn) return;
+    const turn = turns[turnIdx];
+    if (turn?.multi) {
+      setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
       return;
     }
-    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+    setTurns((t) => t.map((x, j) => (j === turnIdx ? { ...x, used: true } : x)));
+    setActiveTurn(null);
+    setTurns((t) => [...t, { role: "user", body: label }]);
+    await post(id);
   }
 
-  async function submitMulti() {
-    if (busy || picked.length === 0) return;
-    const labels = (options ?? []).filter((o) => picked.includes(o.id)).map((o) => o.label).join(", ");
+  async function submitMulti(turnIdx: number) {
+    const turn = turns[turnIdx];
+    const opts = turn?.options ?? [];
+    const labels = opts.filter((o) => picked.includes(o.id)).map((o) => o.label).join(", ");
+    if (busy || picked.length === 0 || turnIdx !== activeTurn) return;
     setTurns((t) => [...t, { role: "user", body: labels }]);
+    setTurns((t) => t.map((x, j) => (j === turnIdx ? { ...x, used: true } : x)));
+    setActiveTurn(null);
     await post(picked.join(","));
   }
 
-  async function goBack() {
-    if (busy) return;
+  async function goBack(turnIdx: number) {
+    if (busy || turnIdx !== activeTurn) return;
     setTurns((t) => [...t, { role: "user", body: "« back" }]);
+    setTurns((t) => t.map((x, j) => (j === turnIdx ? { ...x, used: true } : x)));
+    setActiveTurn(null);
     await post("« back");
   }
 
@@ -380,7 +399,8 @@ export function ChatWidget() {
       return { role: m.role, body: m.body, turnIdx: m.role === "assistant" ? ai : undefined };
     }));
     setThreadId(id);
-    setOptions(undefined);
+    setActiveTurn(null);
+    setPicked([]);
     setShowThreads(false);
     setGate("chat");
     setHuman(true);
@@ -406,7 +426,7 @@ export function ChatWidget() {
         {open ? <X size={22} /> : <Bot size={22} />}
       </button>
       {open && (
-        <div className="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-h-[60vh] w-auto max-w-md flex-col overflow-hidden rounded-3xl border border-black/10 bg-white shadow-2xl dark:border-white/15 dark:bg-zinc-950 md:inset-x-auto md:right-4 md:w-[380px]" role="dialog" aria-label="AI assistant chat">
+        <div className="fixed inset-x-0 bottom-0 top-0 z-50 mx-auto flex flex-col overflow-hidden border-black/10 bg-white shadow-2xl dark:border-white/15 dark:bg-zinc-950 md:inset-x-auto md:bottom-24 md:right-4 md:top-auto md:h-[640px] md:max-h-[80vh] md:w-[380px] md:rounded-3xl md:border" role="dialog" aria-label="AI assistant chat">
           <div className="flex items-center gap-2 border-b border-black/10 px-4 py-3 dark:border-white/10">
             <AgentAvatar />
             <div className="flex-1">
@@ -490,21 +510,49 @@ export function ChatWidget() {
             </div>
           ) : (
             <>
-              <div className="flex-1 space-y-2 overflow-y-auto p-4">
-                {turns.length === 0 && <p className="text-sm text-zinc-500">Hi, I am Riya! Tell me about your business — a few quick taps and I will come back with researched prices.</p>}
+              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                {turns.length === 0 && <p className="text-sm leading-relaxed text-zinc-500">Hi, I am Riya! Tell me about your business — a few quick taps and I will come back with researched prices.</p>}
                 {turns.map((t, i) => (
                   <div key={i}>
-                    <p className={t.role === "user"
-                      ? "ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-white dark:text-zinc-900"
-                      : "w-fit max-w-[95%] rounded-2xl rounded-bl-sm bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800"}>
+                    <div className={t.role === "user"
+                      ? "ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-3.5 py-2.5 text-sm leading-relaxed text-white dark:bg-white dark:text-zinc-900"
+                      : "w-fit max-w-[95%] space-y-2 rounded-2xl rounded-bl-sm bg-zinc-100 px-3.5 py-2.5 text-sm leading-relaxed dark:bg-zinc-800"}>
                       <RichText text={t.body} />
                       {t.role === "assistant" && t.blocks && <Blocks blocks={t.blocks} />}
                       {t.role === "assistant" && t.source && SOURCE_LABEL[t.source] && (
-                        <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{SOURCE_LABEL[t.source]}</span>
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{SOURCE_LABEL[t.source]}</span>
                       )}
-                    </p>
+                    </div>
+                    {t.role === "assistant" && t.options && t.options.length > 0 && i === activeTurn && !t.used && (
+                      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Suggested replies">
+                        {t.back && (
+                          <button onClick={() => goBack(i)} className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-black/15 px-4 text-xs font-semibold dark:border-white/20">
+                            <ArrowLeft size={13} /> Back
+                          </button>
+                        )}
+                        {t.options.map((o) => {
+                          const on = picked.includes(o.id);
+                          return (
+                            <button key={o.id} onClick={() => tapOption(i, o.id, o.label)}
+                              aria-pressed={t.multi ? on : undefined}
+                              className={`flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-xs font-semibold ${on ? "border-brand bg-brand-soft dark:bg-white/10" : "border-black/15 dark:border-white/20"}`}>
+                              {t.multi
+                                ? (on ? <Check size={13} className="shrink-0" /> : <Square size={13} className="shrink-0 opacity-50" />)
+                                : <ChevronRight size={13} className="shrink-0 opacity-60" />}
+                              {o.label}
+                            </button>
+                          );
+                        })}
+                        {t.multi && (
+                          <button onClick={() => submitMulti(i)} disabled={picked.length === 0}
+                            className="flex min-h-[44px] items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white disabled:opacity-50">
+                            <Send size={12} /> {t.submitLabel || "Submit"} ({picked.length})
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {t.role === "assistant" && (
-                      <span className="mt-1 flex gap-1">
+                      <span className="mt-1.5 flex gap-1">
                         {(["up", "down"] as const).map((v) => (
                           <button key={v} onClick={() => vote(t.turnIdx, v, i)} aria-label={`Vote ${v}`}
                             className={`rounded-full border p-1.5 ${t.voted === v ? "border-brand bg-brand-soft" : "border-black/10 dark:border-white/15"}`}>
@@ -522,32 +570,6 @@ export function ChatWidget() {
                 {phase === "typing" && <p className="text-xs font-semibold text-brand-deep">Typing…</p>}
                 {limited && <p className="text-sm font-semibold text-amber-600">Slow down — hourly limit reached, or solve the check again.</p>}
                 <div ref={bottom} />
-              </div>
-              {options && options.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-3 pb-1">
-                  {canBack && (
-                    <button onClick={goBack} className="flex min-h-[36px] items-center gap-1 rounded-full border border-black/15 px-3 text-xs font-semibold dark:border-white/20">
-                      <ArrowLeft size={12} /> Back
-                    </button>
-                  )}
-                  {options.map((o) => (
-                    <button key={o.id} onClick={() => tapOption(o.id, o.label)}
-                      className={`min-h-[36px] rounded-full border px-3 text-xs font-semibold ${picked.includes(o.id) ? "border-brand bg-brand-soft dark:bg-white/10" : "border-black/15 dark:border-white/20"}`}>
-                      {o.label}
-                    </button>
-                  ))}
-                  {multi && (
-                    <button onClick={submitMulti} disabled={picked.length === 0}
-                      className="min-h-[36px] rounded-full bg-brand px-4 text-xs font-semibold text-white disabled:opacity-50">
-                      {submitLabel} ({picked.length})
-                    </button>
-                  )}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-1.5 px-3">
-                {HINTS.map((h) => (
-                  <button key={h} onClick={() => setInput(h)} className="rounded-full border border-black/10 px-2.5 py-1 text-xs font-semibold text-zinc-600 dark:border-white/15 dark:text-zinc-400">{h}</button>
-                ))}
               </div>
               <form onSubmit={send} className="flex items-end gap-2 border-t border-black/10 p-3 dark:border-white/10">
                 <textarea ref={inputRef} value={input} rows={1}

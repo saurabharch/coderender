@@ -69,14 +69,25 @@ function TableBlock({ columns = [], rows = [], title }: { columns?: string[]; ro
   }, [rows, q, sort]);
   const pages = Math.max(1, Math.ceil(filtered.length / per));
   const slice = filtered.slice(page * per, (page + 1) * per);
+  // Comparison readability: columns whose values differ across rows get
+  // highlighted so unlike plans stand out at a glance.
+  const diffCols = useMemo(() => {
+    const set = new Set<number>();
+    for (let j = 1; j < columns.length; j++) {
+      const vals = new Set(rows.map((r) => (r[j] ?? "").trim().toLowerCase()));
+      if (vals.size > 1) set.add(j);
+    }
+    return set;
+  }, [rows, columns.length]);
   return (
-    <div className="mt-2 overflow-hidden rounded-xl border border-black/10 dark:border-white/15">
-      {title && <p className="bg-zinc-100 px-3 py-1.5 text-xs font-bold dark:bg-white/10">{title}</p>}
-      <div className="p-2">
+    <div className="mt-3 overflow-hidden rounded-xl border border-black/10 dark:border-white/15">
+      {title && <p className="bg-zinc-100 px-3 py-2 text-xs font-bold dark:bg-white/10">{title}</p>}
+      <div className="space-y-2 p-2.5">
         <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search table…"
           aria-label="Search table"
-          className="mb-1 min-h-[36px] w-full rounded-lg border border-black/10 bg-transparent px-2 text-xs dark:border-white/15" />
-        <table className="w-full text-left text-xs">
+          className="min-h-[36px] w-full rounded-lg border border-black/10 bg-transparent px-2 text-xs dark:border-white/15" />
+        {diffCols.size > 0 && <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">★ highlighted columns differ between options</p>}
+        <table className="w-full text-left text-xs leading-relaxed">
           <thead>
             <tr>
               {columns.map((c, i) => (
@@ -92,7 +103,11 @@ function TableBlock({ columns = [], rows = [], title }: { columns?: string[]; ro
           <tbody>
             {slice.map((r, i) => (
               <tr key={i} className="border-t border-black/5 dark:border-white/10">
-                {r.map((cell, j) => <td key={j} className="px-2 py-1.5 align-top">{cell}</td>)}
+                {r.map((cell, j) => (
+                  <td key={j} className={`px-2 py-2 align-top ${diffCols.has(j) ? "rounded bg-amber-100/70 font-semibold dark:bg-amber-400/20" : ""}`}>
+                    {diffCols.has(j) ? "★ " : ""}{cell}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -112,7 +127,7 @@ function TableBlock({ columns = [], rows = [], title }: { columns?: string[]; ro
 export function Blocks({ blocks }: { blocks?: Block[] }) {
   if (!blocks || blocks.length === 0) return null;
   return (
-    <div className="mt-2 space-y-2">
+    <div className="mt-3 space-y-3">
       {blocks.map((b, i) => {
         if (b.kind === "service") {
           return (
@@ -149,16 +164,19 @@ export function Blocks({ blocks }: { blocks?: Block[] }) {
         }
         if (b.kind === "bars") {
           const max = Math.max(1, ...(b.pairs ?? []).map((p) => p.value));
+          const top = (b.pairs ?? []).reduce((a, p) => (p.value > a.value ? p : a), { label: "", value: -1 });
           return (
-            <div key={i} className="space-y-1">
+            <div key={i} className="space-y-2" role="img" aria-label={`${b.title ?? "chart"}: ${(b.pairs ?? []).map((p) => `${p.label} ${p.value}`).join(", ")}`}>
               {b.title && <p className="text-xs font-bold">{b.title}</p>}
               {(b.pairs ?? []).map((p) => (
-                <div key={p.label} className="flex items-center gap-2 text-xs">
-                  <span className="w-24 shrink-0 truncate">{p.label}</span>
-                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-                    <span className="block h-full rounded-full bg-brand" style={{ width: `${Math.round((p.value / max) * 100)}%` }} />
+                <div key={p.label} className="space-y-0.5 text-xs">
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="truncate font-semibold">{p.label}{p.label === top.label ? " ★" : ""}</span>
+                    <b className="shrink-0 tabular-nums">{p.value}</b>
                   </span>
-                  <b>{p.value}</b>
+                  <span className="block h-3 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                    <span className={`block h-full rounded-full ${p.label === top.label ? "bg-brand" : "bg-zinc-400 dark:bg-zinc-500"}`} style={{ width: `${Math.round((p.value / max) * 100)}%` }} />
+                  </span>
                 </div>
               ))}
             </div>
