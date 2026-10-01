@@ -30,6 +30,12 @@ const W = 320;
 const H = 160;
 const P = 52; // piece size px
 
+function patternFor(id: string): number {
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return (h % 4) + 1;
+}
+
 // Jigsaw tab path centered at (cx, cy) with radius r on a P×P box.
 function piecePath(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
   const r = s * 0.22;
@@ -86,13 +92,19 @@ export function SliderWidget({ onPass, onSolve, challengeUrl }: {
     if (!ch) return;
     let live = true;
     (async () => {
-      const src = bgSrc(ch.bg, W, H);
+      const primary = bgSrc(ch.bg, W, H);
       let img: HTMLImageElement;
       try {
-        img = await loadImage(src);
+        img = await loadImage(primary);
       } catch {
-        if (live) setError("Image failed — try a new puzzle.");
-        return;
+        // Broken/missing upload (or hotlink): fall back to built-in art tied
+        // to this challenge so the puzzle always renders — never an error.
+        try {
+          img = await loadImage(bgSrc(`pattern:${patternFor(ch.id)}`, W, H));
+        } catch {
+          if (live) setError("Puzzle failed to load — retry.");
+          return;
+        }
       }
       if (!live) return;
       const bg = bgRef.current;

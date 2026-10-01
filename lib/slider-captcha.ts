@@ -23,8 +23,10 @@ function sign(id: string): string {
 
 function pickBackground(): string {
   try {
+    // Puzzle art lives ONLY in the `puzzle` folder — blog covers and other
+    // uploads never leak into captchas.
     const rows = getDb().prepare(
-      "SELECT filename, url FROM MediaAsset WHERE mime LIKE 'image/%' ORDER BY id DESC LIMIT 20").all() as
+      "SELECT filename, url FROM MediaAsset WHERE mime LIKE 'image/%' AND folder='puzzle' ORDER BY id DESC LIMIT 20").all() as
       { filename: string; url: string }[];
     const urls = rows.map((r) => r.url || (r.filename ? `/uploads/${r.filename}` : "")).filter(Boolean);
     if (urls.length) return urls[randomInt(0, urls.length)];

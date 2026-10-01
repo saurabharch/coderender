@@ -52,7 +52,7 @@ export default async function MediaAdmin({ searchParams }: { searchParams: Promi
   return (
     <>
       <h1 className="text-2xl font-extrabold">Media library</h1>
-      <p className="mt-1 text-sm text-zinc-500">{total} assets · uploads land in <code>/uploads/</code> · copy a URL into any image field, kanban card, or post cover.</p>
+      <p className="mt-1 text-sm text-zinc-500">{total} assets · uploads land in <code>/uploads/</code> · copy a URL into any image field, kanban card, or post cover. Images filed under the <code>puzzle</code> folder (and only those) feed the slide-captcha backgrounds.</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action="/admin/media" method="get" className="flex gap-1">
           <input name="q" defaultValue={q} placeholder="Search…" maxLength={200}
