@@ -29,5 +29,21 @@ export function startScheduler() {
       console.error("[infra]", e);
     }
   }, 3600_000);
+  setInterval(async () => {
+    try {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      if (now.getHours() === 2 && now.getMinutes() < 10 && getPref("learning", "on") === "on") {
+        const today = now.toISOString().slice(0, 10);
+        if (getPref("last_distill_day", "") !== today) {
+          setPref("last_distill_day", today);
+          const { runNightlyDistill } = await import("./learn");
+          const r = await runNightlyDistill();
+          console.log(`[distill] ${r.distilled} exemplars`);
+        }
+      }
+    } catch (e) {
+      console.error("[distill]", e);
+    }
+  }, 600_000);
   void check();
 }

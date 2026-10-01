@@ -140,11 +140,26 @@ export const supportTriageFn = inngest.createFunction(
   }
 );
 
-export const functions = [dailyReportFn, leadCreatedFn, broadcastFn, supportTriageFn];
+export const nightlyDistillFn = inngest.createFunction(
+  { id: "nightly-distill", triggers: { cron: "30 20 * * *" }, retries: 1 },
+  async ({ step }) => {
+    const r = await step.run("distill", async () => {
+      const { runNightlyDistill } = await import("./learn");
+      return runNightlyDistill();
+    });
+    return r;
+  }
+);
+
+export const functions = [dailyReportFn, leadCreatedFn, broadcastFn, supportTriageFn, nightlyDistillFn];
 
 // Local runner: executes bodies in-process (scheduler, emit fallback, manual).
-export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" | "supportTriage", data?: { leadId?: number; message?: string; threadId?: number }) {
+export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" | "supportTriage" | "nightlyDistill", data?: { leadId?: number; message?: string; threadId?: number }) {
   if (name === "dailyReport") return doDailyReport();
+  if (name === "nightlyDistill") {
+    const { runNightlyDistill } = await import("./learn");
+    return runNightlyDistill();
+  }
   if (name === "leadCreated") return doLeadCreated({ leadId: data?.leadId ?? 0 });
   if (name === "nurture") return doNurture({ leadId: data?.leadId ?? 0 });
   return doSupportTriage({ message: data?.message ?? "", threadId: data?.threadId });

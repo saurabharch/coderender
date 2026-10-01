@@ -670,6 +670,13 @@ export async function runNetwork(opts: {
   if (kb.length > 0) {
     context += `\nSite knowledge: ${kb.map((k) => k.entry.a).join(" | ")}`;
   }
+  if (!isTeam) {
+    try {
+      const { retrieveExemplar } = await import("./learn");
+      const ex = retrieveExemplar(msg);
+      if (ex) context += `\nLearned house style (follow its tone): ${ex.better.slice(0, 400)}`;
+    } catch { /* learning never breaks answers */ }
+  }
   const system = `${SYSTEMS[scope]}${context ? `\nContext: ${context}` : ""}`;
   const { infer } = await import("./ai-gateway");
   const r = await infer({ scope, userId: opts.userId, system, user: msg, model: pickModel(msg, scope) });

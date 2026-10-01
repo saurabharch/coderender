@@ -165,6 +165,11 @@ export function getDb(): DatabaseSync {
       bestFor TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     seedPackages(db);
+    db.exec(`CREATE TABLE IF NOT EXISTS Distill (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, input TEXT NOT NULL,
+      better TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'nightly',
+      score INTEGER NOT NULL DEFAULT 0, uses INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   }
   return db;
 }

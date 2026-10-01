@@ -100,6 +100,9 @@ Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
   (vertical→goals→details→contact→mode→slot→confirmed briefing), FTS5 chat memory
   recalled into answers, votes/failures at `/api/chat/vote`, appointments in
   `Appointment` table. Local session preserved per thread.
+- Self-learning: weak turns (downvotes, eval<60, fallbacks) distilled nightly at
+  02:00 IST (or /admin/learn now) into redacted exemplars via local inference;
+  answers retrieve the closest by vector similarity. Caps: 5/night, 200 stored.
 - Verified identity: entry modes (New Enquiry / Support / Partner); OTP same-code
   15-min + never-expiring gate PIN (`/api/otp`); `cr_verified` cookie gates account
   modes; real snapshots (orders/completion/payments, partner revenue, tickets) answered
