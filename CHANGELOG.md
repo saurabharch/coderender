@@ -1,6 +1,15 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.5.0] - 2026-10-01
+
+- Guided sales agent: wizard intake, captcha + OTP/PIN identity, appointment booking.
+- Liquid-glass system, mega-menus, iPhone mock, WhatsApp simulation, campaign scheduler.
+- KB-grounded answers with citations, HITL escalation, source tags.
+- Moderation dataset, geo abuse console, push notifications, rich chat blocks.
+- Vector memory, service recognition, anti-loop recognition.
+- Ship automation: CI, releases, gated deploy with rollback.
 ## [0.4.0] - 2026-10-01
 - Key-gated notify API, live site prices, proof CMS, session + role management## [0.3.0] - 2026-10-01
 - Enterprise rate limits, security headers, schedule dashboard, drawer nav, review fixes## [0.2.0] - 2026-09-30
