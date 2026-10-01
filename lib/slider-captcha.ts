@@ -28,8 +28,8 @@ function pickBackground(): string {
       { filename: string; url: string }[];
     const urls = rows.map((r) => r.url || (r.filename ? `/uploads/${r.filename}` : "")).filter(Boolean);
     if (urls.length) return urls[randomInt(0, urls.length)];
-  } catch { /* fall through to gradient */ }
-  return `gradient:${randomInt(1, 6)}`;
+  } catch { /* fall through to pattern */ }
+  return `pattern:${randomInt(1, 4)}`;
 }
 
 export function newSliderChallenge(): { id: string; sig: string; bg: string; zeros: number; expiresIn: number } {
