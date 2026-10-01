@@ -86,6 +86,7 @@ export interface AgentReply {
   text: string;
   scope: Exclude<Scope, "infra">;
   runtime: string;
+  source?: "kb" | "ai" | "human" | "template";
   options?: WizardOption[];
   multi?: boolean;
   submitLabel?: string;
@@ -102,6 +103,7 @@ export interface IntakeState {
   meet?: string;
   qcount?: number;
   tries?: number;
+  fb?: number;
   email?: string;
   phone?: string;
   business?: string;
@@ -325,8 +327,16 @@ export async function runNetwork(opts: {
     return { text: await callTool({ userId: opts.userId }, "pricing_estimate", {}, "enquiry"), scope: "pricing", runtime: "none" };
   if (opts.command === "demo" || msg.trim() === "/demo")
     return { text: "Wonderful! You can book a free demo from our contact page, or just tell me your business type and I'll brief you right here first.", scope: "support", runtime: "none" };
-  if (opts.command === "human" || msg.trim() === "/human")
-    return { text: "Of course — a human teammate will take it from here. Share your name and number and we'll call within one business day!", scope: "support", runtime: "none" };
+  if (opts.command === "human" || msg.trim() === "/human") {
+    try {
+      const { getDb } = await import("./store");
+      getDb().prepare("INSERT INTO Ticket (email, subject, body, status) VALUES (?,?,?,?)")
+        .run("chat", `Human requested (thread ${opts.threadId ?? "?"})`, msg.slice(0, 1000), "open");
+      getDb().prepare("INSERT INTO Notification (title, body, audience) VALUES (?,?,?)")
+        .run("HITL requested", `Thread ${opts.threadId ?? "?"} asked for a human.`, "team");
+    } catch { /* ignore */ }
+    return { text: "Of course — I've looped in a human teammate who will take it from here. Share your name and number and we'll call within one business day!", scope: "support", runtime: "human", source: "human" };
+  }
   if (opts.command === "reset" || msg.trim() === "/reset") {
     saveState(opts.threadId, { stage: "detect" });
     return { text: "Fresh start! Are you asking for a new business, a new project, or are you already a CodeRender client?", scope: "support", runtime: "none" };
@@ -545,7 +555,14 @@ export async function runNetwork(opts: {
     }
   }
 
-  // ---- researched direct answer ----
+  // ---- researched direct answer: KB first, gateway grounded, human last ----
+  const { kbSearch } = await import("./kb");
+  const kb = kbSearch(msg);
+  if (kb.length > 0 && kb[0].score >= 0.6 && !isTeam) {
+    const prev = loadState(opts.threadId);
+    saveState(opts.threadId, { ...prev, fb: 0 });
+    return { text: `${kb[0].entry.a}\n\n— from our ${kb[0].entry.source}`, scope, runtime: "kb", source: "kb" };
+  }
   const cmp = /compar|differen|vs\.? |versus|which (is|one)|best (plan|option|pack)/i.test(msg);
   if (cmp && !isTeam) {
     const { sitePrices, fmt } = await import("./pricing");
@@ -600,10 +617,33 @@ export async function runNetwork(opts: {
     const mem = recall(opts.threadId, msg);
     if (mem.length) context += `\nEarlier in this chat: ${mem.join(" | ")}`;
   }
+  if (kb.length > 0) {
+    context += `\nSite knowledge: ${kb.map((k) => k.entry.a).join(" | ")}`;
+  }
   const system = `${SYSTEMS[scope]}${context ? `\nContext: ${context}` : ""}`;
   const { infer } = await import("./ai-gateway");
   const r = await infer({ scope, userId: opts.userId, system, user: msg, model: pickModel(msg, scope) });
-  const out: AgentReply = { ...r, scope };
+  if (!r.text && !isTeam) {
+    // HITL escalation: second straight failure loops a human in.
+    const prev = loadState(opts.threadId);
+    const fb = (prev.fb ?? 0) + 1;
+    saveState(opts.threadId, { ...prev, fb });
+    if (fb >= 2 && opts.threadId) {
+      try {
+        const { getDb } = await import("./store");
+        getDb().prepare("INSERT INTO Ticket (email, subject, body, status) VALUES (?,?,?,?)")
+          .run("chat", `HITL handoff (thread ${opts.threadId})`, msg.slice(0, 1000), "open");
+        getDb().prepare("INSERT INTO Notification (title, body, audience) VALUES (?,?,?)")
+          .run("HITL handoff", `Thread ${opts.threadId} needs a human.`, "team");
+      } catch { /* ignore */ }
+      saveState(opts.threadId, { ...prev, fb: 0 });
+      return { text: "I'm looping — sorry about that! I've flagged a human teammate who will pick this up within one business day. Anything else I can try meanwhile?", scope, runtime: "human", source: "human" };
+    }
+  } else if (!isTeam) {
+    const prev = loadState(opts.threadId);
+    if (prev.fb) saveState(opts.threadId, { ...prev, fb: 0 });
+  }
+  const out: AgentReply = { ...r, scope, source: r.text ? "ai" : undefined };
   if (!isTeam && svc) {
     out.blocks = [
       {

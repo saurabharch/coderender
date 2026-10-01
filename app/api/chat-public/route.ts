@@ -102,7 +102,7 @@ export async function POST(req: Request) {
   let reply = "";
   let provider = "none";
   let net: {
-    text: string; runtime: string; options?: { id: string; label: string }[];
+    text: string; runtime: string; source?: string; options?: { id: string; label: string }[];
     multi?: boolean; submitLabel?: string; back?: boolean; done?: boolean;
     verify?: "support" | "partner"; blocks?: unknown;
   } | null = null;
@@ -132,7 +132,7 @@ export async function POST(req: Request) {
   getDb().prepare("INSERT INTO Eval (threadId, score, rubric) VALUES (?,?,?)").run(threadId, score, notes.join("; "));
   const turnIdx = (getDb().prepare("SELECT COUNT(*) c FROM ChatMessage WHERE threadId=? AND role='assistant'").get(threadId) as { c: number }).c;
   const out = {
-    threadId, reply, provider, eval: score, turnIdx,
+    threadId, reply, provider, eval: score, turnIdx, source: net?.source,
     options: net?.options, multi: net?.multi, submitLabel: net?.submitLabel,
     back: net?.back, done: net?.done, verify: net?.verify, blocks: net?.blocks ?? undefined,
   };

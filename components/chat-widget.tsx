@@ -12,7 +12,15 @@ interface Turn {
   turnIdx?: number;
   voted?: string;
   blocks?: Block[];
+  source?: string;
 }
+
+const SOURCE_LABEL: Record<string, string> = {
+  kb: "from FAQ",
+  ai: "AI",
+  human: "human on the way",
+  template: "instant answer",
+};
 
 interface Opt {
   id: string;
@@ -293,7 +301,7 @@ export function ChatWidget() {
       }
       setPhase("typing");
       setTimeout(() => {
-        setTurns((t) => [...t, { role: "assistant", body: data.reply, turnIdx: data.turnIdx, blocks: data.blocks }]);
+        setTurns((t) => [...t, { role: "assistant", body: data.reply, turnIdx: data.turnIdx, blocks: data.blocks, source: data.source }]);
         chime("reply");
         setOptions(data.options);
         setMulti(!!data.multi);
@@ -472,6 +480,9 @@ export function ChatWidget() {
                       : "w-fit max-w-[95%] rounded-2xl rounded-bl-sm bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800"}>
                       <RichText text={t.body} />
                       {t.role === "assistant" && t.blocks && <Blocks blocks={t.blocks} />}
+                      {t.role === "assistant" && t.source && SOURCE_LABEL[t.source] && (
+                        <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{SOURCE_LABEL[t.source]}</span>
+                      )}
                     </p>
                     {t.role === "assistant" && (
                       <span className="mt-1 flex gap-1">
