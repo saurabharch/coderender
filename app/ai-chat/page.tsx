@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Plus, Pencil, Trash2, Paperclip } from "lucide-react";
-import { RichText } from "@/components/rich-blocks";
+import { Send, Plus, Pencil, Trash2, Paperclip, ChevronRight } from "lucide-react";
+import { Blocks, RichText, type Block } from "@/components/rich-blocks";
 
 interface Turn {
   role: string;
   body: string;
+  options?: { id: string; label: string }[];
+  blocks?: Block[];
 }
 
 interface Thread {
@@ -81,7 +83,11 @@ export default function AiChatPage() {
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || busy) return;
-    const msg = input.trim();
+    await ask(input.trim());
+  }
+
+  async function ask(msg: string) {
+    if (!msg || busy) return;
     setInput("");
     setTurns((t) => [...t, { role: "user", body: msg }]);
     setBusy(true);
@@ -100,7 +106,7 @@ export default function AiChatPage() {
     const dec = new TextDecoder();
     let buf = "";
     let text = "";
-    let doneInfo: { threadId?: number } = {};
+    let doneInfo: { threadId?: number; options?: { id: string; label: string }[]; blocks?: Block[] } = {};
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -126,7 +132,7 @@ export default function AiChatPage() {
       }
     }
     if (doneInfo.threadId) setThreadId(doneInfo.threadId);
-    if (text) setTurns((t) => [...t, { role: "assistant", body: text }]);
+    if (text) setTurns((t) => [...t, { role: "assistant", body: text, options: doneInfo.options, blocks: doneInfo.blocks }]);
     try {
       await fetch("/api/track", {
         method: "POST",
@@ -167,11 +173,22 @@ export default function AiChatPage() {
           <div className="mt-4 min-h-[300px] space-y-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
             {turns.length === 0 && !streaming && <p className="text-sm text-zinc-500">Ask about offers, copy, or client work. Streaming, history, attachments.</p>}
             {turns.map((t, i) => (
-              <p key={i} className={t.role === "user"
-                ? "ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-white dark:text-zinc-900"
-                : "w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800"}>
+              <div key={i} className={t.role === "user"
+                ? "ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-3 py-2 text-sm leading-relaxed text-white dark:bg-white dark:text-zinc-900"
+                : "w-fit max-w-[95%] space-y-2 rounded-2xl rounded-bl-sm bg-zinc-100 px-3.5 py-2.5 text-sm leading-relaxed dark:bg-zinc-800"}>
                 <RichText text={t.body} />
-              </p>
+                {t.blocks && t.blocks.length > 0 && <Blocks blocks={t.blocks} />}
+                {t.options && t.options.length > 0 && (
+                  <div className="grid max-h-56 gap-1.5 overflow-y-auto rounded-xl border border-black/10 p-2 dark:border-white/15" role="group" aria-label="Pick a project">
+                    {t.options.map((o) => (
+                      <button key={o.id} disabled={busy} onClick={() => void ask(o.id)}
+                        className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-black/15 px-3 text-left text-xs font-semibold hover:border-brand disabled:opacity-50 dark:border-white/20">
+                        <ChevronRight size={13} className="shrink-0 opacity-60" />{o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
             {streaming && <p className="w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800">{streaming}▍</p>}
             <div ref={bottom} />

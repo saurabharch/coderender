@@ -600,10 +600,10 @@ export async function runNetwork(opts: {
   }
 
   // ---- researched direct answer: KB first, gateway grounded, human last ----
-  // Team kanban tracking: direct board/task answers without the sales wizard.
-  if (isTeam && /kanban|board|pipeline|task/i.test(msg)) {
-    const tracking = await kanbanTeamReply(opts.userId, msg);
-    if (tracking) return { text: tracking, scope, runtime: "none" };
+  // Team project tracking: selectable project list + snapshots, no guessing.
+  if (isTeam && /kanban|board|pipeline|task|project|client|order:\d+/i.test(msg)) {
+    const tracking = await projectTeamReply(opts.userId, msg);
+    if (tracking) return { text: tracking.text, scope, runtime: "none", options: tracking.options, blocks: tracking.blocks };
   }
   const { kbSearch } = await import("./kb");
   const kb = kbSearch(msg);
@@ -750,29 +750,80 @@ export async function runNetwork(opts: {
 }
 
 
-// Team-only kanban tracking over real board rows (bots + agents + chat).
-async function kanbanTeamReply(userId: number, msg: string): Promise<string | null> {
+// Team project tracking: pick-first flow. Status questions list every live
+// project (boards + orders) as inline buttons plus a details table from
+// kanban status + analytics; board:/order: picks return full snapshots.
+async function projectTeamReply(userId: number, msg: string): Promise<{
+  text: string; options?: WizardOption[]; blocks?: MsgBlock[];
+} | null> {
   const move = msg.match(/move\s+task\s+#?(\d+)\s+to\s+([\w &'-]+)/i);
   if (move) {
-    return callTool({ userId }, "kanban_move", { task: move[1], column: move[2].trim() }, "team");
+    return { text: await callTool({ userId }, "kanban_move", { task: move[1], column: move[2].trim() }, "team") };
   }
+  const pickBoard = msg.match(/board:(\d+)/i) || msg.match(/board\s+#?(\d+)/i);
+  if (pickBoard) {
+    const { agentBoard, boardStats, getBoard } = await import("./kanban");
+    const id = Number(pickBoard[1]);
+    const b = getBoard(id);
+    if (!b) return { ...(await projectList()), text: "That project is gone — pick another below." };
+    const s = boardStats(id);
+    const owner = b.ownerEmail ? ` Owner: ${b.ownerEmail}.` : "";
+    const client = b.client ? ` Client: ${b.client.name} (${b.client.phone}).` : "";
+    return {
+      text: `${b.name} — ${s.total} open, done 7d: ${s.done7d}, avg cycle ${s.avgCycleDays}d.${owner}${client} ${agentBoard(id)}`,
+    };
+  }
+  const pickOrder = msg.match(/order:(\d+)/i);
+  if (pickOrder) {
+    const { getDb } = await import("./store");
+    const o = getDb().prepare(
+      `SELECT o.*, COALESCE((SELECT SUM(amount) FROM Payment p WHERE p.orderId=o.id AND p.status='paid'),0) paid
+       FROM ClientOrder o WHERE o.id=?`).get(Number(pickOrder[1])) as
+      { id: number; title: string; amount: number; status: string; paid: number } | undefined;
+    if (!o) return { ...(await projectList()), text: "Order not found — pick another below." };
+    return { text: `Order #${o.id} ${o.title}: ${o.status}, billed ₹${o.amount}, paid ₹${o.paid}.` };
+  }
+  if (/project|client|partner.*(status|progress|track|list)|show.*projects|which.*project|board.*(status|overview|summary)|pipeline\s*(status|overview)?$/i.test(msg.trim())
+    || /how.*(tasks|boards)|board.*progress|task.*status|my projects|all projects/i.test(msg)) {
+    return projectList();
+  }
+  // Legacy plain-text fallbacks (kept for the tool layer).
   const show = msg.match(/board\s+#?(\d+)/i);
   if (show) {
-    return callTool({ userId }, "kanban_board", { id: show[1] }, "team");
+    return { text: await callTool({ userId }, "kanban_board", { id: show[1] }, "team") };
   }
-  if (/^(show|list|what).*board|board.*(status|overview|summary)|pipeline\s*(status|overview)?$/i.test(msg.trim())
-    || /how.*(tasks|boards)|board.*progress|task.*status/i.test(msg)) {
-    const { boardStats, listBoards } = await import("./kanban");
-    const boards = listBoards();
-    if (boards.length === 0) return "No kanban boards yet — create one from Admin → Boards.";
-    const parts = boards.slice(0, 5).map((b) => {
-      const s = boardStats(b.id);
-      const cols = s.perColumn.map((c) => `${c.name}: ${c.n}`).join(", ");
-      return `${b.name}: ${s.total} open (${cols}), done 7d: ${s.done7d}, avg cycle ${s.avgCycleDays}d`;
-    });
-    return `Board tracking — ${parts.join(" | ")}. Ask "board #id" for task detail or "move task #id to <column>".`;
+  if (/^(show|list|what).*board/i.test(msg.trim())) {
+    return { text: await callTool({ userId }, "kanban_overview", {}, "team") };
   }
   return null;
+}
+
+async function projectList(): Promise<{
+  text: string; options?: WizardOption[]; blocks?: MsgBlock[];
+}> {
+  const { boardStats, listBoards } = await import("./kanban");
+  const { getDb } = await import("./store");
+  const boards = listBoards().slice(0, 8);
+  const orders = getDb().prepare("SELECT id, title, status FROM ClientOrder ORDER BY id DESC LIMIT 8").all() as
+    { id: number; title: string; status: string }[];
+  if (boards.length === 0 && orders.length === 0)
+    return { text: "No projects yet — create a board from Admin → Boards or an order from a lead." };
+  const options: WizardOption[] = [
+    ...boards.map((b) => ({ id: `board:${b.id}`, label: `▦ ${b.name}` })),
+    ...orders.map((o) => ({ id: `order:${o.id}`, label: `🧾 #${o.id} ${o.title}` })),
+  ];
+  const rows: string[][] = boards.slice(0, 8).map((b) => {
+    const s = boardStats(b.id);
+    return [b.name, String(s.total), `${s.done7d}`, `${s.avgCycleDays}d`];
+  });
+  const blocks: MsgBlock[] = rows.length ? [{
+    kind: "table", title: "Live project status (tap a button above for detail)",
+    columns: ["Project", "Open", "Done 7d", "Avg cycle"], rows,
+  }] : [];
+  return {
+    text: "Which project? Tap one — I track boards and orders live from kanban status and analytics.",
+    options, blocks,
+  };
 }
 
 function askStage(st: IntakeState, scope: Exclude<Scope, "infra">, _userId: number) {

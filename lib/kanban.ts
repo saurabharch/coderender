@@ -58,6 +58,7 @@ export interface BoardTask {
   priority: string; assigneeEmail: string; ord: number;
   submissionId: number | null; archived: number; createdAt: string; doneAt: string;
   attachments: string[]; startAt: string; dueAt: string;
+  todoDone?: number; todoTotal?: number;
 }
 
 function parseAttachments(raw: unknown): string[] {
@@ -78,29 +79,39 @@ export function dayPart(v: unknown): string {
 
 export interface BoardDetail {
   id: number; name: string; slug: string; description: string; formId: number | null;
+  ownerEmail: string; clientLeadId: number | null;
+  client?: { id: number; name: string; phone: string; businessType: string } | null;
   columns: { id: number; name: string; ord: number }[];
-  tasks: BoardTask[];
+  tasks: (BoardTask & { todoDone: number; todoTotal: number })[];
 }
 
 export function getBoard(id: number): BoardDetail | null {
   const d = getDb();
   const b = d.prepare("SELECT * FROM KanbanBoard WHERE id=?").get(id) as
-    { id: number; name: string; slug: string; description: string; formId: number | null } | undefined;
+    { id: number; name: string; slug: string; description: string; formId: number | null; ownerEmail: string; clientLeadId: number | null } | undefined;
   if (!b) return null;
   const columns = d.prepare("SELECT id, name, ord FROM KanbanColumn WHERE boardId=? ORDER BY ord, id").all(id) as
     { id: number; name: string; ord: number }[];
   const rawTasks = d.prepare("SELECT * FROM KanbanTask WHERE boardId=? ORDER BY ord, id").all(id) as unknown as (Omit<BoardTask, "attachments"> & { attachments: string })[];
-  const tasks: BoardTask[] = rawTasks.map((t) => {
+  const counts = d.prepare("SELECT taskId, COUNT(*) total, COALESCE(SUM(done),0) done FROM KanbanTodo WHERE taskId IN (SELECT id FROM KanbanTask WHERE boardId=?) GROUP BY taskId").all(id) as
+    { taskId: number; total: number; done: number }[];
+  const countBy = Object.fromEntries(counts.map((c) => [c.taskId, c]));
+  const tasks: (BoardTask & { todoDone: number; todoTotal: number })[] = rawTasks.map((t) => {
     let attachments: string[] = [];
     try {
       const p = JSON.parse(t.attachments || "[]");
       if (Array.isArray(p)) attachments = p.map(String).slice(0, 5);
     } catch { /* keep empty */ }
-    return { ...t, attachments };
+    const c = countBy[t.id] ?? { total: 0, done: 0 };
+    return { ...t, attachments, todoDone: Number(c.done), todoTotal: Number(c.total) };
   });
   // Deep-plain: node:sqlite rows carry null prototypes, which RSC refuses
   // to serialize into client components.
-  return JSON.parse(JSON.stringify({ ...b, columns, tasks }));
+  const client = b.clientLeadId
+    ? (d.prepare("SELECT id, name, phone, businessType FROM Lead WHERE id=?").get(b.clientLeadId) as
+      { id: number; name: string; phone: string; businessType: string } | undefined) ?? null
+    : null;
+  return JSON.parse(JSON.stringify({ ...b, client, columns, tasks }));
 }
 
 const DEFAULT_COLUMNS = ["To Do", "In Progress", "Done"];
@@ -121,14 +132,19 @@ export async function createBoard(input: { name: string; description?: string; f
   return id;
 }
 
-export async function updateBoard(id: number, input: { name?: string; description?: string; formId?: number | null }): Promise<void> {
+export async function updateBoard(id: number, input: {
+  name?: string; description?: string; formId?: number | null;
+  ownerEmail?: string; clientLeadId?: number | null;
+}): Promise<void> {
   const b = getBoard(id);
   if (!b) throw new Error("not found");
   await hooks.onBeforeUpdateBoard?.(id);
-  getDb().prepare("UPDATE KanbanBoard SET name=?, description=?, formId=? WHERE id=?").run(
+  getDb().prepare("UPDATE KanbanBoard SET name=?, description=?, formId=?, ownerEmail=?, clientLeadId=? WHERE id=?").run(
     input.name !== undefined ? String(input.name).slice(0, 80) : b.name,
     input.description !== undefined ? String(input.description).slice(0, 500) : b.description,
-    input.formId !== undefined ? input.formId : b.formId, id);
+    input.formId !== undefined ? input.formId : b.formId,
+    input.ownerEmail !== undefined ? String(input.ownerEmail).slice(0, 120) : (b.ownerEmail ?? ""),
+    input.clientLeadId !== undefined ? input.clientLeadId : (b.clientLeadId ?? null), id);
   await hooks.onAfterUpdateBoard?.(id);
 }
 

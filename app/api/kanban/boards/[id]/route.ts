@@ -20,6 +20,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     name: z.string().min(1).max(80).optional(),
     description: z.string().max(500).optional(),
     formId: z.number().int().nullable().optional(),
+    ownerEmail: z.string().max(120).optional(),
+    clientLeadId: z.number().int().nullable().optional(),
   }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad board" }, { status: 422 });
   try {

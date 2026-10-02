@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         const { score } = scoreReply(net.text || "");
         getDb().prepare("INSERT INTO Eval (threadId, score, rubric) VALUES (?,?,?)").run(threadId, score, "stream");
         await onAfterChat({ threadId, userId: user.id, ms: Date.now() - started, tools: toolsUsed, ok: !!net.text });
-        send({ done: true, threadId, eval: score, tools: toolsUsed });
+        send({ done: true, threadId, eval: score, tools: toolsUsed, options: net.options ?? [], blocks: net.blocks ?? [] });
       } catch {
         await onErrorChat({ threadId });
         send({ error: "chat failed" });

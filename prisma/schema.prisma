@@ -186,6 +186,7 @@ model KanbanBoard {
   description String   @default("")
   formId      Int?
   ownerEmail  String   @default("")
+  clientLeadId Int?
   createdAt   DateTime @default(now())
 }
 

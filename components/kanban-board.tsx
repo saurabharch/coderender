@@ -181,6 +181,59 @@ function SubmissionPicker({ formId, value, onPick }: {
   );
 }
 
+function ClientOwnerBar({ board }: { board: BoardDetail }) {
+  const [clientId, setClientId] = useState<string>(board.clientLeadId != null ? String(board.clientLeadId) : "");
+  const [owner, setOwner] = useState(board.ownerEmail ?? "");
+  const [leads, setLeads] = useState<{ id: number; name: string; phone: string }[]>([]);
+  const [users, setUsers] = useState<string[]>([]);
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/leads?q=${encodeURIComponent(q)}`).then((r) => r.json()).then((d) => {
+      if (Array.isArray(d?.leads)) setLeads(d.leads);
+    }).catch(() => {});
+  }, [q]);
+
+  useEffect(() => {
+    fetch("/api/kanban/users").then((r) => r.json()).then((d) => {
+      if (Array.isArray(d?.users)) setUsers(d.users.map((u: { email: string }) => u.email));
+    }).catch(() => {});
+  }, []);
+
+  async function save(patch: Record<string, unknown>) {
+    await api(`/api/kanban/boards/${board.id}`, { method: "PUT", body: JSON.stringify(patch) }).catch(() => {});
+  }
+
+  return (
+    <div className="mb-3 grid gap-2 rounded-2xl border border-black/10 p-3 text-sm dark:border-white/10 md:grid-cols-2">
+      <label className="grid gap-1">Client (linked lead)
+        <span className="flex gap-1">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search leads…" maxLength={60}
+            className="min-h-[44px] w-32 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+          <select value={clientId} onChange={(e) => { setClientId(e.target.value); void save({ clientLeadId: e.target.value ? Number(e.target.value) : null }); }}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
+            <option value="">— none —</option>
+            {board.client && <option value={String(board.client.id)}>{board.client.name} · {board.client.phone}</option>}
+            {leads.filter((l) => !board.client || l.id !== board.client.id).map((l) => (
+              <option key={l.id} value={String(l.id)}>{l.name} · {l.phone}</option>
+            ))}
+          </select>
+        </span>
+        {board.client && <span className="text-xs text-zinc-500">Linked: {board.client.name} ({board.client.businessType})</span>}
+      </label>
+      <label className="grid gap-1">Project owner
+        <span className="flex gap-1">
+          <select value={owner} onChange={(e) => { setOwner(e.target.value); void save({ ownerEmail: e.target.value }); }}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
+            <option value="">— none —</option>
+            {users.map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </span>
+      </label>
+    </div>
+  );
+}
+
 export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: FormOpt[] }) {
   const [board, setBoard] = useState(initial);
   const [stats, setStats] = useState<BoardAnalytics | null>(null);
@@ -252,6 +305,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
   return (
     <div>
       {notice && <p role="alert" className="mb-2 rounded-xl bg-red-500/10 p-2 text-sm text-red-700">{notice}</p>}
+      <ClientOwnerBar board={board} />
       <BoardMembers boardId={initial.id} />
 
       {stats && (
@@ -356,6 +410,11 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
                     <div className="mt-1 flex flex-wrap items-center gap-1">
                       <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-bold text-brand-deep">{c.name}</span>
                       {t.dueAt && <span className="text-[11px] text-zinc-500">📅 {t.dueAt.slice(0, 10)}{t.dueAt.length > 10 ? ` ${t.dueAt.slice(11)}` : ""}</span>}
+                      {t.todoTotal > 0 && (
+                        <span className="rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-bold dark:bg-white/15" title={`${t.todoDone}/${t.todoTotal} todos done`}>
+                          ☑ {t.todoDone}/{t.todoTotal}
+                        </span>
+                      )}
                     </div>
                     {t.body && <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{t.body}</p>}
                     <div className="mt-2 flex items-center gap-2">

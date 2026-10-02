@@ -6,6 +6,19 @@ import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 import { idemGet, idemSet } from "@/lib/abuse";
 import { moderate } from "@/lib/moderate";
 import { leadSchema } from "@/lib/lead-schema";
+import { sessionUser } from "@/lib/auth";
+
+// Team lead picker (client/owner mapping + agent tracking).
+export async function GET(req: Request) {
+  const user = await sessionUser();
+  if (!user) return NextResponse.json({ error: "login required" }, { status: 401 });
+  const q = (new URL(req.url).searchParams.get("q") || "").slice(0, 60);
+  const rows = (q
+    ? getDb().prepare("SELECT id, name, phone, businessType, status FROM Lead WHERE name LIKE ? OR phone LIKE ? ORDER BY id DESC LIMIT 30").all(`%${q}%`, `%${q}%`)
+    : getDb().prepare("SELECT id, name, phone, businessType, status FROM Lead ORDER BY id DESC LIMIT 30").all()) as
+    { id: number; name: string; phone: string; businessType: string; status: string }[];
+  return NextResponse.json({ leads: rows });
+}
 
 export async function POST(req: Request) {
   let body: unknown;

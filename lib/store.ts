@@ -162,8 +162,9 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS KanbanBoard (
       id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
       description TEXT NOT NULL DEFAULT '', formId INTEGER, ownerEmail TEXT NOT NULL DEFAULT '',
+      clientLeadId INTEGER,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS KanbanColumn (
+    try { db.exec("ALTER TABLE KanbanBoard ADD COLUMN clientLeadId INTEGER"); } catch { /* exists */ }    db.exec(`CREATE TABLE IF NOT EXISTS KanbanColumn (
       id INTEGER PRIMARY KEY AUTOINCREMENT, boardId INTEGER NOT NULL,
       name TEXT NOT NULL, ord INTEGER NOT NULL DEFAULT 0)`);
     db.exec(`CREATE TABLE IF NOT EXISTS KanbanTask (
