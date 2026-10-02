@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { timeAgo } from "@/lib/timeago";
+import { EmojiButton } from "./emoji-button";
 
 interface C {
   id: number; parentId: number | null; name: string; body: string;
@@ -42,7 +44,7 @@ function Item({ c, resourceType, resourceId, onChange, compact }: {
 
   return (
     <div className={compact ? "rounded-xl border border-black/10 p-2 dark:border-white/10" : "rounded-2xl border border-black/10 p-3 dark:border-white/10"}>
-      <p className="text-sm"><b>{c.name}</b> <span className="text-xs text-zinc-500">{c.createdAt.slice(0, 10)}</span></p>
+      <p className="text-sm"><b>{c.name}</b> <span className="text-xs text-zinc-500" title={c.createdAt.slice(0, 16).replace("T", " ")}>{timeAgo(c.createdAt) || c.createdAt.slice(0, 10)}</span></p>
       {editing ? (
         <span className="mt-1 grid gap-1">
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={2000}
@@ -76,7 +78,7 @@ function Item({ c, resourceType, resourceId, onChange, compact }: {
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={2000} placeholder="Write a reply… (abuse is auto-hidden)"
             className="rounded-xl border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20" />
-          <button onClick={() => void post(c.id)} className="min-h-[44px] w-fit rounded-xl bg-brand px-4 text-xs font-semibold text-white">Post reply</button>
+          <span className="flex gap-1"><button onClick={() => void post(c.id)} className="min-h-[44px] w-fit rounded-xl bg-brand px-4 text-xs font-semibold text-white">Post reply</button><EmojiButton onPick={(em) => setText((s) => `${s}${em}`)} /></span>
         </span>
       )}
       {c.replies.length > 0 && (
@@ -135,7 +137,7 @@ export function CommentThread({ resourceType, resourceId, title, compact }: {
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={2000}
           placeholder="Write a comment… (abuse is auto-hidden)"
           className="rounded-xl border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20" />
-        <button onClick={() => void post()} className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Post comment</button>
+        <span className="flex gap-1"><button onClick={() => void post()} className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Post comment</button><EmojiButton onPick={(em) => setText((s) => `${s}${em}`)} /></span>
         {notice && <p className="text-xs text-zinc-500">{notice}</p>}
       </div>
     </div>

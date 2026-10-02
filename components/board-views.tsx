@@ -29,11 +29,12 @@ function weekDays(cursor: string): string[] {
   });
 }
 
-export function BoardViews({ boardId, initialTasks, columns, designations }: {
+export function BoardViews({ boardId, initialTasks, columns, designations, boardNames }: {
   boardId: number;
   initialTasks: BoardTask[];
   columns: { id: number; name: string }[];
   designations: Record<string, string>;
+  boardNames?: Record<number, string>;
 }) {
   const [view, setView] = useState<View>("month");
   const today = useMemo(() => dayKey(new Date()), []);
@@ -108,7 +109,12 @@ export function BoardViews({ boardId, initialTasks, columns, designations }: {
     }
   }
 
+  const canPlan = boardId > 0;
   const colName = (id: number) => columns.find((c) => c.id === id)?.name ?? "";
+  const taskCols = useMemo(() => Object.fromEntries(tasks.map((t) => [t.id, t.columnId])), [tasks]);
+  const taskBoards = useMemo(() => Object.fromEntries(tasks.map((t) => [t.id, t.boardId])), [tasks]);
+  const where = (columnId: number, taskId?: number) =>
+    boardNames && taskId !== undefined ? (boardNames[taskBoards[taskId]] ?? "") : colName(columnId);
   const [cy, cm] = cursor.split("-").map(Number);
   const cells = monthGrid(cy, cm);
 
@@ -122,7 +128,7 @@ export function BoardViews({ boardId, initialTasks, columns, designations }: {
           </button>
         ))}
         <span className="ml-auto flex items-center gap-1 text-xs">
-          {gcal && (gcal.connected
+          {gcal && boardId > 0 && (gcal.connected
             ? <button onClick={() => void push()} className="min-h-[44px] rounded-xl border border-black/15 px-3 font-semibold dark:border-white/20">⇅ Push to Google</button>
             : <button onClick={async () => {
               const d = await fetch("/api/gcal/connect").then((r) => r.json()).catch(() => ({}));
@@ -161,7 +167,7 @@ export function BoardViews({ boardId, initialTasks, columns, designations }: {
         )}
       </div>
       {msg && <p className="mt-1 text-xs text-zinc-500">{msg}</p>}
-      {quickDay && (
+      {canPlan && quickDay && (
         <div className="mt-2 flex gap-1 rounded-2xl border border-brand/40 bg-brand/5 p-2">
           <input value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") void quickAdd(); }}
@@ -176,12 +182,12 @@ export function BoardViews({ boardId, initialTasks, columns, designations }: {
 
       {view === "day" && (
         <DayView day={cursor} setDay={setCursor} tasks={byDay[cursor] ?? []} meetings={meetByDay[cursor] ?? []}
-          sync={sync} colName={colName} onPlan={(d) => { setCursor(d); setQuickDay(d); }} taskCols={Object.fromEntries(tasks.map((t) => [t.id, t.columnId]))} />
+          sync={sync} colName={where} canPlan={canPlan} onPlan={(d) => { setCursor(d); setQuickDay(d); }} taskCols={taskCols} />
       )}
       {view === "week" && (
         <WeekView cursor={cursor} setCursor={setCursor} byDay={byDay} meetings={meetByDay}
-          sync={sync} colName={colName} taskCols={Object.fromEntries(tasks.map((t) => [t.id, t.columnId]))}
-          onPlan={(d) => setQuickDay(d)} />
+          sync={sync} colName={where} taskCols={taskCols}
+          canPlan={canPlan} onPlan={(d) => setQuickDay(d)} />
       )}
       {view === "month" && (
         <div className="mt-2">
@@ -197,8 +203,10 @@ export function BoardViews({ boardId, initialTasks, columns, designations }: {
                   <>
                     <span className="flex items-center justify-between">
                       <button onClick={() => { setCursor(day); setView("day"); }} className="min-h-[32px] min-w-[32px] text-xs font-bold">{Number(day.slice(8))}</button>
-                      <button onClick={() => setQuickDay(day)} aria-label={`Plan task on ${day}`}
-                        className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-sm opacity-60 hover:opacity-100">+</button>
+                      {canPlan && (
+                        <button onClick={() => setQuickDay(day)} aria-label={`Plan task on ${day}`}
+                          className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-sm opacity-60 hover:opacity-100">+</button>
+                      )}
                     </span>
                     {(byDay[day] ?? []).slice(0, 2).map((t) => (
                       <span key={t.id} className="mt-0.5 block truncate rounded bg-black/10 px-1 text-[11px] dark:bg-white/15">
@@ -240,7 +248,7 @@ export function BoardViews({ boardId, initialTasks, columns, designations }: {
           </div>
         </div>
       )}
-      {view === "gantt" && <Gantt tasks={cal} sync={sync} colName={colName} taskCols={Object.fromEntries(tasks.map((t) => [t.id, t.columnId]))} />}
+      {view === "gantt" && <Gantt tasks={cal} sync={sync} colName={where} taskCols={taskCols} />}
     </div>
   );
 }
@@ -282,10 +290,10 @@ function MeetList({ meetings }: { meetings: { slot: string; name: string; mode: 
   );
 }
 
-function DayView({ day, setDay, tasks, meetings, sync, colName, taskCols, onPlan }: {
+function DayView({ day, setDay, tasks, meetings, sync, colName, taskCols, canPlan, onPlan }: {
   day: string; setDay: (d: string) => void; tasks: CalTask[]; meetings: Meeting[];
-  sync: Record<string, { day: string }>; colName: (id: number) => string;
-  taskCols: Record<number, number>; onPlan: (d: string) => void;
+  sync: Record<string, { day: string }>; colName: (id: number, taskId?: number) => string;
+  taskCols: Record<number, number>; canPlan: boolean; onPlan: (d: string) => void;
 }) {
   return (
     <div className="mt-2">
@@ -295,13 +303,13 @@ function DayView({ day, setDay, tasks, meetings, sync, colName, taskCols, onPlan
           className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         <button onClick={() => setDay(addDays(day, 1))} aria-label="Next day" className="min-h-[44px] min-w-[44px] rounded-xl border border-black/15 dark:border-white/20">›</button>
         <b className="text-sm">{tasks.length} tasks · {meetings.length} meetings</b>
-        <button onClick={() => onPlan(day)} className="ml-auto min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">+ Plan this day</button>
+        {canPlan && <button onClick={() => onPlan(day)} className="ml-auto min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">+ Plan this day</button>}
       </div>
       <MeetList meetings={meetings} />
       <ul className="mt-2 space-y-1">
         {tasks.map((t) => (
           <li key={t.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-black/10 p-2 text-sm dark:border-white/10">
-            <span className="rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-bold dark:bg-white/15">{colName(taskCols[t.id] ?? 0)}</span>
+            <span className="rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-bold dark:bg-white/15">{colName(taskCols[t.id] ?? 0, t.id)}</span>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${priorityBadge(t.priority)}`}>{t.priority}</span>
             <b>{t.title}</b>
             <span className="text-xs text-zinc-500">{who(t)}{sync[t.id] ? " · 📅 synced" : ""}</span>
@@ -313,10 +321,10 @@ function DayView({ day, setDay, tasks, meetings, sync, colName, taskCols, onPlan
   );
 }
 
-function WeekView({ cursor, setCursor, byDay, meetings, sync, colName, taskCols, onPlan }: {
+function WeekView({ cursor, setCursor, byDay, meetings, sync, colName, taskCols, canPlan, onPlan }: {
   cursor: string; setCursor: (d: string) => void; byDay: Record<string, CalTask[]>;
   meetings: Record<string, Meeting[]>; sync: Record<string, { day: string }>;
-  colName: (id: number) => string; taskCols: Record<number, number>; onPlan: (d: string) => void;
+  colName: (id: number, taskId?: number) => string; taskCols: Record<number, number>; canPlan: boolean; onPlan: (d: string) => void;
 }) {
   const days = weekDays(cursor);
   return (
@@ -327,13 +335,15 @@ function WeekView({ cursor, setCursor, byDay, meetings, sync, colName, taskCols,
           <div key={d} className="rounded-2xl border border-black/10 p-1.5 dark:border-white/10">
             <span className="flex items-center justify-between">
               <b className="text-xs">{d.slice(5)}</b>
-              <button onClick={() => onPlan(d)} aria-label={`Plan task on ${d}`}
-                className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-sm opacity-60 hover:opacity-100">+</button>
+              {canPlan && (
+                <button onClick={() => onPlan(d)} aria-label={`Plan task on ${d}`}
+                  className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-sm opacity-60 hover:opacity-100">+</button>
+              )}
             </span>
             <ul className="mt-1 space-y-1">
               {(byDay[d] ?? []).map((t) => (
                 <li key={t.id} className="truncate rounded bg-black/10 px-1.5 py-1 text-[11px] dark:bg-white/15" title={t.title}>
-                  <span className="font-semibold text-zinc-500">[{colName(taskCols[t.id] ?? 0)}]</span> {t.title}
+                  <span className="font-semibold text-zinc-500">[{colName(taskCols[t.id] ?? 0, t.id)}]</span> {t.title}
                 </li>
               ))}
               {(meetings[d] ?? []).map((m) => (
@@ -352,7 +362,7 @@ function WeekView({ cursor, setCursor, byDay, meetings, sync, colName, taskCols,
 
 function Gantt({ tasks, sync, colName, taskCols }: {
   tasks: CalTask[]; sync: Record<string, { day: string }>;
-  colName: (id: number) => string; taskCols: Record<number, number>;
+  colName: (id: number, taskId?: number) => string; taskCols: Record<number, number>;
 }) {
   const dated = tasks.filter((t) => t.dueAt || t.startAt);
   if (!dated.length) return <p className="mt-2 text-sm text-zinc-500">No dated tasks — add start/due dates on cards for the timeline.</p>;
@@ -367,7 +377,7 @@ function Gantt({ tasks, sync, colName, taskCols }: {
           return (
             <div key={t.id} className="grid grid-cols-[140px_1fr] items-center gap-2 text-xs">
               <span className="truncate font-semibold" title={t.title}>
-                <span className="mr-1 rounded bg-black/10 px-1 text-[10px] dark:bg-white/15">{colName(taskCols[t.id] ?? 0)}</span>{t.title}
+                <span className="mr-1 rounded bg-black/10 px-1 text-[10px] dark:bg-white/15">{colName(taskCols[t.id] ?? 0, t.id)}</span>{t.title}
               </span>
               <span className="relative h-7 rounded-lg bg-black/10 dark:bg-white/10">
                 <span title={`${t.startAt || "?"} → ${t.dueAt || "?"} · ${who(t)}${sync[t.id] ? " · synced" : ""}`}

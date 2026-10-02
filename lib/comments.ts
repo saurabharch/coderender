@@ -1,5 +1,6 @@
 import { getDb } from "./store";
 import { moderate } from "./moderate";
+import { expandShortcodes } from "./emoji";
 import { isResourceType, maskText, nest, statusFor, type ThreadComment } from "./comments-core";
 
 export interface CommentHooks {
@@ -26,7 +27,7 @@ export async function createComment(input: {
   const name = maskText(String(input.name ?? "").slice(0, 80));
   if (name.trim().length < 2) throw new Error("name required");
   const mod = moderate(`${name} ${input.body}`);
-  const body = maskText(String(input.body ?? "").slice(0, 2000));
+  const body = maskText(expandShortcodes(String(input.body ?? "").slice(0, 2000)));
   if (body.trim().length < 2) throw new Error("body required");
   if (input.parentId) {
     const p = getDb().prepare("SELECT id FROM Comment WHERE id=? AND resourceType=? AND resourceId=?").get(
@@ -101,7 +102,7 @@ export async function toggleLike(commentId: number, key: string): Promise<{ like
 }
 
 export async function editComment(id: number, body: string): Promise<void> {
-  const clean = maskText(String(body ?? "").slice(0, 2000));
+  const clean = maskText(expandShortcodes(String(body ?? "").slice(0, 2000)));
   if (clean.trim().length < 2) throw new Error("body required");
   const mod = moderate(clean);
   getDb().prepare("UPDATE Comment SET body=?, status=?, editedAt=datetime('now') WHERE id=?").run(

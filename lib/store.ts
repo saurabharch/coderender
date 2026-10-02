@@ -128,6 +128,7 @@ export function getDb(): DatabaseSync {
     try { db.exec("ALTER TABLE KanbanTask ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE KanbanTask ADD COLUMN startAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE KanbanTask ADD COLUMN dueAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE KanbanTask ADD COLUMN updatedAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE AppUser ADD COLUMN designation TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     db.exec(`CREATE TABLE IF NOT EXISTS GcalToken (
       email TEXT PRIMARY KEY, refreshToken TEXT NOT NULL DEFAULT '', calendarId TEXT NOT NULL DEFAULT 'primary',

@@ -1,4 +1,6 @@
 import { getDb } from "./store";
+import { sanitizeHtml } from "./sanitize";
+import { expandShortcodes } from "./emoji";
 import { isPriority, normalizeOrder, boardAnalytics, type BoardAnalytics } from "./kanban-core";
 
 export type { BoardAnalytics };
@@ -57,7 +59,7 @@ export interface BoardTask {
   id: number; boardId: number; columnId: number; title: string; body: string;
   priority: string; assigneeEmail: string; ord: number;
   submissionId: number | null; archived: number; createdAt: string; doneAt: string;
-  attachments: string[]; startAt: string; dueAt: string;
+  attachments: string[]; startAt: string; dueAt: string; updatedAt: string;
   todoDone?: number; todoTotal?: number;
 }
 
@@ -199,7 +201,7 @@ export async function createTask(boardId: number, input: {
 }): Promise<number> {
   const b = getBoard(boardId);
   if (!b) throw new Error("not found");
-  const title = String(input.title ?? "").slice(0, 160);
+  const title = expandShortcodes(String(input.title ?? "").slice(0, 160));
   if (!title.trim()) throw new Error("title required");
   await hooks.onBeforeCreateTask?.(boardId);
   const col = b.columns.find((c) => c.id === input.columnId) ?? b.columns[0];
@@ -208,7 +210,7 @@ export async function createTask(boardId: number, input: {
   const max = (d.prepare("SELECT COALESCE(MAX(ord),-1) m FROM KanbanTask WHERE columnId=?").get(col.id) as { m: number }).m;
   const r = d.prepare(
     `INSERT INTO KanbanTask (boardId, columnId, title, body, priority, assigneeEmail, ord, submissionId, attachments, startAt, dueAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-  ).run(boardId, col.id, title, String(input.body ?? "").slice(0, 4000),
+  ).run(boardId, col.id, title, sanitizeHtml(expandShortcodes(String(input.body ?? "").slice(0, 20000))),
     isPriority(input.priority) ? input.priority : "medium",
     String(input.assigneeEmail ?? "").slice(0, 120), max + 1, input.submissionId ?? null,
     JSON.stringify(parseAttachments(input.attachments)),
@@ -234,9 +236,9 @@ export async function updateTask(taskId: number, input: {
   let attachments: string[] = [];
   try { attachments = JSON.parse(String(cur.attachments ?? "[]")); } catch { /* keep empty */ }
   if (!Array.isArray(attachments)) attachments = [];
-  d.prepare("UPDATE KanbanTask SET title=?, body=?, priority=?, assigneeEmail=?, archived=?, attachments=?, startAt=?, dueAt=?, submissionId=? WHERE id=?").run(
-    input.title !== undefined ? String(input.title).slice(0, 160) : cur.title,
-    input.body !== undefined ? String(input.body).slice(0, 4000) : cur.body,
+  d.prepare("UPDATE KanbanTask SET title=?, body=?, priority=?, assigneeEmail=?, archived=?, attachments=?, startAt=?, dueAt=?, submissionId=?, updatedAt=datetime('now') WHERE id=?").run(
+    input.title !== undefined ? expandShortcodes(String(input.title).slice(0, 160)) : cur.title,
+    input.body !== undefined ? sanitizeHtml(expandShortcodes(String(input.body).slice(0, 20000))) : cur.body,
     priority,
     input.assigneeEmail !== undefined ? String(input.assigneeEmail).slice(0, 120) : cur.assigneeEmail,
     input.archived !== undefined ? (input.archived ? 1 : 0) : cur.archived,
@@ -260,7 +262,7 @@ export async function moveTask(taskId: number, targetColumnId: number, targetInd
   const ord = normalizeOrder(sibs);
   for (const [cid, o] of Object.entries(ord)) d.prepare("UPDATE KanbanTask SET ord=? WHERE id=?").run(o, Number(cid));
   const doneCol = (d.prepare("SELECT id FROM KanbanColumn WHERE boardId=? ORDER BY ord DESC").get(cur.boardId) as { id: number } | undefined)?.id;
-  d.prepare("UPDATE KanbanTask SET columnId=?, doneAt=? WHERE id=?").run(
+  d.prepare("UPDATE KanbanTask SET columnId=?, doneAt=?, updatedAt=datetime('now') WHERE id=?").run(
     targetColumnId, targetColumnId === doneCol ? new Date().toISOString() : "", taskId);
   await hooks.onAfterMoveTask?.(taskId, targetColumnId);
   track("kanban.move", cur.boardId, { id: taskId, to: targetColumnId });

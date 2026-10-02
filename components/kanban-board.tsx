@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { priorityBadge, type BoardAnalytics } from "@/lib/kanban-core";
+import { dueIn, timeAgo } from "@/lib/timeago";
+import { isRichHtml } from "@/lib/sanitize";
 import type { BoardDetail, BoardTask } from "@/lib/kanban";
 import { CommentThread } from "./comment-thread";
 import { MediaPicker } from "./media-picker";
+import { RichEditor } from "./rich-editor";
+import { EmojiButton, withEmoji } from "./emoji-button";
 
 interface FormOpt { id: number; title: string }
 
@@ -120,6 +124,10 @@ function TaskExtras({ taskId }: { taskId: number }) {
                 className={`min-h-[36px] rounded-lg border px-2 text-xs ${it.note ? "border-brand font-bold" : "border-black/10 opacity-60 dark:border-white/15"}`}>📝</button>
               <button onClick={() => setOpenDiscuss((o) => (o === it.id ? null : it.id))}
                 className="min-h-[36px] rounded-lg border border-black/10 px-2 text-xs dark:border-white/15">💬</button>
+              <button aria-label="Move up" onClick={() => { void put(it.id, { dir: "up" }); }}
+                className="min-h-[36px] px-1 text-xs opacity-60 hover:opacity-100">↑</button>
+              <button aria-label="Move down" onClick={() => { void put(it.id, { dir: "down" }); }}
+                className="min-h-[36px] px-1 text-xs opacity-60 hover:opacity-100">↓</button>
               <button aria-label="Remove item" onClick={async () => {
                 await api(`/api/kanban/tasks/checklist?id=${it.id}`, { method: "DELETE" });
                 void load();
@@ -146,8 +154,9 @@ function TaskExtras({ taskId }: { taskId: number }) {
       <div className="flex gap-1">
         <input value={label} onChange={(e) => setLabel(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) { void api(`/api/kanban/tasks/${taskId}/checklist`, { method: "POST", body: JSON.stringify({ label: label.trim() }) }).then(() => { setLabel(""); void load(); }); } }}
-          placeholder="+ Add checklist item" maxLength={160}
-          className="min-h-[44px] w-full rounded-xl border border-dashed border-black/20 bg-transparent px-3 text-sm dark:border-white/20" />
+          placeholder="+ Add checklist item (Enter to add)" maxLength={160}
+          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-dashed border-black/20 bg-transparent px-3 text-sm dark:border-white/20" />
+        <EmojiButton onPick={(em) => setLabel((s) => `${s}${em}`)} />
       </div>
       <div>
         <p className="text-sm font-bold">Discussion</p>
@@ -206,10 +215,10 @@ function ClientOwnerBar({ board }: { board: BoardDetail }) {
 
   return (
     <div className="mb-3 grid gap-2 rounded-2xl border border-black/10 p-3 text-sm dark:border-white/10 md:grid-cols-2">
-      <label className="grid gap-1">Client (linked lead)
-        <span className="flex gap-1">
+      <label className="grid min-w-0 gap-1">Client (linked lead)
+        <span className="flex min-w-0 flex-wrap gap-1">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search leads…" maxLength={60}
-            className="min-h-[44px] w-32 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+            className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 sm:w-32 dark:border-white/20" />
           <select value={clientId} onChange={(e) => { setClientId(e.target.value); void save({ clientLeadId: e.target.value ? Number(e.target.value) : null }); }}
             className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
             <option value="">— none —</option>
@@ -221,8 +230,8 @@ function ClientOwnerBar({ board }: { board: BoardDetail }) {
         </span>
         {board.client && <span className="text-xs text-zinc-500">Linked: {board.client.name} ({board.client.businessType})</span>}
       </label>
-      <label className="grid gap-1">Project owner
-        <span className="flex gap-1">
+      <label className="grid min-w-0 gap-1">Project owner
+        <span className="flex min-w-0 flex-wrap gap-1">
           <select value={owner} onChange={(e) => { setOwner(e.target.value); void save({ ownerEmail: e.target.value }); }}
             className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
             <option value="">— none —</option>
@@ -242,6 +251,33 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
   const [editing, setEditing] = useState<BoardTask | null>(null);
   const [users, setUsers] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
+  const [boardView, setBoardView] = useState<"columns" | "swimlane" | "table" | "grid">("columns");
+  const [colQuery, setColQuery] = useState<Record<number, string>>({});
+  const [palette, setPalette] = useState(false);
+  const [shortcuts, setShortcuts] = useState(false);
+  const [kq, setKq] = useState("");
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement)?.tagName ?? "");
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPalette(true);
+      } else if (e.key === "?" && !typing) {
+        setShortcuts(true);
+      } else if (e.key === "Escape") {
+        setPalette(false);
+        setShortcuts(false);
+        setEditing(null);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  function insertEmoji(setter: (v: string) => void, current: string, emoji: string) {
+    setter(`${current}${emoji}`);
+  }
 
   async function reload() {
     const d = await api(`/api/kanban/boards/${initial.id}`).catch(() => null);
@@ -358,9 +394,65 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
         }} className="ml-auto min-h-[44px] rounded-xl border border-black/15 px-4 font-semibold dark:border-white/20">+ Column</button>
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm" role="tablist" aria-label="Board views">
+        {(["columns", "swimlane", "table", "grid"] as const).map((v) => (
+          <button key={v} role="tab" aria-selected={boardView === v} onClick={() => setBoardView(v)}
+            className={`min-h-[44px] rounded-full px-4 font-semibold capitalize ${boardView === v ? "bg-brand text-white" : "border border-black/15 dark:border-white/20"}`}>{v}</button>
+        ))}
+        <span className="ml-auto flex gap-1.5">
+          <button onClick={() => setPalette(true)} aria-label="Search tasks (Ctrl K)"
+            className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-black/15 px-3 dark:border-white/20">
+            🔍 <kbd className="rounded bg-black/10 px-1.5 font-mono text-[11px] dark:bg-white/15">⌘K</kbd>
+          </button>
+          <button onClick={() => setShortcuts(true)} aria-label="Keyboard shortcuts"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 dark:border-white/20">?</button>
+        </span>
+      </div>
+
+      {palette && (
+        <div role="dialog" aria-label="Search tasks" className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-20">
+          <div className="grid w-full max-w-lg gap-2 rounded-2xl bg-white p-4 dark:bg-zinc-900">
+            <input value={kq} onChange={(e) => setKq(e.target.value)} autoFocus placeholder="Search tasks… (Esc to close)" maxLength={120}
+              className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            <ul className="max-h-64 space-y-1 overflow-y-auto">
+              {board.tasks.filter((t) => !t.archived && t.title.toLowerCase().includes(kq.trim().toLowerCase())).slice(0, 12).map((t) => (
+                <li key={t.id}>
+                  <button onClick={() => { setPalette(false); setKq(""); setEditing(t); }}
+                    className="flex min-h-[44px] w-full items-center gap-2 rounded-xl px-3 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10">
+                    <b className="truncate">{t.title}</b>
+                    <span className="ml-auto shrink-0 text-xs text-zinc-500">{t.priority} · {dueIn(t.dueAt)}</span>
+                  </button>
+                </li>
+              ))}
+              {kq.trim() && board.tasks.filter((t) => !t.archived && t.title.toLowerCase().includes(kq.trim().toLowerCase())).length === 0 && (
+                <li className="px-3 text-sm text-zinc-500">No matches.</li>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {shortcuts && (
+        <div role="dialog" aria-label="Keyboard shortcuts" className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-20">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 dark:bg-zinc-900">
+            <b>Keyboard shortcuts</b>
+            <ul className="mt-2 space-y-1.5 text-sm">
+              {[["⌘K / Ctrl K", "Search tasks"], ["?", "This map"], ["Esc", "Close dialogs"], ["Enter", "Confirm inline inputs"], ["Double-click", "Rename checklist item"]].map(([k, d]) => (
+                <li key={k} className="flex items-center gap-2"><kbd className="rounded bg-black/10 px-2 py-0.5 font-mono text-xs dark:bg-white/15">{k}</kbd> {d}</li>
+              ))}
+            </ul>
+            <button onClick={() => setShortcuts(false)} className="mt-3 min-h-[44px] w-full rounded-xl border border-black/15 text-sm dark:border-white/20">Close</button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
-        {board.columns.map((c) => {
-          const cards = board.tasks.filter((t) => t.columnId === c.id && !t.archived).sort((a, b) => a.ord - b.ord);
+        {boardView === "columns" && board.columns.map((c) => {
+          const q = (colQuery[c.id] ?? "").trim().toLowerCase();
+          const cards = board.tasks
+            .filter((t) => t.columnId === c.id && !t.archived)
+            .filter((t) => !q || t.title.toLowerCase().includes(q))
+            .sort((a, b) => a.ord - b.ord);
           return (
             <div key={c.id}
               onDragOver={(e) => e.preventDefault()}
@@ -376,6 +468,9 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
               <div className="flex items-center gap-1 px-1">
                 <b className="text-xs font-extrabold uppercase tracking-widest text-zinc-500">{c.name}</b>
                 <span className="rounded-full bg-black/10 px-2 text-xs dark:bg-white/15">{cards.length}</span>
+                <input value={colQuery[c.id] ?? ""} onChange={(e) => setColQuery((s) => ({ ...s, [c.id]: e.target.value }))}
+                  placeholder="Search…" aria-label={`Search in ${c.name}`} maxLength={60}
+                  className="ml-auto min-h-[36px] w-24 rounded-lg border border-black/10 bg-transparent px-2 text-xs dark:border-white/15" />
                 <button aria-label={`Rename ${c.name}`} onClick={async () => {
                   const name = prompt("Rename column:", c.name);
                   if (!name || name === c.name) return;
@@ -409,14 +504,20 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1">
                       <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-bold text-brand-deep">{c.name}</span>
-                      {t.dueAt && <span className="text-[11px] text-zinc-500">📅 {t.dueAt.slice(0, 10)}{t.dueAt.length > 10 ? ` ${t.dueAt.slice(11)}` : ""}</span>}
+                      {t.dueAt && (
+                        <span className={`text-[11px] font-semibold ${dueIn(t.dueAt).startsWith("overdue") ? "text-red-600" : "text-zinc-500"}`}>
+                          ⏳ {dueIn(t.dueAt) || t.dueAt.slice(0, 10)}
+                        </span>
+                      )}
                       {t.todoTotal > 0 && (
                         <span className="rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-bold dark:bg-white/15" title={`${t.todoDone}/${t.todoTotal} todos done`}>
                           ☑ {t.todoDone}/{t.todoTotal}
                         </span>
                       )}
                     </div>
-                    {t.body && <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{t.body}</p>}
+                    {t.body && (isRichHtml(t.body)
+                      ? <div className="mt-1 line-clamp-2 text-xs text-zinc-500" dangerouslySetInnerHTML={{ __html: t.body }} />
+                      : <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{t.body}</p>)}
                     <div className="mt-2 flex items-center gap-2">
                       {t.assigneeEmail ? (
                         <span title={t.assigneeEmail} className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">{initials(t.assigneeEmail)}</span>
@@ -438,16 +539,108 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
         })}
       </div>
 
+      {boardView === "swimlane" && (
+        <div className="mt-3 space-y-3">
+          {(["__unassigned__", ...users] as string[]).map((who) => {
+            const rows = board.tasks.filter((t) => !t.archived && (who === "__unassigned__" ? !t.assigneeEmail : t.assigneeEmail === who));
+            if (who !== "__unassigned__" && rows.length === 0) return null;
+            return (
+              <div key={who} className="rounded-2xl border border-black/10 p-2 dark:border-white/10">
+                <p className="px-1 text-xs font-extrabold uppercase tracking-widest text-zinc-500">
+                  {who === "__unassigned__" ? "Unassigned" : who} ({rows.length})
+                </p>
+                <div className="mt-1 grid gap-2 md:grid-cols-3">
+                  {board.columns.map((c) => (
+                    <div key={c.id} className="rounded-xl bg-zinc-50/60 p-1.5 dark:bg-white/5">
+                      <p className="px-1 text-[11px] font-bold text-zinc-500">{c.name}</p>
+                      <div className="mt-1 space-y-1.5">
+                        {rows.filter((t) => t.columnId === c.id).sort((a, b) => a.ord - b.ord).map((t) => (
+                          <button key={t.id} onClick={() => setEditing(t)}
+                            className="block w-full rounded-lg border border-black/10 bg-white p-2 text-left text-xs shadow-sm dark:border-white/10 dark:bg-zinc-900">
+                            <span className="flex items-center gap-1.5">
+                              <span className={`h-2 w-2 shrink-0 rounded-full ${t.priority === "urgent" ? "bg-red-500" : t.priority === "high" ? "bg-orange-500" : t.priority === "medium" ? "bg-yellow-500" : "bg-zinc-400"}`} />
+                              <b className="min-w-0 flex-1 truncate">{t.title}</b>
+                            </span>
+                            {t.dueAt && <span className="mt-0.5 block text-[11px] text-zinc-500">⏳ {dueIn(t.dueAt) || t.dueAt.slice(0, 10)}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {boardView === "table" && (
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-black/10 dark:border-white/10">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-black/10 text-xs uppercase tracking-wider text-zinc-500 dark:border-white/10">
+                <th className="px-3 py-2">Task</th><th className="px-3 py-2">Stage</th>
+                <th className="px-3 py-2">Priority</th><th className="px-3 py-2">Owner</th>
+                <th className="px-3 py-2">Due</th><th className="px-3 py-2">Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {board.tasks.filter((t) => !t.archived).sort((a, b) => a.columnId - b.columnId || a.ord - b.ord).map((t) => (
+                <tr key={t.id} className="cursor-pointer border-b border-black/5 hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5" onClick={() => setEditing(t)}>
+                  <td className="px-3 py-2 font-semibold">{t.title}
+                    {t.todoTotal > 0 && <span className="ml-1 text-xs font-normal text-zinc-500">☑ {t.todoDone}/{t.todoTotal}</span>}
+                  </td>
+                  <td className="px-3 py-2"><span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-bold text-brand-deep">{board.columns.find((c) => c.id === t.columnId)?.name}</span></td>
+                  <td className="px-3 py-2"><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${priorityBadge(t.priority)}`}>{t.priority}</span></td>
+                  <td className="px-3 py-2 text-xs">{t.assigneeEmail ? t.assigneeEmail.split("@")[0] : "—"}</td>
+                  <td className="px-3 py-2 text-xs">{t.dueAt ? dueIn(t.dueAt) || t.dueAt.slice(0, 10) : "—"}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-500">{t.updatedAt ? timeAgo(t.updatedAt) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {boardView === "grid" && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {board.tasks.filter((t) => !t.archived).map((t) => (
+            <button key={t.id} onClick={() => setEditing(t)}
+              className="rounded-2xl border border-black/10 bg-white p-3 text-left shadow-sm dark:border-white/10 dark:bg-zinc-900">
+              <span className="flex items-start gap-2">
+                <b className="min-w-0 flex-1 truncate text-sm">{t.title}</b>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${priorityBadge(t.priority)}`}>{t.priority}</span>
+              </span>
+              <span className="mt-1.5 flex flex-wrap items-center gap-1">
+                <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-bold text-brand-deep">{board.columns.find((c) => c.id === t.columnId)?.name}</span>
+                {t.dueAt && <span className="text-[11px] text-zinc-500">⏳ {dueIn(t.dueAt) || t.dueAt.slice(0, 10)}</span>}
+                {t.todoTotal > 0 && <span className="text-[11px] text-zinc-500">☑ {t.todoDone}/{t.todoTotal}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {editing && (
         <div role="dialog" aria-label="Edit task" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 md:items-center">
           <div className="grid max-h-[90vh] w-full max-w-lg gap-2 overflow-auto rounded-2xl bg-white p-4 dark:bg-zinc-900">
             <b>Edit task #{editing.id}</b>
+            {(editing.dueAt || editing.updatedAt) && (
+              <p className="text-xs text-zinc-500">
+                {editing.dueAt ? `⏳ ${dueIn(editing.dueAt) || editing.dueAt.slice(0, 10)}` : ""}
+                {editing.dueAt && editing.updatedAt ? " · " : ""}
+                {editing.updatedAt ? `updated ${timeAgo(editing.updatedAt)}` : ""}
+              </p>
+            )}
             <label className="grid gap-1 text-sm">Title
-              <input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+              <span className="flex gap-1">
+                <input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} maxLength={160}
+                  className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+                <EmojiButton onPick={(em) => setEditing({ ...editing, title: `${editing.title}${em}` })} />
+              </span></label>
             <label className="grid gap-1 text-sm">Notes
-              <textarea value={editing.body} rows={3} onChange={(e) => setEditing({ ...editing, body: e.target.value })}
-                className="rounded-xl border border-black/15 bg-transparent px-3 py-2 dark:border-white/20" /></label>
+              <RichEditor value={editing.body} placeholder="Details, links, context…"
+                onChange={(html) => setEditing((cur) => (cur ? { ...cur, body: html } : cur))} /></label>
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1 text-sm">Start
                 <input type="datetime-local" value={toLocal(editing.startAt)} onChange={(e) => setEditing({ ...editing, startAt: e.target.value })}

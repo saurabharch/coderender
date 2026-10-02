@@ -1,4 +1,5 @@
 import { getDb } from "./store";
+import { expandShortcodes } from "./emoji";
 
 export interface Todo {
   id: number; taskId: number | null; title: string; body: string;
@@ -16,7 +17,7 @@ export function addChecklist(taskId: number, label: string): number {
   const t = getDb().prepare("SELECT boardId FROM KanbanTask WHERE id=?").get(taskId) as { boardId: number } | undefined;
   if (!t) throw new Error("task not found");
   const max = (getDb().prepare("SELECT COALESCE(MAX(ord),-1) m FROM KanbanTodo WHERE taskId=?").get(taskId) as { m: number }).m;
-  const r = getDb().prepare("INSERT INTO KanbanTodo (taskId, label, ord) VALUES (?,?,?)").run(taskId, String(label).slice(0, 160), max + 1);
+  const r = getDb().prepare("INSERT INTO KanbanTodo (taskId, label, ord) VALUES (?,?,?)").run(taskId, expandShortcodes(String(label).slice(0, 160)), max + 1);
   return Number(r.lastInsertRowid);
 }
 
@@ -29,13 +30,28 @@ export function editChecklist(id: number, input: { label?: string; note?: string
     { label: string; note: string } | undefined;
   if (!cur) throw new Error("not found");
   getDb().prepare("UPDATE KanbanTodo SET label=?, note=? WHERE id=?").run(
-    input.label !== undefined ? String(input.label).slice(0, 160) : cur.label,
-    input.note !== undefined ? String(input.note).slice(0, 1000) : cur.note,
+    input.label !== undefined ? expandShortcodes(String(input.label).slice(0, 160)) : cur.label,
+    input.note !== undefined ? expandShortcodes(String(input.note).slice(0, 1000)) : cur.note,
     id);
 }
 
 export function deleteChecklist(id: number): void {
   getDb().prepare("DELETE FROM KanbanTodo WHERE id=?").run(id);
+}
+
+export function moveChecklist(id: number, dir: -1 | 1): void {
+  const d = getDb();
+  const cur = d.prepare("SELECT taskId, ord FROM KanbanTodo WHERE id=?").get(id) as
+    { taskId: number; ord: number } | undefined;
+  if (!cur) throw new Error("not found");
+  const other = d.prepare(
+    dir < 0
+      ? "SELECT id, ord FROM KanbanTodo WHERE taskId=? AND ord < ? ORDER BY ord DESC LIMIT 1"
+      : "SELECT id, ord FROM KanbanTodo WHERE taskId=? AND ord > ? ORDER BY ord ASC LIMIT 1"
+  ).get(cur.taskId, cur.ord) as { id: number; ord: number } | undefined;
+  if (!other) return;
+  d.prepare("UPDATE KanbanTodo SET ord=? WHERE id=?").run(other.ord, id);
+  d.prepare("UPDATE KanbanTodo SET ord=? WHERE id=?").run(cur.ord, other.id);
 }
 
 // ---- standalone team todos (todo threads attach to these ids) ----
