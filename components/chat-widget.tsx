@@ -15,6 +15,7 @@ interface Turn {
   blocks?: Block[];
   source?: string;
   options?: Opt[];
+  optKey?: string;
   multi?: boolean;
   submitLabel?: string;
   back?: boolean;
@@ -91,7 +92,7 @@ export function ChatWidget() {
   const [draftRestored, setDraftRestored] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [limited, setLimited] = useState(false);
-  const [activeTurn, setActiveTurn] = useState<number | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [showThreads, setShowThreads] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -106,7 +107,7 @@ export function ChatWidget() {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns, busy, phase, activeTurn]);
+  }, [turns, busy, phase, activeKey]);
 
   // Guest persistence: mirror thread + history to localStorage (no auth needed).
   // Logged-in team history lives server-side under /ai-chat instead.
@@ -133,7 +134,7 @@ export function ChatWidget() {
     try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ }
     setThreadId(undefined);
     setTurns([]);
-    setActiveTurn(null);
+    setActiveKey(null);
     setPicked([]);
     setLimited(false);
     setGate("entry");
@@ -271,7 +272,7 @@ export function ChatWidget() {
 
   async function post(message: string, retry = true): Promise<void> {
     setBusy(true);
-    setActiveTurn(null);
+    setActiveKey(null);
     setPhase("thinking");
     setPicked([]);
     const researchTimer = setTimeout(() => setPhase("researching"), 3000);
@@ -314,21 +315,18 @@ export function ChatWidget() {
         return;
       }
       setPhase("typing");
-      const idxRef: { i: number } = { i: -1 };
+      const key = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       setTimeout(() => {
-        setTurns((t) => {
-          idxRef.i = t.length;
-          return [...t, {
-            role: "assistant", body: data.reply, turnIdx: data.turnIdx,
-            blocks: data.blocks, source: data.source,
-            options: data.options, multi: !!data.multi,
-            submitLabel: data.submitLabel || "Submit", back: !!data.back,
-          }];
-        });
+        setTurns((t) => [...t, {
+          role: "assistant", body: data.reply, turnIdx: data.turnIdx,
+          blocks: data.blocks, source: data.source, optKey: key,
+          options: data.options, multi: !!data.multi,
+          submitLabel: data.submitLabel || "Submit", back: !!data.back,
+        }]);
         chime("reply");
         if (data.options?.length) {
           setPicked([]);
-          setTimeout(() => setActiveTurn(idxRef.i), 0);
+          setActiveKey(key);
         }
         setPhase("idle");
       }, 700);
@@ -346,35 +344,35 @@ export function ChatWidget() {
     await post(msg);
   }
 
-  async function tapOption(turnIdx: number, id: string, label: string) {
-    if (busy || turnIdx !== activeTurn) return;
-    const turn = turns[turnIdx];
+  async function tapOption(key: string, id: string, label: string) {
+    if (busy || key !== activeKey) return;
+    const turn = turns.find((x) => x.optKey === key);
     if (turn?.multi) {
       setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
       return;
     }
-    setTurns((t) => t.map((x, j) => (j === turnIdx ? { ...x, used: true } : x)));
-    setActiveTurn(null);
+    setTurns((t) => t.map((x) => (x.optKey === key ? { ...x, used: true } : x)));
+    setActiveKey(null);
     setTurns((t) => [...t, { role: "user", body: label }]);
     await post(id);
   }
 
-  async function submitMulti(turnIdx: number) {
-    const turn = turns[turnIdx];
+  async function submitMulti(key: string) {
+    const turn = turns.find((x) => x.optKey === key);
     const opts = turn?.options ?? [];
     const labels = opts.filter((o) => picked.includes(o.id)).map((o) => o.label).join(", ");
-    if (busy || picked.length === 0 || turnIdx !== activeTurn) return;
+    if (busy || picked.length === 0 || key !== activeKey) return;
     setTurns((t) => [...t, { role: "user", body: labels }]);
-    setTurns((t) => t.map((x, j) => (j === turnIdx ? { ...x, used: true } : x)));
-    setActiveTurn(null);
+    setTurns((t) => t.map((x) => (x.optKey === key ? { ...x, used: true } : x)));
+    setActiveKey(null);
     await post(picked.join(","));
   }
 
-  async function goBack(turnIdx: number) {
-    if (busy || turnIdx !== activeTurn) return;
+  async function goBack(key: string) {
+    if (busy || key !== activeKey) return;
     setTurns((t) => [...t, { role: "user", body: "« back" }]);
-    setTurns((t) => t.map((x, j) => (j === turnIdx ? { ...x, used: true } : x)));
-    setActiveTurn(null);
+    setTurns((t) => t.map((x) => (x.optKey === key ? { ...x, used: true } : x)));
+    setActiveKey(null);
     await post("« back");
   }
 
@@ -399,7 +397,7 @@ export function ChatWidget() {
       return { role: m.role, body: m.body, turnIdx: m.role === "assistant" ? ai : undefined };
     }));
     setThreadId(id);
-    setActiveTurn(null);
+    setActiveKey(null);
     setPicked([]);
     setShowThreads(false);
     setGate("chat");
@@ -523,17 +521,17 @@ export function ChatWidget() {
                         <span className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{SOURCE_LABEL[t.source]}</span>
                       )}
                     </div>
-                    {t.role === "assistant" && t.options && t.options.length > 0 && i === activeTurn && !t.used && (
+                    {t.role === "assistant" && t.options && t.options.length > 0 && t.optKey !== undefined && t.optKey === activeKey && !t.used && (
                       <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Suggested replies">
                         {t.back && (
-                          <button onClick={() => goBack(i)} className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-black/15 px-4 text-xs font-semibold dark:border-white/20">
+                          <button onClick={() => goBack(t.optKey as string)} className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-black/15 px-4 text-xs font-semibold dark:border-white/20">
                             <ArrowLeft size={13} /> Back
                           </button>
                         )}
                         {t.options.map((o) => {
                           const on = picked.includes(o.id);
                           return (
-                            <button key={o.id} onClick={() => tapOption(i, o.id, o.label)}
+                            <button key={o.id} onClick={() => tapOption(t.optKey as string, o.id, o.label)}
                               aria-pressed={t.multi ? on : undefined}
                               className={`flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-xs font-semibold ${on ? "border-brand bg-brand-soft dark:bg-white/10" : "border-black/15 dark:border-white/20"}`}>
                               {t.multi
@@ -544,7 +542,7 @@ export function ChatWidget() {
                           );
                         })}
                         {t.multi && (
-                          <button onClick={() => submitMulti(i)} disabled={picked.length === 0}
+                          <button onClick={() => submitMulti(t.optKey as string)} disabled={picked.length === 0}
                             className="flex min-h-[44px] items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white disabled:opacity-50">
                             <Send size={12} /> {t.submitLabel || "Submit"} ({picked.length})
                           </button>
