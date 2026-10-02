@@ -340,3 +340,37 @@ model BoardMember {
   createdAt DateTime @default(now())
   @@unique([boardId, email])
 }
+
+model Service {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  title       String
+  tagline     String   @default("")
+  category    String   @default("growth")
+  description String   @default("")
+  notes       String   @default("")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model PackageService {
+  id        Int @id @default(autoincrement())
+  packageId Int
+  serviceId Int
+  @@unique([packageId, serviceId])
+}
+
+model ServicePackage {
+  id        Int      @id @default(autoincrement())
+  serviceSlug String
+  name      String
+  price     Int      @default(0)
+  per       String   @default("one-time")
+  timeline  String   @default("")
+  includes  String   @default("[]")
+  bestFor   String   @default("")
+  notes     String   @default("")
+  details   String   @default("")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

@@ -63,6 +63,7 @@ export const ROUTES: RouteDoc[] = [
   { method: "POST", path: "/api/kanban/boards/[id]/members", auth: "team", desc: "Invite by email.", body: "{email, role?}" },
   { method: "DELETE", path: "/api/kanban/boards/[id]/members?email=", auth: "team", desc: "Remove a member." },
   { method: "GET", path: "/api/meetings/upcoming", auth: "team", desc: "Meetings with parsed day keys." },
+  { method: "GET", path: "/api/catalog", auth: "team", desc: "Services + plans (?q= suggests services)." },
   { method: "GET", path: "/api/gcal/sync", auth: "team", desc: "Google sync status for me." },
   { method: "POST", path: "/api/gcal/sync", auth: "team", desc: "Push board / pull day / disconnect.", body: "{action: push|pull|off, boardId?, day?}" },
   { method: "GET", path: "/api/gcal/connect", auth: "team", desc: "Google OAuth URL (or unconfigured note)." },

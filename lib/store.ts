@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { randomBytes, createHash } from "node:crypto";
 import { embed, cosine, parseVec } from "./vectors";
+import { SERVICES } from "./services";
 
 function dbPath(): string {
   const url = process.env.DATABASE_URL ?? "file:./dev.db";
@@ -243,6 +244,17 @@ export function getDb(): DatabaseSync {
       bestFor TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     seedPackages(db);
+    db.exec(`CREATE TABLE IF NOT EXISTS Service (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL,
+      tagline TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT 'growth',
+      description TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS PackageService (
+      packageId INTEGER NOT NULL, serviceId INTEGER NOT NULL, UNIQUE(packageId, serviceId))`);
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN notes TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN details TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    seedServices(db);
     db.exec(`CREATE TABLE IF NOT EXISTS Distill (
       id INTEGER PRIMARY KEY AUTOINCREMENT, input TEXT NOT NULL,
       better TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'nightly',
@@ -350,6 +362,23 @@ function seedPackages(db: DatabaseSync) {
     for (const [slug, name, price, per, timeline, includes, bestFor] of SEED_PACKAGES) {
       db.prepare("INSERT INTO ServicePackage (serviceSlug, name, price, per, timeline, includes, bestFor) VALUES (?,?,?,?,?,?,?)")
         .run(slug, name, price as number, per, timeline, JSON.stringify(includes), bestFor);
+    }
+  } catch { /* seeding never breaks boot */ }
+}
+
+function seedServices(db: DatabaseSync) {
+  const CAT: Record<string, string> = {
+    "google-business-profile": "visibility", "website-development": "presence",
+    "local-seo": "visibility", "seo-marketing": "growth",
+    "lead-generation": "pipeline", "chat-automation": "care",
+  };
+  try {
+    const n = (db.prepare("SELECT COUNT(*) c FROM Service").get() as { c: number }).c;
+    if (n > 0) return;
+    for (const s of SERVICES) {
+      db.prepare("INSERT INTO Service (slug, title, tagline, category, description) VALUES (?,?,?,?,?)").run(
+        s.slug, s.title, s.tagline, CAT[s.slug] ?? "growth",
+        [...s.includes, ...s.excludes.map((x) => `(not) ${x}`)].join("\n").slice(0, 2000));
     }
   } catch { /* seeding never breaks boot */ }
 }
