@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
 import { requireTeam } from "@/lib/auth";
+import { nextSlots } from "@/lib/slots";
 
 async function setStatus(form: FormData) {
   "use server";
@@ -11,9 +12,18 @@ async function setStatus(form: FormData) {
   revalidatePath("/admin/schedule");
 }
 
+async function reschedule(form: FormData) {
+  "use server";
+  const me = await requireTeam();
+  const { rescheduleMeeting } = await import("@/lib/notify");
+  await rescheduleMeeting(Number(form.get("id")), String(form.get("slot") || ""), me.email);
+  revalidatePath("/admin/schedule");
+}
+
 export default async function SchedulePage() {
   const rows = getDb().prepare("SELECT * FROM Appointment ORDER BY id DESC LIMIT 200").all() as
     { id: number; name: string; contact: string; mode: string; slot: string; status: string; createdAt: string }[];
+  const slots = nextSlots();
   const upcoming = rows.filter((r) => r.status === "confirmed" || r.status === "proposed");
   const past = rows.filter((r) => r.status === "done" || r.status === "cancelled");
   const isStale = (createdAt: string) => Date.now() - new Date(createdAt).getTime() > 2 * 864e5;
@@ -29,6 +39,16 @@ export default async function SchedulePage() {
         </select>
         <button className="min-h-[44px] rounded-xl border border-black/15 px-3 text-sm dark:border-white/20">Set</button>
       </form>
+      {(r.status === "proposed" || r.status === "confirmed") && (
+        <form action={reschedule} className="flex gap-2">
+          <input type="hidden" name="id" value={r.id} />
+          <select name="slot" defaultValue={r.slot} required className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            {r.slot && <option value={r.slot}>Keep: {r.slot}</option>}
+            {slots.filter((s) => s.id !== r.slot).map((s) => <option key={s.id} value={s.id}>{s.label} (reschedule + notify)</option>)}
+          </select>
+          <button className="min-h-[44px] rounded-xl bg-brand px-3 text-sm font-semibold text-white">Reschedule</button>
+        </form>
+      )}
     </li>
   );
   return (

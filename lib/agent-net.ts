@@ -1,6 +1,7 @@
 import { infer, type Scope } from "./ai-gateway";
 import { getDb, recall } from "./store";
 import { SERVICES } from "./services";
+import { nextSlots } from "./slots";
 import { VERTICALS } from "./site";
 
 // AgentKit-shaped network: router + scoped persona agents + grounded tools.
@@ -132,7 +133,8 @@ export interface AgentReply {
 
 export interface IntakeState {
   stage: "detect" | "vertical" | "goals" | "details" | "contact" | "mode" | "slot" | "done"
-    | "sphone" | "sdone" | "pphone" | "pdone";
+    | "sphone" | "sdone" | "pphone" | "pdone" | "rsel" | "rslot";
+  resid?: number;
   mode?: "enquiry" | "support" | "partner";
   meet?: string;
   qcount?: number;
@@ -225,21 +227,6 @@ function matchSlot(msg: string, slots: string[]): string | undefined {
     const n = s.toLowerCase().replace(/:00/g, "").replace(/\s+/g, "");
     return (!day || n.includes(day)) && (!time || n.includes(time));
   });
-}
-
-function nextSlots(): WizardOption[] {
-  const out: WizardOption[] = [];
-  const d = new Date();
-  while (out.length < 6) {
-    d.setDate(d.getDate() + 1);
-    if (d.getDay() === 0) continue;
-    const day = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
-    for (const t of ["11:00 AM", "4:00 PM"]) {
-      out.push({ id: `${day} · ${t}`, label: `${day} · ${t}` });
-      if (out.length >= 6) break;
-    }
-  }
-  return out;
 }
 
 const SERVICE_SYNONYMS: [RegExp, string][] = [
@@ -427,6 +414,9 @@ export async function runNetwork(opts: {
       saveState(opts.threadId, { ...st0, phone, stage: st0.mode === "support" ? "sdone" : "pdone", email: opts.verifiedEmail });
       return snapshotReply(st0.mode, opts.verifiedEmail, phone);
     }
+    // client/partner self-service reschedule: pick meeting → pick slot → confirm.
+    const rsReply = await rescheduleFlow(opts.threadId, st0, msg, opts.verifiedEmail, scope);
+    if (rsReply) return rsReply;
     // support ticket filing (+ team notify + owner mail attempt)
     if (/complaint|issue|problem|broken|refund|not working|ticket/i.test(msg) && !/^(track|status|show)/i.test(msg)) {
       const subj = msg.slice(0, 120);
@@ -823,6 +813,62 @@ async function projectList(): Promise<{
   return {
     text: "Which project? Tap one — I track boards and orders live from kanban status and analytics.",
     options, blocks,
+  };
+}
+
+// Verified client/partner meeting reschedule (support + partner modes).
+// `rsel`: pick one of your upcoming meetings. `rslot`: pick a new slot.
+async function rescheduleFlow(
+  threadId: number | undefined, st: IntakeState, msg: string,
+  email: string, scope: Exclude<Scope, "infra">
+): Promise<AgentReply | null> {
+  const { getDb } = await import("./store");
+  const mine = (getDb().prepare(
+    `SELECT * FROM Appointment WHERE status IN ('proposed','confirmed')
+     AND (contact LIKE ? OR contact LIKE ?) ORDER BY id DESC LIMIT 8`).all(
+    `%${st.phone}%`, `%${email}%`) as
+    { id: number; slot: string; mode: string; status: string }[]);
+  const inFlow = st.stage === "rsel" || st.stage === "rslot";
+  if (!inFlow && !/reschedul|postpone|prepone|change\s+(my\s+)?(meeting|slot|appointment|call)|move\s+my\s+(meeting|call)/i.test(msg)) return null;
+  if (st.stage === "rslot" && st.resid) {
+    const slot = matchSlot(msg, nextSlots().map((s) => s.id));
+    if (!slot) {
+      return {
+        text: "Tap a new slot below (IST) and I'll move it instantly with notifications:",
+        scope, runtime: "none", options: nextSlots().map((s) => ({ id: s.id, label: s.label })),
+      };
+    }
+    try {
+      const { rescheduleMeeting } = await import("./notify");
+      const { meeting, oldSlot } = await rescheduleMeeting(st.resid, slot, `bot:${email}`);
+      saveState(threadId, { ...st, stage: st.mode === "partner" ? "pdone" : "sdone", resid: undefined });
+      return {
+        text: `Done! Moved from ${oldSlot || "unscheduled"} to ${meeting.slot} (IST), ${meeting.mode}. I notified the team by mail, push, and chat — and your contact by mail/WhatsApp link. Anything else?`,
+        scope, runtime: "none",
+      };
+    } catch {
+      return { text: "That slot didn't stick — try another below.", scope, runtime: "none", options: nextSlots().map((s) => ({ id: s.id, label: s.label })) };
+    }
+  }
+  const pick = msg.match(/#?(\d+)/);
+  const chosen = pick ? mine.find((m) => m.id === Number(pick[1])) : undefined;
+  if (chosen) {
+    saveState(threadId, { ...st, stage: "rslot", resid: chosen.id });
+    return {
+      text: `Moving "${chosen.slot || "unscheduled"}" (${chosen.mode}) — pick the new slot (IST):`,
+      scope, runtime: "none",
+      options: nextSlots().map((s) => ({ id: s.id, label: s.label })),
+    };
+  }
+  if (mine.length === 0) {
+    saveState(threadId, { ...st, stage: st.mode === "partner" ? "pdone" : "sdone" });
+    return { text: "I don't see any upcoming meetings on your contact — want to book a fresh one instead?", scope, runtime: "none" };
+  }
+  saveState(threadId, { ...st, stage: "rsel" });
+  return {
+    text: "Which meeting should I move? Tap one:",
+    scope, runtime: "none",
+    options: mine.map((m) => ({ id: String(m.id), label: `#${m.id} ${m.slot || "unscheduled"} · ${m.mode}` })),
   };
 }
 

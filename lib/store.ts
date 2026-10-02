@@ -237,8 +237,9 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS PushSubscription (
       id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL UNIQUE,
       p256dh TEXT NOT NULL DEFAULT '', auth TEXT NOT NULL DEFAULT '',
+      label TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS ServicePackage (
+    try { db.exec("ALTER TABLE PushSubscription ADD COLUMN label TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }    db.exec(`CREATE TABLE IF NOT EXISTS ServicePackage (
       id INTEGER PRIMARY KEY AUTOINCREMENT, serviceSlug TEXT NOT NULL,
       name TEXT NOT NULL, price INTEGER NOT NULL DEFAULT 0, per TEXT NOT NULL DEFAULT 'one-time',
       timeline TEXT NOT NULL DEFAULT '', includes TEXT NOT NULL DEFAULT '[]',
