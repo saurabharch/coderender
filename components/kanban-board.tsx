@@ -86,7 +86,14 @@ function TaskExtras({ taskId }: { taskId: number }) {
   const done = items.filter((i) => i.done).length;
 
   async function put(id: number, body: Record<string, unknown>) {
-    await api("/api/kanban/tasks/checklist", { method: "PUT", body: JSON.stringify({ id, ...body }) });
+    await api(`/api/kanban/tasks/${taskId}/checklist`, { method: "PUT", body: JSON.stringify({ id, ...body }) });
+    void load();
+  }
+
+  async function addItem() {
+    if (!label.trim()) return;
+    await api(`/api/kanban/tasks/${taskId}/checklist`, { method: "POST", body: JSON.stringify({ label: label.trim() }) }).catch(() => {});
+    setLabel("");
     void load();
   }
 
@@ -129,7 +136,7 @@ function TaskExtras({ taskId }: { taskId: number }) {
               <button aria-label="Move down" onClick={() => { void put(it.id, { dir: "down" }); }}
                 className="min-h-[36px] px-1 text-xs opacity-60 hover:opacity-100">↓</button>
               <button aria-label="Remove item" onClick={async () => {
-                await api(`/api/kanban/tasks/checklist?id=${it.id}`, { method: "DELETE" });
+                await api(`/api/kanban/tasks/${taskId}/checklist?id=${it.id}`, { method: "DELETE" });
                 void load();
               }} className="min-h-[36px] px-1.5 text-xs opacity-60 hover:opacity-100">✕</button>
             </div>
@@ -153,10 +160,12 @@ function TaskExtras({ taskId }: { taskId: number }) {
       </ul>
       <div className="flex gap-1">
         <input value={label} onChange={(e) => setLabel(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) { void api(`/api/kanban/tasks/${taskId}/checklist`, { method: "POST", body: JSON.stringify({ label: label.trim() }) }).then(() => { setLabel(""); void load(); }); } }}
-          placeholder="+ Add checklist item (Enter to add)" maxLength={160}
+          onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) { void addItem(); } }}
+          placeholder="+ Add checklist item" maxLength={160}
           className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-dashed border-black/20 bg-transparent px-3 text-sm dark:border-white/20" />
         <EmojiButton onPick={(em) => setLabel((s) => `${s}${em}`)} />
+        <button onClick={() => void addItem()} disabled={!label.trim()}
+          className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">Add</button>
       </div>
       <div>
         <p className="text-sm font-bold">Discussion</p>

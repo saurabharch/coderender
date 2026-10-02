@@ -36,9 +36,12 @@ export async function PUT(req: Request) {
   const d = parsed.data;
   try {
     if (d.dir) moveChecklist(d.id, d.dir === "up" ? -1 : 1);
-    else if (d.label !== undefined || d.note !== undefined) editChecklist(d.id, { label: d.label, note: d.note });
-    else if (d.done !== undefined) toggleChecklist(d.id, d.done);
-    else return NextResponse.json({ error: "nothing to change" }, { status: 422 });
+    else {
+      if (d.label !== undefined || d.note !== undefined) editChecklist(d.id, { label: d.label, note: d.note });
+      if (d.done !== undefined) toggleChecklist(d.id, d.done);
+      if (d.label === undefined && d.note === undefined && d.done === undefined)
+        return NextResponse.json({ error: "nothing to change" }, { status: 422 });
+    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "not found" }, { status: 404 });
