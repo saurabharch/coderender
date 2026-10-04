@@ -3,7 +3,7 @@ import { version } from "../../package.json";
 export interface RouteDoc {
   method: string;
   path: string;
-  auth: "public" | "team" | "key";
+  auth: "public" | "team" | "key" | "partner";
   desc: string;
   body?: string;
 }
@@ -43,6 +43,7 @@ export const ROUTES: RouteDoc[] = [
   { method: "DELETE", path: "/api/forms/[id]/submissions/[subId]", auth: "team", desc: "Delete a submission." },
   { method: "GET", path: "/api/agent/call", auth: "public", desc: "List allowlisted agent ops." },
   { method: "POST", path: "/api/agent/call", auth: "key", desc: "Run an allowlisted agent op (ApiKey scope-checked, audited; durable via Inngest when keyed).", body: "{op, params?}" },
+  { method: "POST", path: "/api/payments", auth: "team", desc: "Record a payment (ledger + referral accrual).", body: "{orderId, amount, method?, status?}" },
   { method: "GET", path: "/api/kanban/boards", auth: "team", desc: "List boards with column/task counts." },
   { method: "POST", path: "/api/kanban/boards", auth: "team", desc: "Create a board (default columns).", body: "{name, description?, formId?}" },
   { method: "GET", path: "/api/kanban/boards/[id]", auth: "team", desc: "Board detail with columns + tasks." },
@@ -68,6 +69,11 @@ export const ROUTES: RouteDoc[] = [
   { method: "POST", path: "/api/support/tickets/[id]/attach", auth: "public", desc: "Attach a file (owner email or team; quarantined until scanned)." },
   { method: "GET", path: "/api/support/tickets/[id]/files/[fileId]", auth: "public", desc: "Download a scanned-clean attachment (owner or team)." },
   { method: "GET", path: "/api/catalog", auth: "team", desc: "Services + plans (?q= suggests services)." },
+  { method: "POST", path: "/api/partner/auth", auth: "public", desc: "Partner join (PIN once) / PIN login." },
+  { method: "POST", path: "/api/partner/goal", auth: "partner", desc: "Set a goal (day/week/month/year × clients/revenue)." },
+  { method: "POST", path: "/api/partner/payout", auth: "partner", desc: "Request payout (closed period, min goal)." },
+  { method: "POST", path: "/api/partner/banking", auth: "partner", desc: "Save banking/UPI (admin verifies)." },
+  { method: "GET", path: "/api/partner/confirm/[token]", auth: "public", desc: "Partner receipt confirmation → settled." },
   { method: "GET", path: "/api/gcal/sync", auth: "team", desc: "Google sync status for me." },
   { method: "POST", path: "/api/gcal/sync", auth: "team", desc: "Push board / pull day / disconnect.", body: "{action: push|pull|off, boardId?, day?}" },
   { method: "GET", path: "/api/gcal/connect", auth: "team", desc: "Google OAuth URL (or unconfigured note)." },

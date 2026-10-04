@@ -6,6 +6,7 @@ const AUTH_COLOR: Record<string, string> = {
   public: "bg-emerald-500/15 text-emerald-700",
   team: "bg-sky-500/15 text-sky-700",
   key: "bg-violet-500/15 text-violet-700",
+  partner: "bg-amber-500/15 text-amber-700",
 };
 
 export default async function ReferencePage() {

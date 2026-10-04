@@ -7,6 +7,7 @@ export const leadSchema = z.object({
   source: z.string().min(2).max(60).default("contact"),
   message: z.string().max(1000).optional(),
   fingerprint: z.string().max(80).optional(),
+  refCode: z.string().max(20).optional(),
 });
 
 export type LeadInput = z.infer<typeof leadSchema>;

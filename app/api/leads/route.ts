@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createLead } from "@/lib/leads";
 import { getDb } from "@/lib/store";
 import { runLocal } from "@/lib/jobs";
@@ -39,6 +40,17 @@ export async function POST(req: Request) {
   const replay = idemGet(idemKey);
   if (replay) return NextResponse.json({ ...JSON.parse(replay), replayed: true });
   const lead = createLead(parsed.data);
+  try {
+    const jar = await cookies();
+    const ref = jar.get("cr_ref")?.value || "";
+    if (ref && !parsed.data.refCode) {
+      const { getDb } = await import("@/lib/store");
+      getDb().prepare("UPDATE Lead SET refCode=? WHERE id=?").run(ref.slice(0, 20), lead.id);
+      const { recordReferralLead, partnerByCode } = await import("@/lib/partners");
+      const p = partnerByCode(ref);
+      if (p) recordReferralLead(p.id, p.code, lead.id);
+    }
+  } catch { /* attribution never breaks leads */ }
   if (parsed.data.source === "partner") {
     getDb().prepare("INSERT INTO PartnerRequest (name, phone, tier) VALUES (?,?,?)")
       .run(parsed.data.name, parsed.data.phone, "referrer");

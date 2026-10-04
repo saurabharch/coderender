@@ -55,7 +55,37 @@ export function getDb(): DatabaseSync {
       city TEXT NOT NULL DEFAULT '', tier TEXT NOT NULL DEFAULT 'referrer',
       status TEXT NOT NULL DEFAULT 'new',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS ClientOrder (
+    db.exec(`CREATE TABLE IF NOT EXISTS Partner (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '', tier TEXT NOT NULL DEFAULT 'referrer', ratePercent REAL NOT NULL DEFAULT 10,
+      code TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'active',
+      bankName TEXT NOT NULL DEFAULT '', accountNo TEXT NOT NULL DEFAULT '', ifsc TEXT NOT NULL DEFAULT '',
+      upi TEXT NOT NULL DEFAULT '', bankVerified INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Offer (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, code TEXT NOT NULL UNIQUE,
+      kind TEXT NOT NULL DEFAULT 'percent', value REAL NOT NULL DEFAULT 0,
+      partnerId INTEGER, active INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Referral (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, partnerId INTEGER NOT NULL, code TEXT NOT NULL DEFAULT '',
+      leadId INTEGER, orderId INTEGER, amount INTEGER NOT NULL DEFAULT 0,
+      commission INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending',
+      period TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS PartnerGoal (
+      partnerId INTEGER NOT NULL, period TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'month',
+      target INTEGER NOT NULL DEFAULT 0, UNIQUE(partnerId, period, kind))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS PartnerMilestone (
+      partnerId INTEGER NOT NULL, code TEXT NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(partnerId, code))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS Payout (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, partnerId INTEGER NOT NULL, period TEXT NOT NULL,
+      amount INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'requested',
+      method TEXT NOT NULL DEFAULT '', confirmToken TEXT NOT NULL DEFAULT '',
+      requestedAt TEXT NOT NULL DEFAULT (datetime('now')), paidAt TEXT NOT NULL DEFAULT '',
+      confirmedAt TEXT NOT NULL DEFAULT '')`);
+    try { db.exec("ALTER TABLE Lead ADD COLUMN refCode TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }    db.exec(`CREATE TABLE IF NOT EXISTS ClientOrder (
       id INTEGER PRIMARY KEY AUTOINCREMENT, leadId INTEGER, title TEXT NOT NULL,
       amount INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);

@@ -413,3 +413,85 @@ model TicketAttachment {
   backend  String   @default("")
   createdAt DateTime @default(now())
 }
+
+model Partner {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  name         String   @default("")
+  phone        String   @default("")
+  tier         String   @default("referrer")
+  ratePercent  Float    @default(10)
+  code         String   @unique
+  status       String   @default("active")
+  bankName     String   @default("")
+  accountNo    String   @default("")
+  ifsc         String   @default("")
+  upi          String   @default("")
+  bankVerified Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+model Offer {
+  id        Int      @id @default(autoincrement())
+  title     String
+  code      String   @unique
+  kind      String   @default("percent")
+  value     Float    @default(0)
+  partnerId Int?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Referral {
+  id         Int      @id @default(autoincrement())
+  partnerId  Int
+  code       String   @default("")
+  leadId     Int?
+  orderId    Int?
+  amount     Int      @default(0)
+  commission Int      @default(0)
+  status     String   @default("pending")
+  period     String   @default("")
+  createdAt  DateTime @default(now())
+}
+
+model PartnerGoal {
+  id        Int    @id @default(autoincrement())
+  partnerId Int
+  period    String
+  kind      String @default("month")
+  target    Int    @default(0)
+  @@unique([partnerId, period, kind])
+}
+
+model PartnerMilestone {
+  id        Int      @id @default(autoincrement())
+  partnerId Int
+  code      String
+  at        DateTime @default(now())
+  @@unique([partnerId, code])
+}
+
+model Payout {
+  id           Int      @id @default(autoincrement())
+  partnerId    Int
+  period       String
+  amount       Int      @default(0)
+  status       String   @default("requested")
+  method       String   @default("")
+  confirmToken String   @default("")
+  requestedAt  DateTime @default(now())
+  paidAt       DateTime?
+  confirmedAt  DateTime?
+}
+
+model JournalEntry {
+  id     Int      @id @default(autoincrement())
+  kind   String
+  refId  Int      @default(0)
+  debit  String   @default("")
+  credit String   @default("")
+  amount Int      @default(0)
+  memo   String   @default("")
+  at     DateTime @default(now())
+}

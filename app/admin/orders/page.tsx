@@ -6,22 +6,23 @@ import { OrdersTable } from "@/components/orders-table";
 async function createOrder(form: FormData) {
   "use server";
   await requireTeam();
-  getDb().prepare("INSERT INTO ClientOrder (leadId, title, amount, status) VALUES (?,?,?,?)").run(
+  const r = getDb().prepare("INSERT INTO ClientOrder (leadId, title, amount, status) VALUES (?,?,?,?)").run(
     Number(form.get("leadId") || 0) || null,
     String(form.get("title") || "Order"),
     Number(form.get("amount") || 0),
     "draft"
   );
+  const { ledgerPost } = await import("@/lib/finance");
+  ledgerPost({ kind: "invoice", refId: Number(r.lastInsertRowid), amount: Number(form.get("amount") || 0), memo: String(form.get("title") || "Order") });
   revalidatePath("/admin/orders");
 }
 
 async function addPayment(form: FormData) {
   "use server";
   await requireTeam();
-  getDb().prepare("INSERT INTO Payment (orderId, amount, method, status) VALUES (?,?,?,?)").run(
-    Number(form.get("orderId")), Number(form.get("amount") || 0),
-    String(form.get("method") || "upi"), String(form.get("status") || "pending")
-  );
+  const status = String(form.get("status") || "pending");
+  const { recordPayment } = await import("@/lib/finance");
+  await recordPayment(Number(form.get("orderId")), Number(form.get("amount") || 0), String(form.get("method") || "upi"), status);
   revalidatePath("/admin/orders");
 }
 

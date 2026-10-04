@@ -41,6 +41,30 @@ export function startScheduler() {
   }, 600_000);
   setInterval(async () => {
     try {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      if (now.getHours() === 9 && now.getMinutes() < 10 && getPref("payout_digest", "on") === "on") {
+        const today = now.toISOString().slice(0, 10);
+        if (getPref("last_payout_day", "") !== today) {
+          setPref("last_payout_day", today);
+          const { payoutDigest } = await import("./partners");
+          const { getDb } = await import("./store");
+          const lines = payoutDigest();
+          if (lines.length) {
+            getDb().prepare("INSERT INTO Notification (title, body, audience) VALUES (?,?,?)").run(
+              `Payout digest (${lines.length})`, lines.join("\n").slice(0, 2000), "team");
+            const { sendMail } = await import("./mailer");
+            const { ADMIN_EMAILS } = await import("./auth");
+            for (const r of ADMIN_EMAILS)
+              await sendMail(r, `Partner payouts due (${lines.length})`, `<pre>${lines.join("\n").slice(0, 3000)}</pre>`).catch(() => {});
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[payouts]", e);
+    }
+  }, 600_000);
+  setInterval(async () => {
+    try {
       await reportInfraTrouble(infraCheck());
     } catch (e) {
       console.error("[infra]", e);

@@ -29,8 +29,16 @@ export function getDb(): DatabaseSync {
 export function createLead(input: LeadInput): { id: number } {
   const result = getDb()
     .prepare(
-      "INSERT INTO Lead (name, phone, businessType, source, message, fingerprint) VALUES (?, ?, ?, ?, ?, ?)"
+      "INSERT INTO Lead (name, phone, businessType, source, message, fingerprint, refCode) VALUES (?, ?, ?, ?, ?, ?, ?)"
     )
-    .run(input.name, input.phone, input.businessType, input.source, input.message ?? null, input.fingerprint ?? null);
-  return { id: Number(result.lastInsertRowid) };
+    .run(input.name, input.phone, input.businessType, input.source, input.message ?? null, input.fingerprint ?? null, input.refCode ?? "");
+  const id = Number(result.lastInsertRowid);
+  try {
+    const { recordReferralLead, partnerByCode } = require("./partners") as typeof import("./partners");
+    if (input.refCode) {
+      const p = partnerByCode(input.refCode);
+      if (p) recordReferralLead(p.id, p.code, id);
+    }
+  } catch { /* referral never breaks leads */ }
+  return { id };
 }
