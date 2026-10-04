@@ -15,6 +15,7 @@ let db: DatabaseSync | null = null;
 export function getDb(): DatabaseSync {
   if (!db) {
     db = new DatabaseSync(dbPath());
+    db.exec("PRAGMA busy_timeout = 5000");
     db.exec(`CREATE TABLE IF NOT EXISTS Lead (
       id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL,
       businessType TEXT NOT NULL DEFAULT 'general', source TEXT NOT NULL DEFAULT 'contact',

@@ -34,6 +34,27 @@ export function startScheduler() {
   }, 60_000);
   setInterval(async () => {
     try {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      if (now.getHours() === 3 && now.getMinutes() < 10 && getPref("backup", "on") === "on") {
+        const today = now.toISOString().slice(0, 10);
+        if (getPref("last_backup_day", "") !== today) {
+          setPref("last_backup_day", today);
+          const { execFile } = await import("node:child_process");
+          const { join } = await import("node:path");
+          await new Promise<void>((done) => {
+            execFile("bash", [join(process.cwd(), "scripts/backup.sh")], { timeout: 120_000 }, (e, stdout) => {
+              console.log(`[backup] ${e ? `FAILED: ${e.message}` : String(stdout).split("\n")[0]}`);
+              done();
+            });
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[backup]", e);
+    }
+  }, 600_000);
+  setInterval(async () => {
+    try {
       const { slaTick } = await import("./tickets");
       const out = await slaTick();
       if (out.length) console.log(`[sla] ${out.join("; ")}`);

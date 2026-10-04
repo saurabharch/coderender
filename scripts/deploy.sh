@@ -38,6 +38,6 @@ fi
 rm -rf .next.bak
 
 echo "==> tunnel verify"
-pgrep -f "tunnel.*--config" >/dev/null || echo "WARN: no tunnel connector running"
+pgrep -f "cloudflared.*tunnel" >/dev/null || echo "WARN: no tunnel connector running"
 curl -sf -o /dev/null --max-time 30 "$PUBLIC" && echo "public OK: $PUBLIC" || echo "WARN: public check failed (DNS/tunnel?) — local is healthy"
 echo "DEPLOY DONE"

@@ -11,3 +11,4 @@ dist/
 tsconfig.tsbuildinfo
 public/uploads/*
 !public/uploads/.gitkeep
+backups/

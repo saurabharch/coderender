@@ -1,6 +1,7 @@
-import { statfsSync, statSync } from "node:fs";
+import { readdirSync, statfsSync, statSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
-import { getDb } from "./store";
+import { getDb, getPref } from "./store";
 
 // Infra self-check: disk, database, build presence, scheduler heartbeat.
 // Findings become team notifications; trouble also emails owners.
@@ -34,6 +35,19 @@ export function infraCheck(): InfraFinding[] {
   const lastReport = getDb().prepare("SELECT value FROM Preference WHERE key='last_report_day'").get() as
     { value: string } | undefined;
   out.push({ check: "scheduler", ok: true, detail: `last report day: ${lastReport?.value ?? "never"}` });
+  try {
+    const copies = readdirSync(join(process.cwd(), "backups")).filter((f) => f.endsWith(".db"));
+    const fresh = copies.some((f) => Date.now() - statSync(join(process.cwd(), "backups", f)).mtimeMs < 36 * 3600_000);
+    out.push({ check: "backup", ok: copies.length > 0 && fresh, detail: `${copies.length} copies${fresh ? ", fresh" : ", STALE"}` });
+  } catch {
+    out.push({ check: "backup", ok: false, detail: "no backups dir" });
+  }
+  try {
+    execSync("pgrep -f 'cloudflared.*tunnel'", { timeout: 5000, stdio: "ignore" });
+    out.push({ check: "tunnel", ok: true, detail: "connector running" });
+  } catch {
+    out.push({ check: "tunnel", ok: false, detail: "no cloudflared connector" });
+  }
   return out;
 }
 

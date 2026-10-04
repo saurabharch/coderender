@@ -7,8 +7,12 @@ import { requireTeam } from "@/lib/auth";
 async function save(form: FormData) {
   "use server";
   await requireTeam();
-  for (const k of ["daily_report", "contact_phone", "contact_email", "partner_plan"]) {
-    const v = form.get(k);
+  // Checkboxes: unchecked sends nothing, so write both states explicitly
+  // (previously unchecking never stuck).
+  for (const k of ["daily_report", "backup"]) {
+    setPref(k, form.get(k) === "on" ? "on" : "off");
+  }
+  for (const k of ["contact_phone", "contact_email", "partner_plan"]) {    const v = form.get(k);
     if (typeof v === "string") setPref(k, v.slice(0, 4000));
   }
   for (const k of ["sla_ack_hours", "sla_close_days"]) {
@@ -95,6 +99,10 @@ export default async function SettingsPage() {
         <label className="flex min-h-[44px] items-center gap-2 text-sm">
           <input type="checkbox" name="daily_report" value="on" defaultChecked={getPref("daily_report", "on") === "on"} className="h-5 w-5" />
           Daily owner report email (23:55 IST)
+        </label>
+        <label className="flex min-h-[44px] items-center gap-2 text-sm">
+          <input type="checkbox" name="backup" value="on" defaultChecked={getPref("backup", "on") === "on"} className="h-5 w-5" />
+          Daily database backup (~03:00 IST, keeps 7 verified copies)
         </label>
         <label className="grid gap-1 text-sm">Contact phone (overrides env in reports)
           <input name="contact_phone" defaultValue={getPref("contact_phone", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
