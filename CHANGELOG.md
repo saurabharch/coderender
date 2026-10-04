@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.8.0] - 2026-10-04
+## [0.9.0] - 2026-10-04
+- Support tickets E2E: console, timeline, scan quarantine, SLA, bot + agent access, loop notify## [0.8.0] - 2026-10-04
 - Support hub + policies, widget UX, captcha visuals, kanban gaps, project tracking, plans catalog, reschedule notify## [0.7.0] - 2026-10-02
 - Calendar views + Gantt, Google sync scaffold, job queue, data tables, UI builder, slider captcha, media library## [0.6.1] - 2026-10-01
 - Kanban boards, threaded comments with auto-hide spam, media library## [0.6.0] - 2026-10-01
