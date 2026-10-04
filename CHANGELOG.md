@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.14.0] - 2026-10-05
+## [0.15.0] - 2026-10-05
+- Phase B: stock ledger + warehouses, PO to pay pipeline, low-stock alerts## [0.14.0] - 2026-10-05
 - Phase A commerce: units, GST tax engine, coupons, customers, products, orders + shop key scopes## [0.13.0] - 2026-10-04
 - Infra gaps: verified DB backups + restore docs, tunnel check, backup/tunnel self-checks## [0.12.0] - 2026-10-04
 - API lockdown (OTP/PIN 8-fail lockout, 8 scoped rate limits) + dashboard UX (admin kit, grouped drawer, linked stats)## [0.11.0] - 2026-10-04
