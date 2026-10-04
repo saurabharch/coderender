@@ -39,6 +39,11 @@ export async function POST(req: Request) {
           waId: m.id ?? "", from: m.from ?? "",
           body: m.text?.body ?? `[${m.type ?? "media"}]`, kind: "in", refId: m.id ?? "",
         });
+        // CRM pipeline: contacts, STOP/START, sentiment → auto-ticket.
+        try {
+          const { ingestInbound } = await import("@/lib/wa-crm");
+          await ingestInbound({ from: m.from ?? "", body: m.text?.body ?? "", waId: m.id ?? "" });
+        } catch { /* triage never breaks ingest */ }
         inbound++;
       }
       const statuses = (v.statuses ?? []) as { id?: string; status?: string }[];

@@ -511,3 +511,21 @@ model WaMessage {
   refId     String   @default("")
   createdAt DateTime @default(now())
 }
+
+model WaContact {
+  phone     String   @id
+  name      String   @default("")
+  stopped   Boolean  @default(false)
+  sentiment Float    @default(0)
+  unread    Int      @default(0)
+  lastAt    DateTime @default(now())
+}
+
+model WaTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  body      String   @default("")
+  lang      String   @default("en")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

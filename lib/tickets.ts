@@ -31,7 +31,8 @@ export async function fileTicket(input: {
   const email = String(input.email ?? "").slice(0, 120);
   const subject = String(input.subject ?? "").slice(0, 160);
   const body = String(input.body ?? "").slice(0, 4000);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("bad email");
+  // Channel identities (wa:<phone>) are valid filers; humans need an email.
+  if (!/^wa:\+?\d{7,15}$/.test(email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("bad email");
   if (subject.trim().length < 4 || body.trim().length < 10) throw new Error("too short");
   const mod = moderate(`${subject} ${body}`);
   const status: TicketStatus = mod.verdict === "block" ? "spam" : "open";

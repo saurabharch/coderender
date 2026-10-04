@@ -174,6 +174,16 @@ export function getDb(): DatabaseSync {
       sender TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
       kind TEXT NOT NULL DEFAULT 'in', refId TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS WaContact (
+      phone TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '',
+      stopped INTEGER NOT NULL DEFAULT 0, sentiment REAL NOT NULL DEFAULT 0,
+      unread INTEGER NOT NULL DEFAULT 0,
+      lastAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS WaTemplate (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
+      body TEXT NOT NULL DEFAULT '', lang TEXT NOT NULL DEFAULT 'en',
+      active INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     db.exec(`CREATE TABLE IF NOT EXISTS Job (
       id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0,
