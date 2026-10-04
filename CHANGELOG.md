@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.11.0] - 2026-10-04
+## [0.12.0] - 2026-10-04
+- API lockdown (OTP/PIN 8-fail lockout, 8 scoped rate limits) + dashboard UX (admin kit, grouped drawer, linked stats)## [0.11.0] - 2026-10-04
 - Google from dashboard vault (Calendar+Drive+Docs keys, scope reconnect, /admin/google); gateway keys verified## [0.10.0] - 2026-10-04
 - Deploy pack: Linux compose (postgres/redis/app/worker), token-ticked queue worker, CI workflow, termux service defs; payments e2e (Razorpay/PayU/Easebuzz)## [0.9.0] - 2026-10-04
 - Support tickets E2E: console, timeline, scan quarantine, SLA, bot + agent access, loop notify## [0.8.0] - 2026-10-04
