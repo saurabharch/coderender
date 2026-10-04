@@ -46,6 +46,8 @@ export async function fileTicket(input: {
   if (status !== "spam") {
     const { fireFlows } = await import("./flows");
     await fireFlows("ticket", { email, subject, text: body }).catch(() => {});
+    const { emitHook } = await import("./hooks");
+    emitHook("ticket.created", { id, subject });
   }
   return { id, status };
 }

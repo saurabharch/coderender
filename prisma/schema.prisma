@@ -546,3 +546,28 @@ model FlowRun {
   detail    String   @default("")
   createdAt DateTime @default(now())
 }
+
+model HookEndpoint {
+  id         Int      @id @default(autoincrement())
+  name       String
+  url        String
+  secret     String   @default("")
+  events     String   @default("[]")
+  active     Boolean  @default(true)
+  ratePerMin Int      @default(30)
+  createdAt  DateTime @default(now())
+}
+
+model HookDelivery {
+  id         Int      @id @default(autoincrement())
+  endpointId Int
+  event      String
+  payload    String   @default("{}")
+  idemKey    String   @default("")
+  status     String   @default("queued")
+  attempts   Int      @default(0)
+  code       Int      @default(0)
+  error      String   @default("")
+  runAfter   DateTime @default(now())
+  createdAt  DateTime @default(now())
+}

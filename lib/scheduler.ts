@@ -26,6 +26,8 @@ export function startScheduler() {
     try {
       const { runQueueTick } = await import("./queue");
       await runQueueTick(5);
+      const { runHookTick } = await import("./hooks");
+      await runHookTick(10);
     } catch (e) {
       console.error("[queue]", e);
     }

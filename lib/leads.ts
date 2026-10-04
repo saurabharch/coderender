@@ -34,6 +34,10 @@ export async function createLead(input: LeadInput): Promise<{ id: number }> {
     .run(input.name, input.phone, input.businessType, input.source, input.message ?? null, input.fingerprint ?? null, input.refCode ?? "");
   const id = Number(result.lastInsertRowid);
   try {
+    const { emitHook } = await import("./hooks");
+    emitHook("lead.created", { id, name: input.name });
+  } catch { /* events never breaks leads */ }
+  try {
     const { recordReferralLead, partnerByCode } = await import("./partners");
     if (input.refCode) {
       const p = partnerByCode(input.refCode);

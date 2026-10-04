@@ -109,6 +109,8 @@ export const ROUTES: RouteDoc[] = [
   { method: "PUT", path: "/api/flows", auth: "team", desc: "Update a workflow.", body: "{id, ...}" },
   { method: "DELETE", path: "/api/flows?id=", auth: "team", desc: "Delete a workflow." },
   { method: "PATCH", path: "/api/flows", auth: "team", desc: "Run a workflow now.", body: "{id, to?, email?, subject?, text?}" },
+  { method: "GET", path: "/api/hooks", auth: "team", desc: "Endpoints (?logs=1&endpoint= for deliveries)." },
+  { method: "POST", path: "/api/hooks", auth: "team", desc: "Endpoint ops: create|rotate|delete|emit|replay|tick.", body: "{op, ...}" },
   { method: "GET", path: "/api/settings/prefs?key=", auth: "team", desc: "Read an adjustable pref." },
   { method: "POST", path: "/api/settings/prefs", auth: "team", desc: "Set an adjustable pref.", body: "{key, value}" },
   { method: "GET", path: "/api/whatsapp/webhook", auth: "public", desc: "Meta verify handshake (hub.verify_token match)." },

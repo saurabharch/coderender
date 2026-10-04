@@ -178,6 +178,18 @@ export function getDb(): DatabaseSync {
       id INTEGER PRIMARY KEY AUTOINCREMENT, flowId INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'ok', detail TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS HookEndpoint (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, url TEXT NOT NULL,
+      secret TEXT NOT NULL DEFAULT '', events TEXT NOT NULL DEFAULT '[]',
+      active INTEGER NOT NULL DEFAULT 1, ratePerMin INTEGER NOT NULL DEFAULT 30,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS HookDelivery (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, endpointId INTEGER NOT NULL,
+      event TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}',
+      idemKey TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'queued',
+      attempts INTEGER NOT NULL DEFAULT 0, code INTEGER NOT NULL DEFAULT 0,
+      error TEXT NOT NULL DEFAULT '', runAfter TEXT NOT NULL DEFAULT (datetime('now')),
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     db.exec(`CREATE TABLE IF NOT EXISTS WaMessage (
       id INTEGER PRIMARY KEY AUTOINCREMENT, waId TEXT NOT NULL DEFAULT '',
       sender TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',

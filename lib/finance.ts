@@ -85,6 +85,8 @@ export async function recordPayment(orderId: number, amount: number, method: str
   const r = d.prepare("INSERT INTO Payment (orderId, amount, method, status) VALUES (?,?,?,?)").run(
     orderId, Math.max(0, Math.round(amount)), m, st);
   const pid = Number(r.lastInsertRowid);
+  const { emitHook } = await import("./hooks");
+  emitHook("payment.recorded", { id: pid, orderId, amount: Math.max(0, Math.round(amount)) });
   if (st === "paid") {
     ledgerPost({ kind: "payment", refId: pid, amount: Math.max(0, Math.round(amount)), memo: `order #${orderId}` });
     const { accrueReferral } = await import("./partners");
