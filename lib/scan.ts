@@ -46,15 +46,26 @@ function clamdScan(path: string, socket: string): Promise<{ verdict: ScanVerdict
   });
 }
 
+async function dbArgs(): Promise<string[]> {
+  const { existsSync: ex } = await import("node:fs");
+  if (ex("/data/data/com.termux/files/usr/share/clamav/main.cvd")) {
+    return ["--database=/data/data/com.termux/files/usr/share/clamav"];
+  }
+  return [];
+}
+
 function clamscanBin(path: string): Promise<{ verdict: ScanVerdict; detail: string } | null> {
   return new Promise((resolve) => {
-    execFile("clamscan", ["--no-summary", path], { timeout: 60000 }, (err, stdout) => {
-      const out = String(stdout || "");
-      if (err && (err as NodeJS.ErrnoException).code === "ENOENT") return resolve(null);
-      if (/OK$/.test(out.trim())) return resolve({ verdict: "clean", detail: "clamscan OK" });
-      if (/FOUND/.test(out)) return resolve({ verdict: "infected", detail: out.trim().slice(0, 200) });
-      return resolve(null);
-    });
+    void (async () => {
+      const args = ["--no-summary", ...(await dbArgs()), path];
+      execFile("clamscan", args, { timeout: 120000 }, (err, stdout) => {
+        const out = String(stdout || "");
+        if (err && (err as NodeJS.ErrnoException).code === "ENOENT") return resolve(null);
+        if (/OK$/.test(out.trim())) return resolve({ verdict: "clean", detail: "clamscan OK" });
+        if (/FOUND/.test(out)) return resolve({ verdict: "infected", detail: out.trim().slice(0, 200) });
+        return resolve(null);
+      });
+    })();
   });
 }
 

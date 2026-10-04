@@ -9,6 +9,7 @@ export function ProviderTabs() {
   const [st, setSt] = useState<Status>({});
   const [vals, setVals] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<Record<string, string>>({});
+  const [chats, setChats] = useState<{ id: string; name: string }[]>([]);
 
   async function load() {
     const d = await fetch("/api/providers").then((r) => r.json()).catch(() => null);
@@ -39,6 +40,27 @@ export function ProviderTabs() {
   async function clear(name: string) {
     if (!confirm(`Clear dashboard ${name} credentials? (env still applies)`)) return;
     await fetch(`/api/providers?name=${name}`, { method: "DELETE" }).catch(() => {});
+    void load();
+  }
+
+  async function detectChats() {
+    setMsg((m) => ({ ...m, telegram: "Asking Telegram… (message @saurabharch_bot first)" }));
+    const res = await fetch("/api/providers/telegram/chats").catch(() => null);
+    const data = await res?.json().catch(() => ({}));
+    if (Array.isArray(data?.chats)) {
+      setChats(data.chats);
+      setMsg((m) => ({ ...m, telegram: data.chats.length ? `Found ${data.chats.length} chat(s) — tap one to use it.` : "No chats seen yet — send /start to the bot first." }));
+    } else {
+      setMsg((m) => ({ ...m, telegram: data?.error || "Detect failed" }));
+    }
+  }
+
+  async function useChat(id: string) {
+    const res = await fetch("/api/providers", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "telegram", values: { TELEGRAM_TEAM_CHAT_ID: id } }),
+    });
+    setMsg((m) => ({ ...m, telegram: res.ok ? `Team chat set to ${id} ✓` : "Save failed" }));
     void load();
   }
 
@@ -76,7 +98,18 @@ export function ProviderTabs() {
             <button onClick={() => void save(name)} className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Save</button>
             <button onClick={() => void test(name)} className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm dark:border-white/20">Test</button>
             <button onClick={() => void clear(name)} className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm dark:border-white/20">Clear</button>
+            {name === "telegram" && (
+              <button onClick={() => void detectChats()} className="min-h-[44px] rounded-xl border border-brand/40 px-4 text-sm font-semibold text-brand-deep">Detect chats</button>
+            )}
           </div>
+          {name === "telegram" && chats.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {chats.map((c) => (
+                <button key={c.id} onClick={() => void useChat(c.id)}
+                  className="min-h-[44px] rounded-full border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Use {c.name} ({c.id})</button>
+              ))}
+            </div>
+          )}
           {msg[name] && <p className="mt-1 text-xs text-zinc-500">{msg[name]}</p>}
         </div>
       ))}
