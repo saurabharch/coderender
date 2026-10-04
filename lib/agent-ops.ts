@@ -87,7 +87,7 @@ export async function runAgentOp(op: string, params: Record<string, unknown>, ke
       const { leadSchema } = await import("./lead-schema");
       const parsed = leadSchema.safeParse({ businessType: "general", source: "agent", ...(params as object) });
       if (!parsed.success) throw new Error("bad lead");
-      const r = createLead(parsed.data);
+      const r = await createLead(parsed.data);
       audit({ id: r.id });
       return r;
     }

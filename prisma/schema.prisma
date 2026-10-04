@@ -529,3 +529,20 @@ model WaTemplate {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+model Flow {
+  id        Int      @id @default(autoincrement())
+  name      String
+  trigger   String   @default("{}")
+  steps     String   @default("[]")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model FlowRun {
+  id        Int      @id @default(autoincrement())
+  flowId    Int
+  status    String   @default("ok")
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+}

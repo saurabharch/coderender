@@ -26,7 +26,7 @@ export function getDb(): DatabaseSync {
   return db;
 }
 
-export function createLead(input: LeadInput): { id: number } {
+export async function createLead(input: LeadInput): Promise<{ id: number }> {
   const result = getDb()
     .prepare(
       "INSERT INTO Lead (name, phone, businessType, source, message, fingerprint, refCode) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -34,11 +34,13 @@ export function createLead(input: LeadInput): { id: number } {
     .run(input.name, input.phone, input.businessType, input.source, input.message ?? null, input.fingerprint ?? null, input.refCode ?? "");
   const id = Number(result.lastInsertRowid);
   try {
-    const { recordReferralLead, partnerByCode } = require("./partners") as typeof import("./partners");
+    const { recordReferralLead, partnerByCode } = await import("./partners");
     if (input.refCode) {
       const p = partnerByCode(input.refCode);
       if (p) recordReferralLead(p.id, p.code, id);
     }
-  } catch { /* referral never breaks leads */ }
+    const { fireFlows } = await import("./flows");
+    await fireFlows("lead", { to: input.phone, email: "", subject: input.name, text: `${input.businessType}: ${input.message ?? ""}` }).catch(() => {});
+  } catch { /* side-effects never break leads */ }
   return { id };
 }

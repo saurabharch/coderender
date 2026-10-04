@@ -43,6 +43,10 @@ export async function fileTicket(input: {
   logEvent(id, input.actor || email, "created", `Filed (${status})${mod.reasons.length ? `: ${mod.reasons.join(", ")}` : ""}`);
   const { notifyTicket } = await import("./notify-ticket");
   await notifyTicket(id, status === "spam" ? "filed-quiet" : "filed").catch(() => {});
+  if (status !== "spam") {
+    const { fireFlows } = await import("./flows");
+    await fireFlows("ticket", { email, subject, text: body }).catch(() => {});
+  }
   return { id, status };
 }
 

@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   const idemKey = req.headers.get("idempotency-key");
   const replay = idemGet(idemKey);
   if (replay) return NextResponse.json({ ...JSON.parse(replay), replayed: true });
-  const lead = createLead(parsed.data);
+  const lead = await createLead(parsed.data);
   try {
     const jar = await cookies();
     const ref = jar.get("cr_ref")?.value || "";
