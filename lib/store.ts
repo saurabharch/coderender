@@ -166,11 +166,16 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS GcalEvent (
       taskId INTEGER PRIMARY KEY, gEventId TEXT NOT NULL DEFAULT '', day TEXT NOT NULL DEFAULT '',
       updated TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS ProviderCred (
+      name TEXT PRIMARY KEY, payload TEXT NOT NULL DEFAULT '',
+      updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     db.exec(`CREATE TABLE IF NOT EXISTS Job (
       id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0,
       runAfter TEXT NOT NULL DEFAULT (datetime('now')), error TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    try { db.exec("ALTER TABLE Notification ADD COLUMN kind TEXT NOT NULL DEFAULT 'info'"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Notification ADD COLUMN target TEXT NOT NULL DEFAULT 'team'"); } catch { /* exists */ }
     db.exec(`CREATE TABLE IF NOT EXISTS FormDef (
       id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL,
       fields TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1,

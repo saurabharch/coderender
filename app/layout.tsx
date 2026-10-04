@@ -26,6 +26,7 @@ export const metadata: Metadata = {
     "restaurant marketing", "gym marketing", "google maps ranking",
   ],
   metadataBase: new URL("https://coderender.in"),
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

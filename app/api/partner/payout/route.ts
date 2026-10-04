@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const parsed = z.object({ period: z.string().regex(/^\d{4}-\d{2}$/) }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "period like YYYY-MM" }, { status: 422 });
   try {
-    const id = requestPayout(p.id, parsed.data.period, `partner:${p.email}`);
+    const id = await requestPayout(p.id, parsed.data.period, `partner:${p.email}`);
     return NextResponse.json({ ok: true, id });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });

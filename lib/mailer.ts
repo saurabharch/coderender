@@ -16,7 +16,8 @@ let previewOnly = false;
 
 async function getTransport(): Promise<Transporter> {
   if (transporter) return transporter;
-  const url = process.env.SMTP_URL;
+  const { smtpConfig } = await import("./providers");
+  const url = smtpConfig().url;
   if (url) {
     transporter = nodemailer.createTransport(url);
     return transporter;
@@ -32,7 +33,8 @@ async function getTransport(): Promise<Transporter> {
 
 export async function sendMail(to: string, subject: string, html: string): Promise<{ preview?: string }> {
   const t = await getTransport();
-  const from = process.env.MAIL_FROM ?? "CodeRender <no-reply@coderender.in>";
+  const { smtpConfig } = await import("./providers");
+  const from = smtpConfig().from;
   const info = await t.sendMail({ from, to, subject, html });
   const url = nodemailer.getTestMessageUrl(info);
   const preview = typeof url === "string" ? url : undefined;

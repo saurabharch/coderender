@@ -173,7 +173,7 @@ export function periodEarnings(partnerId: number, period: string): number {
   return r.s;
 }
 
-export function requestPayout(partnerId: number, period: string, actor: string): number {
+export async function requestPayout(partnerId: number, period: string, actor: string): Promise<number> {
   const p = getPartner(partnerId);
   if (!p) throw new Error("not found");
   if (!periodClosed(period)) throw new Error("period still open");
@@ -185,8 +185,10 @@ export function requestPayout(partnerId: number, period: string, actor: string):
   const r = getDb().prepare("INSERT INTO Payout (partnerId, period, amount, method, confirmToken) VALUES (?,?,?,?,?)").run(
     partnerId, period, amount, p.upi ? `upi:${p.upi}` : `bank:${p.bankName}`, token);
   const id = Number(r.lastInsertRowid);
-  getDb().prepare("INSERT INTO Notification (title, body, audience) VALUES (?,?,?)").run(
-    `Payout requested: ${p.email} ${period} ₹${amount}`, `by ${actor}`, "team");
+  getDb().prepare("INSERT INTO Notification (title, body, audience, kind, target) VALUES (?,?,?,?,?)").run(
+    `Payout requested: ${p.email} ${period} ₹${amount}`, `by ${actor}`, "team", "payout", p.email);
+  const { announce } = await import("./providers");
+  await announce(`Payout requested: ${p.email}`, `${period} · ₹${amount}`).catch(() => {});
   return id;
 }
 

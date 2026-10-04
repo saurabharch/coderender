@@ -1,6 +1,7 @@
 import { getDb } from "./store";
 import { pushReady, pushTo } from "./push";
 import { sendMail } from "./mailer";
+import { sendTelegram as tgSend, sendWhatsApp as waSend } from "./providers";
 
 export interface Meeting {
   id: number; name: string; contact: string; mode: string; slot: string; status: string;
@@ -22,35 +23,11 @@ export function waLink(phone: string, text: string): string {
 }
 
 async function sendWhatsApp(phone: string, text: string): Promise<{ sent: boolean; via: string }> {
-  const url = process.env.WHATSAPP_API_URL;
-  const token = process.env.WHATSAPP_API_TOKEN;
-  if (url && token) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ to: phone, text }),
-      });
-      if (res.ok) return { sent: true, via: "provider" };
-    } catch { /* fall through to link */ }
-  }
-  return { sent: false, via: waLink(phone, text) };
+  return waSend(phone, text);
 }
 
 async function sendTelegram(text: string): Promise<{ sent: boolean; note: string }> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_TEAM_CHAT_ID;
-  if (token && chatId) {
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 3000) }),
-      });
-      if (res.ok) return { sent: true, note: "team chat" };
-    } catch { /* fall through */ }
-  }
-  return { sent: false, note: "needs TELEGRAM_BOT_TOKEN + chat id (participant chat_ids are captured on /start)" };
+  return tgSend(text);
 }
 
 export interface NotifyReport {

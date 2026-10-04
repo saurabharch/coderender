@@ -20,9 +20,10 @@ export function pushReady(): boolean {
 export async function pushTo(sub: { endpoint: string; p256dh: string; auth: string }, title: string, body: string): Promise<boolean> {
   if (!configured()) return false;
   try {
+    const origin = (process.env.APP_URL || "https://coderender.optyx.shop").replace(/\/$/, "");
     await webpush.sendNotification(
       { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-      JSON.stringify({ title, body })
+      JSON.stringify({ title, body, icon: `${origin}/icon.svg`, badge: `${origin}/icon.svg` })
     );
     return true;
   } catch {

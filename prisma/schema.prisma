@@ -495,3 +495,9 @@ model JournalEntry {
   memo   String   @default("")
   at     DateTime @default(now())
 }
+
+model ProviderCred {
+  name      String   @id
+  payload   String   @default("")
+  updatedAt DateTime @updatedAt
+}

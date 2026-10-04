@@ -7,7 +7,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "CodeRender";
   const promise = self.registration.showNotification(title, {
     body: data.body || "You have a new update.",
-    icon: "/favicon.ico",
+    icon: data.icon || "/icon.svg",
+    badge: data.badge || "/icon.svg",
     tag: "coderender",
     renotify: true,
   });
