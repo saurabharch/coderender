@@ -501,3 +501,13 @@ model ProviderCred {
   payload   String   @default("")
   updatedAt DateTime @updatedAt
 }
+
+model WaMessage {
+  id        Int      @id @default(autoincrement())
+  waId      String   @default("")
+  sender    String   @default("")
+  body      String   @default("")
+  kind      String   @default("in")
+  refId     String   @default("")
+  createdAt DateTime @default(now())
+}

@@ -169,6 +169,11 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS ProviderCred (
       name TEXT PRIMARY KEY, payload TEXT NOT NULL DEFAULT '',
       updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS WaMessage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, waId TEXT NOT NULL DEFAULT '',
+      sender TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL DEFAULT 'in', refId TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     db.exec(`CREATE TABLE IF NOT EXISTS Job (
       id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0,

@@ -33,8 +33,14 @@ export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string
     { label: "TELEGRAM_TEAM_CHAT_ID", hint: "team group/channel id" },
   ],
   whatsapp: [
-    { label: "WHATSAPP_API_URL", hint: "provider send endpoint" },
-    { label: "WHATSAPP_API_TOKEN", hint: "provider token" },
+    { label: "WHATSAPP_TOKEN", hint: "Permanent access token (System Users)" },
+    { label: "WHATSAPP_PHONE_ID", hint: "Phone Number ID (API Setup)" },
+    { label: "WHATSAPP_WABA_ID", hint: "WhatsApp Business Account ID" },
+    { label: "WHATSAPP_APP_ID", hint: "App ID (App Settings → Basic)" },
+    { label: "WHATSAPP_APP_SECRET", hint: "App secret (webhook signatures)" },
+    { label: "WHATSAPP_VERIFY_TOKEN", hint: "Your secret string (e.g. MyCustomSecureToken123!)" },
+    { label: "WHATSAPP_API_URL", hint: "Legacy: generic provider endpoint (fallback)" },
+    { label: "WHATSAPP_API_TOKEN", hint: "Legacy: generic provider token (fallback)" },
   ],
   slack: [
     { label: "SLACK_WEBHOOK_URL", hint: "incoming webhook URL" },
@@ -116,6 +122,8 @@ export async function sendTelegram(text: string, chatId?: string): Promise<{ sen
 }
 
 export async function sendWhatsApp(phone: string, text: string): Promise<{ sent: boolean; via: string }> {
+  const { waSendText, waConfigured } = await import("./whatsapp");
+  if (waConfigured()) return waSendText(phone, text);
   const cfg = getProvider("whatsapp");
   const url = cfg.WHATSAPP_API_URL;
   const token = cfg.WHATSAPP_API_TOKEN;

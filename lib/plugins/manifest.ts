@@ -104,6 +104,8 @@ export const ROUTES: RouteDoc[] = [
   { method: "POST", path: "/api/providers", auth: "team", desc: "Save provider credentials (AES-sealed).", body: "{name, values}" },
   { method: "DELETE", path: "/api/providers?name=", auth: "team", desc: "Clear dashboard credentials." },
   { method: "POST", path: "/api/providers/test", auth: "team", desc: "Live-test a provider.", body: "{name}" },
+  { method: "GET", path: "/api/whatsapp/webhook", auth: "public", desc: "Meta verify handshake (hub.verify_token match)." },
+  { method: "POST", path: "/api/whatsapp/webhook", auth: "public", desc: "Meta events (signature-checked): replies stored, receipts logged." },
   { method: "POST", path: "/api/ops/enqueue", auth: "team", desc: "Enqueue a job + run tick.", body: "{kind: gcal.push|gcal.pull|agent.call|notify, payload?}" },
   { method: "POST", path: "/api/ops/cancel", auth: "team", desc: "Fan out ops-cancel signal (stops broadcast runs)." },
   { method: "GET", path: "/api/client", auth: "public", desc: "Your own connection facts (IP, geo, UA class)." },

@@ -21,9 +21,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: r.sent, detail: r.note });
     }
     if (name === "whatsapp") {
-      const { sendWhatsApp } = await import("@/lib/providers");
-      const r = await sendWhatsApp("919831778894", "CodeRender provider test");
-      return NextResponse.json({ ok: true, detail: r.sent ? "provider sent" : `fallback: ${r.via}` });
+      const { waDebugToken } = await import("@/lib/whatsapp");
+      const r = await waDebugToken();
+      return NextResponse.json({ ok: r.ok, detail: r.detail });
     }
     const { announce } = await import("@/lib/providers");
     const r = await announce("CodeRender provider test", `triggered by ${user.email}`);
