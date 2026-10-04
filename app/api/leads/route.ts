@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 422 });
   }
   const fp = (body as Record<string, unknown>).fingerprint as string | undefined;
-  if (rateLimited(clientKey(fp, req), 30, 3600_000))
+  if (rateLimited(`${clientKey(fp, req)}|lead`, 30, 3600_000))
     return NextResponse.json(slowDown(), { status: 429 });
   const parsed = leadSchema.safeParse(body);
   if (!parsed.success)

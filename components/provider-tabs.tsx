@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Skeleton } from "@/components/admin-ui";
 
 interface Field { label: string; hint: string; set: boolean }
 type Status = Record<string, { fields: Field[]; source: string }>;
@@ -10,10 +11,12 @@ export function ProviderTabs() {
   const [vals, setVals] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<Record<string, string>>({});
   const [chats, setChats] = useState<{ id: string; name: string }[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   async function load() {
     const d = await fetch("/api/providers").then((r) => r.json()).catch(() => null);
     if (d?.providers) setSt(d.providers);
+    setLoaded(true);
   }
 
   useEffect(() => { void load(); }, []);
@@ -75,6 +78,7 @@ export function ProviderTabs() {
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
+      {Object.keys(st).length === 0 && !loaded && <div className="md:col-span-2"><Skeleton lines={4} /></div>}
       {Object.entries(st).map(([name, p]) => (
         <div key={name} className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
           <p className="flex items-center gap-2 font-bold capitalize">{name}

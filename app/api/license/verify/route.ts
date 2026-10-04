@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/store";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  if (rateLimited(`${clientKey(undefined, req)}|license`, 30, 600_000))
+    return NextResponse.json({ valid: false, error: "slow down" }, { status: 429 });
   const parsed = z.object({ key: z.string().min(4).max(80), product: z.string().max(80).default("default") })
     .safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ valid: false }, { status: 422 });

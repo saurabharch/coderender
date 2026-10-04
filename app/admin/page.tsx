@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { totals, leadsPerDay, topPages, recentLeads, recentOrders, upcomingMeetings, meetingCount, evalAvg } from "@/lib/store";
 import { Users, CalendarClock, MousePointerClick, Mail, ShoppingCart, IndianRupee, Sparkles, Server } from "lucide-react";
+import { Empty, Stat } from "@/components/admin-ui";
 
 export default async function AdminHome() {
   const t = totals();
@@ -13,33 +14,27 @@ export default async function AdminHome() {
   const avg = Math.round(evalAvg(20));
   const inngestMode = process.env.INNGEST_EVENT_KEY ? "cloud" : "local runner";
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-  const cards: { label: string; value: string; sub: string; Icon: typeof Users }[] = [
-    { label: "Leads", value: String(t.leads), sub: `${t.leadsToday} today`, Icon: Users },
-    { label: "Meetings booked", value: String(meetingCount()), sub: "upcoming", Icon: CalendarClock },
-    { label: "Clicks today", value: String(t.eventsToday), sub: "tracked events", Icon: MousePointerClick },
-    { label: "Subscribers", value: String(t.subscribers), sub: "newsletter", Icon: Mail },
-    { label: "Orders", value: String(t.orders), sub: "pipeline", Icon: ShoppingCart },
-    { label: "Revenue paid", value: `₹${t.revenue}`, sub: "collected", Icon: IndianRupee },
-    { label: "Reply quality", value: `${avg}/100`, sub: "heuristic eval", Icon: Sparkles },
-    { label: "Jobs", value: inngestMode, sub: "durable layer", Icon: Server },
+  const cards: { label: string; value: string; sub: string; Icon: typeof Users; href: string }[] = [
+    { label: "Leads", value: String(t.leads), sub: `${t.leadsToday} today`, Icon: Users, href: "/admin/leads" },
+    { label: "Meetings booked", value: String(meetingCount()), sub: "upcoming", Icon: CalendarClock, href: "/admin/schedule" },
+    { label: "Clicks today", value: String(t.eventsToday), sub: "tracked events", Icon: MousePointerClick, href: "/admin/routes" },
+    { label: "Subscribers", value: String(t.subscribers), sub: "newsletter", Icon: Mail, href: "/admin/subscribers" },
+    { label: "Orders", value: String(t.orders), sub: "pipeline", Icon: ShoppingCart, href: "/admin/orders" },
+    { label: "Revenue paid", value: `₹${t.revenue}`, sub: "collected", Icon: IndianRupee, href: "/admin/orders" },
+    { label: "Reply quality", value: `${avg}/100`, sub: "heuristic eval", Icon: Sparkles, href: "/admin/learn" },
+    { label: "Jobs", value: inngestMode, sub: "durable layer", Icon: Server, href: "/admin/ops" },
   ];
   return (
     <>
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">{today}</p>
       <h1 className="display-2 mt-1">Good day — here is the business at a glance.</h1>
       <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards.map(({ label, value, sub, Icon }) => (
-          <div key={label} className="glass rounded-2xl p-4">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500"><Icon size={14} />{label}</p>
-            <p className="mt-1 text-2xl font-extrabold tracking-tight">{value}</p>
-            <p className="text-xs text-zinc-500">{sub}</p>
-          </div>
-        ))}
+        {cards.map((c) => <Stat key={c.label} {...c} />)}
       </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-5">
         <div className="glass rounded-2xl p-5 lg:col-span-3">
           <p className="font-bold">Leads per day <span className="text-xs font-semibold text-zinc-500">· 14 days</span></p>
-          <div className="mt-3 flex h-32 items-end gap-1" aria-hidden>
+          <div className="mt-3 flex h-32 items-end gap-1" role="img" aria-label={`Leads per day, peak ${max}`}>
             {perDay.map((d) => (
               <div key={d.day} title={`${d.day}: ${d.n}`} className="flex-1 rounded-t bg-brand" style={{ height: `${Math.max(4, (d.n / max) * 100)}%` }} />
             ))}
@@ -52,14 +47,15 @@ export default async function AdminHome() {
         </div>
         <div className="glass rounded-2xl p-5 lg:col-span-2">
           <p className="flex items-center justify-between font-bold">Upcoming meetings <Link href="/admin/schedule" className="inline-flex min-h-[44px] items-center rounded-full border border-black/10 px-3 text-xs font-semibold dark:border-white/15">all →</Link></p>
-          <ul className="mt-2 space-y-2 text-sm">
-            {meetings.map((m) => (
-              <li key={m.id} className="rounded-xl bg-white/60 p-2.5 dark:bg-white/5">
-                <b>{m.slot || "Unscheduled"}</b> · {m.name} · {m.mode} · {m.status}
-              </li>
-            ))}
-            {meetings.length === 0 && <li className="text-sm text-zinc-500">None booked — widget bookings land here.</li>}
-          </ul>
+          {meetings.length > 0 ? (
+            <ul className="mt-2 space-y-2 text-sm">
+              {meetings.map((m) => (
+                <li key={m.id} className="rounded-xl bg-white/60 p-2.5 dark:bg-white/5">
+                  <b>{m.slot || "Unscheduled"}</b> · {m.name} · {m.mode} · {m.status}
+                </li>
+              ))}
+            </ul>
+          ) : <div className="mt-2"><Empty>None booked — widget bookings land here.</Empty></div>}
           <p className="mt-4 font-bold">Latest leads</p>
           <ul className="mt-1 space-y-1 text-sm">
             {leads.map((l) => <li key={l.id}>{l.name} · {l.phone} · {l.businessType} · {l.source}</li>)}

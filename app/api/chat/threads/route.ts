@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/store";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
 // Own-device thread list (fingerprint-scoped) + single-thread loader for the switcher.
 export async function GET(req: Request) {
   const fp = new URL(req.url).searchParams.get("fp") || "";
+  if (rateLimited(`${clientKey(fp || undefined, req)}|threads`, 60, 60_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   const id = new URL(req.url).searchParams.get("id") || "";
   if (id) {
     const t = getDb().prepare("SELECT id, title FROM ChatThread WHERE id=? AND userId IS NULL AND (fp=? OR fp IS NULL)").get(Number(id), fp) as

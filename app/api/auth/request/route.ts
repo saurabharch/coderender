@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminEmail, issueMagicToken } from "@/lib/auth";
 import { sendMail, magicLinkMail } from "@/lib/mailer";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  if (rateLimited(`${clientKey(undefined, req)}|auth-request`, 5, 600_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   const parsed = z.object({ email: z.string().email().max(120) }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad email" }, { status: 422 });
   const email = parsed.data.email.toLowerCase();

@@ -511,6 +511,15 @@ model GdocLog {
   at     DateTime @default(now())
 }
 
+model AuthAttempt {
+  email       String
+  kind        String
+  fails       Int    @default(0)
+  lockedUntil BigInt @default(0)
+
+  @@id([email, kind])
+}
+
 model WaMessage {
   id        Int      @id @default(autoincrement())
   waId      String   @default("")

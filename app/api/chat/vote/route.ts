@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/store";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  if (rateLimited(`${clientKey(undefined, req)}|vote`, 30, 600_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   const parsed = z.object({
     threadId: z.number().int(),
     turnIdx: z.number().int().min(0),

@@ -297,6 +297,9 @@ export function getDb(): DatabaseSync {
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     db.exec(`CREATE TABLE IF NOT EXISTS OtpCode (
       email TEXT PRIMARY KEY, code TEXT NOT NULL, exp INTEGER NOT NULL)`);
+    db.exec(`CREATE TABLE IF NOT EXISTS AuthAttempt (
+      email TEXT NOT NULL, kind TEXT NOT NULL, fails INTEGER NOT NULL DEFAULT 0,
+      lockedUntil INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (email, kind))`);
     db.exec(`CREATE TABLE IF NOT EXISTS GatePass (
       email TEXT PRIMARY KEY, pinHash TEXT NOT NULL, digits INTEGER NOT NULL DEFAULT 6,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);

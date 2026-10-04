@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/store";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
 const schema = z.object({
   endpoint: z.string().url().max(2000),
@@ -9,6 +10,8 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  if (rateLimited(`${clientKey(undefined, req)}|push-sub`, 10, 3600_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad subscription" }, { status: 422 });
   try {

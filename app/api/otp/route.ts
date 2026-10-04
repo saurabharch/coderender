@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { issueOtp, verifyOtp, verifiedCookie, hasGatePass, mintGatePass, checkGatePass } from "@/lib/otp";
+import { issueOtp, verifyOtp, verifiedCookie, hasGatePass, mintGatePass, checkGatePass, otpLocked } from "@/lib/otp";
+import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  if (rateLimited(`${clientKey(undefined, req)}|otp`, 20, 600_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   const body = await req.json().catch(() => null);
   const parsed = z.object({
     email: z.string().email().max(120),
@@ -14,6 +17,8 @@ export async function POST(req: Request) {
 
   // PIN path: returning users with a gate pass skip email OTP.
   if (parsed.data.pin) {
+    if (otpLocked(email, "pin"))
+      return NextResponse.json({ error: "too many wrong tries — locked, try again later" }, { status: 429 });
     if (!checkGatePass(email, parsed.data.pin))
       return NextResponse.json({ error: "wrong PIN" }, { status: 403 });
     const res = NextResponse.json({ ok: true, via: "pin" });
@@ -25,11 +30,19 @@ export async function POST(req: Request) {
 
   // OTP request (no code yet): same code until expiry.
   if (!parsed.data.code) {
-    const { devCode } = await issueOtp(email);
-    return NextResponse.json({ ok: true, hasPin: hasGatePass(email), devCode });
+    if (otpLocked(email, "otp"))
+      return NextResponse.json({ error: "too many wrong tries — locked, try again later" }, { status: 429 });
+    try {
+      const { devCode } = await issueOtp(email);
+      return NextResponse.json({ ok: true, hasPin: hasGatePass(email), devCode });
+    } catch {
+      return NextResponse.json({ error: "too many wrong tries — locked, try again later" }, { status: 429 });
+    }
   }
 
   // OTP verify → cookie + mint gate pass on first success (shown once).
+  if (otpLocked(email, "otp"))
+    return NextResponse.json({ error: "too many wrong tries — locked, try again later" }, { status: 429 });
   if (!verifyOtp(email, parsed.data.code))
     return NextResponse.json({ error: "wrong or expired code" }, { status: 403 });
   let gatePin: string | undefined;

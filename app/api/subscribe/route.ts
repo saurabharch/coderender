@@ -7,7 +7,7 @@ export async function POST(req: Request) {
   const parsed = z.object({ email: z.string().email().max(120), source: z.string().max(40).default("footer") })
     .safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad email" }, { status: 422 });
-  if (rateLimited(clientKey(parsed.data.email, req), 5, 3600_000))
+  if (rateLimited(`${clientKey(parsed.data.email, req)}|subscribe`, 5, 3600_000))
     return NextResponse.json(slowDown(), { status: 429 });
   try {
     getDb().prepare("INSERT INTO Subscriber (email, source) VALUES (?,?)")

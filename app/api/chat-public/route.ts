@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   const { activeProvider } = await import("@/lib/slider-captcha");
   if (activeProvider() !== "off" && jar.get("cr_human")?.value !== humanCookie() && !verified)
     return NextResponse.json({ error: "Prove you're human first — solve the quick check in the chat." }, { status: 403 });
-  if (rateLimited(clientKey(fp, req), 20, 3600_000))
+  if (rateLimited(`${clientKey(fp, req)}|chat-public`, 20, 3600_000))
     return NextResponse.json(slowDown(), { status: 429 });
   let threadId = parsed.data.threadId;
   if (threadId) {
