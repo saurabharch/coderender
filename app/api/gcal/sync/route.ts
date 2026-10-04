@@ -25,8 +25,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
   const st = connectStatus(user.email);
-  if (!st.configured) return NextResponse.json({ error: "google keys missing", configured: false }, { status: 422 });
-  if (!st.connected) return NextResponse.json({ error: "connect google first" }, { status: 422 });
+  if (!st.configured) return NextResponse.json({ error: "google keys missing — add them in Notify → Providers → google", configured: false }, { status: 422 });
+  if (!st.connected) return NextResponse.json({ error: "connect google first (/admin/google)", needsReconnect: st.needsReconnect }, { status: 422 });
+  if (st.needsReconnect) return NextResponse.json({ error: "reconnect Google on /admin/google to grant Drive/Docs access", needsReconnect: true }, { status: 422 });
   try {
     if (action === "pull") {
       const day = parsed.data.day || new Date().toISOString().slice(0, 10);

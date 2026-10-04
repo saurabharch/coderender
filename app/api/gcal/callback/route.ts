@@ -9,15 +9,15 @@ export async function GET(req: Request) {
   const [email] = state.split(":");
   const jar = await cookies();
   if (!email || !code || !jar.get("gcal_state")) {
-    return NextResponse.redirect(new URL("/admin/settings?gcal=bad", url.origin));
+    return NextResponse.redirect(new URL("/admin/google?gcal=bad", url.origin));
   }
   try {
     const { refreshToken } = await exchangeCode(code);
     setConnection(email, { refreshToken });
-    const res = NextResponse.redirect(new URL("/admin/settings?gcal=ok", url.origin));
+    const res = NextResponse.redirect(new URL("/admin/google?gcal=ok", url.origin));
     res.cookies.delete("gcal_state");
     return res;
   } catch {
-    return NextResponse.redirect(new URL("/admin/settings?gcal=fail", url.origin));
+    return NextResponse.redirect(new URL("/admin/google?gcal=fail", url.origin));
   }
 }

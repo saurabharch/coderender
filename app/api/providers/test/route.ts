@@ -6,7 +6,7 @@ import { sessionUser } from "@/lib/auth";
 export async function POST(req: Request) {
   const user = await sessionUser();
   if (!user) return NextResponse.json({ error: "login required" }, { status: 401 });
-  const parsed = z.object({ name: z.enum(["smtp", "telegram", "whatsapp", "slack", "razorpay", "payu", "easebuzz"]) }).safeParse(await req.json().catch(() => null));
+  const parsed = z.object({ name: z.enum(["smtp", "telegram", "whatsapp", "slack", "razorpay", "payu", "easebuzz", "google"]) }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad provider" }, { status: 422 });
   const name: ProviderName = parsed.data.name;
   try {
@@ -19,6 +19,20 @@ export async function POST(req: Request) {
       const { sendTelegram } = await import("@/lib/providers");
       const r = await sendTelegram(`CodeRender test from ${user.email}`);
       return NextResponse.json({ ok: r.sent, detail: r.note });
+    }
+    if (name === "google") {
+      const { getProvider } = await import("@/lib/providers");
+      const cfg = getProvider("google");
+      const fromVault = !!(cfg.GOOGLE_CLIENT_ID && cfg.GOOGLE_CLIENT_SECRET);
+      const fromEnv = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+      if (!fromVault && !fromEnv)
+        return NextResponse.json({ ok: false, detail: "save client ID + secret first (dashboard or env)" });
+      const { googleStatus } = await import("@/lib/google");
+      const st = googleStatus(user.email);
+      return NextResponse.json({
+        ok: true,
+        detail: `keys from ${fromVault ? "dashboard" : "env"} · ${st.connected ? `connected (${st.calendarId})` : "not connected — use Connect on /admin/google"}`,
+      });
     }
     if (name === "whatsapp") {
       const { waDebugToken } = await import("@/lib/whatsapp");

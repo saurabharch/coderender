@@ -311,6 +311,7 @@ model GcalToken {
   refreshToken String   @default("")
   calendarId   String   @default("primary")
   syncOn       Boolean  @default(true)
+  scopes       Int      @default(0)
   updatedAt    DateTime @updatedAt
 }
 
@@ -500,6 +501,14 @@ model ProviderCred {
   name      String   @id
   payload   String   @default("")
   updatedAt DateTime @updatedAt
+}
+
+model GdocLog {
+  id     Int      @id @default(autoincrement())
+  email  String   @default("")
+  docId  String   @default("")
+  title  String   @default("")
+  at     DateTime @default(now())
 }
 
 model WaMessage {

@@ -1,13 +1,27 @@
 // Google Calendar two-way sync (zero deps — direct REST via fetch).
-// Needs GOOGLE_CLIENT_ID/SECRET + redirect datastore; without keys every
-// entry point reports `configured: false` and local views keep working.
+// Client ID/secret come from the dashboard vault first (`google` provider),
+// env as fallback; without either every entry reports `configured: false`
+// and local views keep working.
 // Identity: syncKey `cr-task-{id}-{day}` in extendedProperties.private,
 // plus local GcalEvent rows — retries stay idempotent.
 import { getDb } from "./store";
+import { getProvider } from "./providers";
 import { syncKey } from "./calendar-core";
+import { SCOPE_SET, scopeString } from "./google-core";
+
+export function googleCreds(): { id: string; secret: string; source: string } {
+  const v = getProvider("google");
+  if (v.GOOGLE_CLIENT_ID && v.GOOGLE_CLIENT_SECRET)
+    return { id: v.GOOGLE_CLIENT_ID, secret: v.GOOGLE_CLIENT_SECRET, source: "dashboard" };
+  return {
+    id: process.env.GOOGLE_CLIENT_ID || "", secret: process.env.GOOGLE_CLIENT_SECRET || "",
+    source: process.env.GOOGLE_CLIENT_ID ? "env" : "missing",
+  };
+}
 
 export function gcalConfigured(): boolean {
-  return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  const c = googleCreds();
+  return !!(c.id && c.secret);
 }
 
 function redirectUri(): string {
@@ -17,10 +31,10 @@ function redirectUri(): string {
 
 export function connectUrl(email: string, state: string): string {
   const q = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID || "",
+    client_id: googleCreds().id,
     redirect_uri: redirectUri(),
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/calendar.events",
+    scope: scopeString(),
     access_type: "offline",
     prompt: "consent",
     state: `${email}:${state}`,
@@ -38,8 +52,9 @@ async function tokenRequest(body: Record<string, string>) {
 }
 
 export async function exchangeCode(code: string): Promise<{ refreshToken: string }> {
+  const c = googleCreds();
   const t = await tokenRequest({
-    code, client_id: process.env.GOOGLE_CLIENT_ID || "", client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+    code, client_id: c.id, client_secret: c.secret,
     redirect_uri: redirectUri(), grant_type: "authorization_code",
   });
   if (!t.refresh_token) throw new Error("no refresh token (use a fresh consent)");
@@ -50,26 +65,35 @@ export async function accessToken(email: string): Promise<string> {
   const row = getDb().prepare("SELECT refreshToken FROM GcalToken WHERE email=? AND syncOn=1").get(email) as
     { refreshToken: string } | undefined;
   if (!row?.refreshToken) throw new Error("google not connected");
+  const c = googleCreds();
   const t = await tokenRequest({
-    refresh_token: row.refreshToken, client_id: process.env.GOOGLE_CLIENT_ID || "",
-    client_secret: process.env.GOOGLE_CLIENT_SECRET || "", grant_type: "refresh_token",
+    refresh_token: row.refreshToken, client_id: c.id,
+    client_secret: c.secret, grant_type: "refresh_token",
   });
   return t.access_token;
 }
 
-export function connectStatus(email: string): { connected: boolean; configured: boolean; calendarId: string } {
-  const row = getDb().prepare("SELECT calendarId, syncOn FROM GcalToken WHERE email=?").get(email) as
-    { calendarId: string; syncOn: number } | undefined;
-  return { connected: !!row?.syncOn, configured: gcalConfigured(), calendarId: row?.calendarId ?? "primary" };
+export function connectStatus(email: string): {
+  connected: boolean; configured: boolean; calendarId: string;
+  keySource: string; needsReconnect: boolean;
+} {
+  const row = getDb().prepare("SELECT calendarId, syncOn, scopes FROM GcalToken WHERE email=?").get(email) as
+    { calendarId: string; syncOn: number; scopes: number } | undefined;
+  const c = googleCreds();
+  return {
+    connected: !!row?.syncOn, configured: gcalConfigured(), calendarId: row?.calendarId ?? "primary",
+    keySource: c.source, needsReconnect: !!row?.syncOn && (row.scopes ?? 0) < SCOPE_SET,
+  };
 }
 
-export function setConnection(email: string, input: { refreshToken?: string; calendarId?: string; syncOn?: boolean }): void {
+export function setConnection(email: string, input: { refreshToken?: string; calendarId?: string; syncOn?: boolean; scopes?: number }): void {
   getDb().prepare(
-    `INSERT INTO GcalToken (email, refreshToken, calendarId, syncOn) VALUES (?,?,?,?)
+    `INSERT INTO GcalToken (email, refreshToken, calendarId, syncOn, scopes) VALUES (?,?,?,?,?)
      ON CONFLICT(email) DO UPDATE SET
        refreshToken=COALESCE(NULLIF(excluded.refreshToken,''),refreshToken),
-       calendarId=excluded.calendarId, syncOn=excluded.syncOn, updatedAt=datetime('now')`
-  ).run(email, input.refreshToken ?? "", input.calendarId ?? "primary", input.syncOn === false ? 0 : 1);
+       calendarId=excluded.calendarId, syncOn=excluded.syncOn, scopes=excluded.scopes, updatedAt=datetime('now')`
+  ).run(email, input.refreshToken ?? "", input.calendarId ?? "primary",
+    input.syncOn === false ? 0 : 1, input.scopes ?? SCOPE_SET);
 }
 
 async function gapi(token: string, path: string, init?: RequestInit) {

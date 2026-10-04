@@ -163,9 +163,13 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS GcalToken (
       email TEXT PRIMARY KEY, refreshToken TEXT NOT NULL DEFAULT '', calendarId TEXT NOT NULL DEFAULT 'primary',
       syncOn INTEGER NOT NULL DEFAULT 1, updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS GcalEvent (
+    try { db.exec("ALTER TABLE GcalToken ADD COLUMN scopes INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }    db.exec(`CREATE TABLE IF NOT EXISTS GcalEvent (
       taskId INTEGER PRIMARY KEY, gEventId TEXT NOT NULL DEFAULT '', day TEXT NOT NULL DEFAULT '',
       updated TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS GdocLog (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL DEFAULT '',
+      docId TEXT NOT NULL DEFAULT '', title TEXT NOT NULL DEFAULT '',
+      at TEXT NOT NULL DEFAULT (datetime('now')))`);
     db.exec(`CREATE TABLE IF NOT EXISTS ProviderCred (
       name TEXT PRIMARY KEY, payload TEXT NOT NULL DEFAULT '',
       updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);

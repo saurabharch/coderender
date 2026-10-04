@@ -21,7 +21,7 @@ export function unseal(packed: string): string {
   return Buffer.concat([d.update(Buffer.from(data, "hex")), d.final()]).toString("utf8");
 }
 
-export type ProviderName = "smtp" | "telegram" | "whatsapp" | "slack" | "razorpay" | "payu" | "easebuzz";
+export type ProviderName = "smtp" | "telegram" | "whatsapp" | "slack" | "razorpay" | "payu" | "easebuzz" | "google";
 
 export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string }[]> = {
   smtp: [
@@ -59,6 +59,10 @@ export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string
   easebuzz: [
     { label: "EASEBUZZ_MERCHANT_KEY", hint: "merchant key" },
     { label: "EASEBUZZ_SALT", hint: "salt" },
+  ],
+  google: [
+    { label: "GOOGLE_CLIENT_ID", hint: "Google Cloud → APIs & Services → Credentials → OAuth client ID" },
+    { label: "GOOGLE_CLIENT_SECRET", hint: "matching client secret" },
   ],
 };
 

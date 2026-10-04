@@ -14,6 +14,7 @@ const NAV: [string, string, React.ComponentType<{ size?: number; className?: str
   ["Boards", "/admin/boards", Trello],
   ["WhatsApp", "/admin/whatsapp", MessageCircle],
   ["Calendar", "/admin/calendar", CalendarClock],
+  ["Google", "/admin/google", Plug],
   ["Schedule", "/admin/schedule", CalendarClock],
   ["Orders", "/admin/orders", ShoppingCart],
   ["Packages", "/admin/packages", Package],
