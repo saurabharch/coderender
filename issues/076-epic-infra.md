@@ -1,6 +1,6 @@
 # Infra mega-program — PRD + phased tickets
 
-Status: todo
+Status: done
 Labels: epic
 
 ## PRD (one page)
@@ -15,18 +15,18 @@ smoke-tested live before merge.
 
 ## Tickets
 
-- [ ] 077 WAHA switch: `wa_provider` pref (cloud-api|waha|off), REST client
+- [x] 077 WAHA switch: `wa_provider` pref (cloud-api|waha|off), REST client
   (start/status/QR/logout), dashboard QR + disconnect + session-clear,
   kill switch respected by sender + webhook.
-- [ ] 078 Workflow builder: node canvas, triggers (manual/ticket/lead),
+- [x] 078 Workflow builder: node canvas, triggers (manual/ticket/lead),
   channel steps (wa/email/telegram/slack), enable/disable, per-channel
   kill switches, queue execution, run log.
-- [ ] 079 Webhook delivery (Svix-like): endpoint registry + secrets,
+- [x] 079 Webhook delivery (Svix-like): endpoint registry + secrets,
   HMAC-signed sends, idempotency, retry scheduler, replay, rate limits,
   logs UI, OpenAPI entries.
-- [ ] 080 Payments: Razorpay orders + signature + webhook e2e; PayU +
+- [x] 080 Payments: Razorpay orders + signature + webhook e2e; PayU +
   Easebuzz hash flows + vault fields; invoice linkage; fixture tests.
-- [ ] 081 Deploy pack: docker-compose (postgres/redis/app/worker) for
+- [x] 081 Deploy pack: docker-compose (postgres/redis/app/worker) for
   Linux, termux service defs, CI/CD wiring, release + deploy verify.
 
 ## Step-by-step opencode prompts (per ticket)

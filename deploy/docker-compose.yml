@@ -1,0 +1,72 @@
+# Linux deploy (x64/aarch64): postgres + redis + app + worker.
+# Fill values from ../.env.example into ../.env, then from the repo root:
+#   docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
+# The worker ticks the durable queue through the app (Bearer WORKER_TICK_TOKEN);
+# the app also runs its own in-process scheduler, so a missing token only
+# idles the worker — it never weakens session auth.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: coderender
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: coderender
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coderender"]
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://coderender:${POSTGRES_PASSWORD}@postgres:5432/coderender
+      INNGEST_APP_ID: coderender
+      WORKER_TICK_TOKEN: ${WORKER_TICK_TOKEN:-}
+    ports:
+      - "3100:3100"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3100/api/client').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      interval: 15s
+      retries: 8
+    command: >
+      sh -c "npx prisma migrate deploy && npm start -- -p 3100"
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_URL: http://app:3100
+      WORKER_TICK_TOKEN: ${WORKER_TICK_TOKEN:?set WORKER_TICK_TOKEN in .env}
+      WORKER_MODE: "1"
+    command: ["node", "scripts/worker.mjs"]
+
+volumes:
+  pgdata:
+  redisdata:

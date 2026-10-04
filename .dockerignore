@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.next.bak/
+out/
+dist/
+coverage/
+.git/
+dev.db*
+*.log
+.env
+public/uploads/*
+!public/uploads/.gitkeep
+/data/data/com.termux/files/usr/tmp/

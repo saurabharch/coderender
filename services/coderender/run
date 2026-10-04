@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# termux-services definition: enable with `pkg install termux-services`,
+# then `sv-enable coderender`. Requires pm2-managed app already configured.
+exec /data/data/com.termux/files/usr/bin/bash /data/data/com.termux/files/home/projects/coderender/scripts/demo.sh

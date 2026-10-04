@@ -99,6 +99,7 @@ export const ROUTES: RouteDoc[] = [
   { method: "DELETE", path: "/api/cms/[type]/[id]", auth: "team", desc: "Delete a CMS item." },
   { method: "GET", path: "/api/chat/threads", auth: "public", desc: "List own-device guest threads (fingerprint-scoped)." },  { method: "GET", path: "/api/realtime", auth: "team", desc: "SSE heartbeat of latest team notification." },
   { method: "GET", path: "/api/ops/run", auth: "team", desc: "Run the queue worker tick (depth + results)." },
+  { method: "POST", path: "/api/ops/run", auth: "team", desc: "Queue tick (team session, or Bearer WORKER_TICK_TOKEN for the compose worker)." },
   { method: "GET", path: "/api/notify", auth: "team", desc: "Notifications (?kind= ?audience= ?q= ?limit= ?offset=) + 30d analytics." },
   { method: "GET", path: "/api/providers", auth: "team", desc: "Provider credential status (masked)." },
   { method: "POST", path: "/api/providers", auth: "team", desc: "Save provider credentials (AES-sealed).", body: "{name, values}" },
