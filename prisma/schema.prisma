@@ -589,3 +589,94 @@ model HookDelivery {
   runAfter   DateTime @default(now())
   createdAt  DateTime @default(now())
 }
+
+model Unit {
+  name   String @id
+  kind   String @default("pc")
+  factor Int    @default(1)
+}
+
+model TaxRate {
+  id        Int     @id @default(autoincrement())
+  name      String
+  pct       Float   @default(0)
+  inter     Boolean @default(false)
+  inclusive Boolean @default(true)
+  active    Boolean @default(true)
+}
+
+model Coupon {
+  code     String @id
+  kind     String @default("flat")
+  value    Int    @default(0)
+  maxOff   Int    @default(0)
+  minOrder Int    @default(0)
+  startsAt String @default("")
+  endsAt   String @default("")
+  maxUses  Int    @default(0)
+  used     Int    @default(0)
+  active   Boolean @default(true)
+}
+
+model Customer {
+  id        Int    @id @default(autoincrement())
+  name      String
+  phone     String @default("")
+  email     String @default("")
+  cgroup    String @default("retail")
+  tags      String @default("")
+  credit    Int    @default(0)
+  balance   Int    @default(0)
+  notes     String @default("")
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id      Int    @id @default(autoincrement())
+  name    String
+  sku     String @default("")
+  kind    String @default("physical")
+  price   Int    @default(0)
+  mrp     Int    @default(0)
+  unit    String @default("pc")
+  perPack Int    @default(1)
+  taxPct  Float  @default(0)
+  stock   Int    @default(0)
+  status  String @default("active")
+  media   String @default("[]")
+  seo     String @default("{}")
+  attrs   String @default("{}")
+  createdAt DateTime @default(now())
+}
+
+model ShopOrder {
+  id         Int    @id @default(autoincrement())
+  customerId Int    @default(0)
+  status     String @default("draft")
+  subtotal   Int    @default(0)
+  discount   Int    @default(0)
+  tax        Int    @default(0)
+  grand      Int    @default(0)
+  coupon     String @default("")
+  channel    String @default("admin")
+  notes      String @default("")
+  createdAt  DateTime @default(now())
+}
+
+model OrderLine {
+  id        Int   @id @default(autoincrement())
+  orderId   Int
+  productId Int   @default(0)
+  name      String
+  qty       Float @default(1)
+  price     Int   @default(0)
+  total     Int   @default(0)
+}
+
+model OrderEvent {
+  id      Int    @id @default(autoincrement())
+  orderId Int
+  event   String
+  detail  String @default("")
+  at      DateTime @default(now())
+}
