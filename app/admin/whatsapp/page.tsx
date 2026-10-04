@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { WaInbox } from "@/components/wa-inbox";
+import { WaProviderCard } from "@/components/wa-provider";
 
 export const metadata: Metadata = {
   title: "WhatsApp Inbox — CodeRender",
@@ -11,6 +12,7 @@ export default function WhatsAppAdmin() {
     <>
       <h1 className="text-2xl font-extrabold">WhatsApp inbox</h1>
       <p className="mt-1 text-sm text-zinc-500">Inbound lands here live. Angry contacts auto-file tickets. STOP is always respected.</p>
+      <div className="mt-4"><WaProviderCard /></div>
       <div className="mt-4"><WaInbox /></div>
     </>
   );

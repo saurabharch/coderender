@@ -39,6 +39,8 @@ export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string
     { label: "WHATSAPP_APP_ID", hint: "App ID (App Settings → Basic)" },
     { label: "WHATSAPP_APP_SECRET", hint: "App secret (webhook signatures)" },
     { label: "WHATSAPP_VERIFY_TOKEN", hint: "Your secret string (e.g. MyCustomSecureToken123!)" },
+    { label: "WAHA_URL", hint: "WAHA host (e.g. http://waha:3000) — alternative sender" },
+    { label: "WAHA_API_KEY", hint: "WAHA API key (if set)" },
     { label: "WHATSAPP_API_URL", hint: "Legacy: generic provider endpoint (fallback)" },
     { label: "WHATSAPP_API_TOKEN", hint: "Legacy: generic provider token (fallback)" },
   ],
@@ -122,6 +124,13 @@ export async function sendTelegram(text: string, chatId?: string): Promise<{ sen
 }
 
 export async function sendWhatsApp(phone: string, text: string): Promise<{ sent: boolean; via: string }> {
+  const { waActiveProvider } = await import("./waha");
+  const active = waActiveProvider();
+  if (active === "off") return { sent: false, via: "whatsapp off (kill switch)" };
+  if (active === "waha") {
+    const { wahaSendText } = await import("./waha");
+    return wahaSendText(phone, text);
+  }
   const { waSendText, waConfigured } = await import("./whatsapp");
   if (waConfigured()) return waSendText(phone, text);
   const cfg = getProvider("whatsapp");
