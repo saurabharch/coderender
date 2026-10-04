@@ -205,7 +205,7 @@ export function listOrders(status = "", limit = 50) {
     : "SELECT * FROM ShopOrder ORDER BY id DESC LIMIT ?").all(...(status ? [status, limit] : [limit]));
 }
 
-export function setOrderStatus(id: number, to: string): void {
+export async function setOrderStatus(id: number, to: string): Promise<void> {
   commerceTables();
   const db = getDb();
   const o = db.prepare("SELECT status FROM ShopOrder WHERE id=?").get(id) as { status: string } | undefined;
@@ -213,10 +213,12 @@ export function setOrderStatus(id: number, to: string): void {
   if (!orderCan(o.status, to)) throw new Error(`${o.status} → ${to} not allowed`);
   db.prepare("UPDATE ShopOrder SET status=? WHERE id=?").run(to, id);
   if (to === "confirmed") {
-    // Reserve stock at confirm; physical decrement (full ledger lands in 086).
+    // Reserve stock at confirm through the ledger (086); physical decrement,
+    // Main warehouse mirror keeps Product.stock in sync.
+    const { issueStock } = await import("./inventory");
     for (const l of db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[]) {
       const p = db.prepare("SELECT kind FROM Product WHERE id=?").get(l.productId) as { kind: string } | undefined;
-      if (p?.kind === "physical") db.prepare("UPDATE Product SET stock = stock - ? WHERE id=?").run(l.qty, l.productId);
+      if (p?.kind === "physical") issueStock(l.productId, l.qty, `order#${id}`);
     }
   }
   log(id, `status:${to}`);

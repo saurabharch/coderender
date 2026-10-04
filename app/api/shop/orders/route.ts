@@ -45,7 +45,7 @@ export async function PATCH(req: Request) {
     .safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad transition" }, { status: 422 });
   try {
-    setOrderStatus(parsed.data.id, parsed.data.to);
+    await setOrderStatus(parsed.data.id, parsed.data.to);
     return NextResponse.json({ ok: true, order: getOrder(parsed.data.id) });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "transition failed" }, { status: 422 });

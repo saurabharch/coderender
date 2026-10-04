@@ -64,6 +64,15 @@ export function startScheduler() {
   }, 600_000);
   setInterval(async () => {
     try {
+      const { stockAlertTick } = await import("./inventory");
+      const fresh = stockAlertTick();
+      if (fresh.length) console.log(`[stock] low: ${fresh.map((f) => f.name).join(", ")}`);
+    } catch (e) {
+      console.error("[stock]", e);
+    }
+  }, 1800_000);
+  setInterval(async () => {
+    try {
       const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
       if (now.getHours() === 9 && now.getMinutes() < 10 && getPref("payout_digest", "on") === "on") {
         const today = now.toISOString().slice(0, 10);

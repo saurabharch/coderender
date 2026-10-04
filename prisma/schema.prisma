@@ -643,6 +643,7 @@ model Product {
   taxPct  Float  @default(0)
   stock   Int    @default(0)
   status  String @default("active")
+  lowAt   Int    @default(5)
   media   String @default("[]")
   seo     String @default("{}")
   attrs   String @default("{}")
@@ -679,4 +680,86 @@ model OrderEvent {
   event   String
   detail  String @default("")
   at      DateTime @default(now())
+}
+
+model Warehouse {
+  id       Int    @id @default(autoincrement())
+  name     String
+  location String @default("")
+  active   Boolean @default(true)
+}
+
+model StockLevel {
+  productId   Int
+  warehouseId Int   @default(1)
+  qty         Float @default(0)
+  avgCost     Int   @default(0)
+
+  @@id([productId, warehouseId])
+}
+
+model StockMove {
+  id          Int    @id @default(autoincrement())
+  productId   Int
+  warehouseId Int    @default(1)
+  kind        String
+  qty         Float  @default(0)
+  ref         String @default("")
+  cost        Int    @default(0)
+  at          DateTime @default(now())
+}
+
+model Supplier {
+  id      Int    @id @default(autoincrement())
+  name    String
+  phone   String @default("")
+  email   String @default("")
+  gstin   String @default("")
+  address String @default("")
+  rating  Int    @default(0)
+  createdAt DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id         Int    @id @default(autoincrement())
+  supplierId Int
+  status     String @default("draft")
+  subtotal   Int    @default(0)
+  tax        Int    @default(0)
+  grand      Int    @default(0)
+  notes      String @default("")
+  createdAt  DateTime @default(now())
+}
+
+model POLine {
+  id        Int   @id @default(autoincrement())
+  poId      Int
+  productId Int   @default(0)
+  name      String
+  qty       Float @default(1)
+  cost      Int   @default(0)
+  total     Int   @default(0)
+}
+
+model GRN {
+  id    Int    @id @default(autoincrement())
+  poId  Int
+  lines String @default("[]")
+  notes String @default("")
+  at    DateTime @default(now())
+}
+
+model SupplierBill {
+  id         Int    @id @default(autoincrement())
+  poId       Int
+  supplierId Int
+  amount     Int    @default(0)
+  status     String @default("unpaid")
+  dueAt      String @default("")
+  paidAt     String @default("")
+}
+
+model StockAlert {
+  productId Int    @id
+  at        DateTime @default(now())
 }
