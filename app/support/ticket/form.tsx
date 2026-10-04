@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 export function TicketForm() {
-  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -40,9 +40,10 @@ export function TicketForm() {
   }
   return (
     <form onSubmit={submit} className="mt-4 grid gap-2">
-      <div className="grid gap-2 md:grid-cols-2">
+      <div className="grid gap-2 md:grid-cols-3">
         <input value={form.name} onChange={set("name")} placeholder="Your name" maxLength={80} className={input} />
         <input value={form.email} onChange={set("email")} type="email" required placeholder="Email" maxLength={120} className={input} />
+        <input value={form.phone} onChange={set("phone")} placeholder="Phone/WhatsApp (optional)" maxLength={20} className={input} />
       </div>
       <input value={form.subject} onChange={set("subject")} required placeholder="Subject (e.g. Bill for October looks off)" maxLength={160} className={input} />
       <textarea value={form.message} onChange={set("message")} required rows={5} minLength={10} maxLength={4000}

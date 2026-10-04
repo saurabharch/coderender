@@ -374,3 +374,42 @@ model ServicePackage {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+model Ticket {
+  id            Int      @id @default(autoincrement())
+  email         String   @default("")
+  subject       String
+  body          String   @default("")
+  status        String   @default("open")
+  assigneeEmail String   @default("")
+  escalated     Boolean  @default(false)
+  phone         String   @default("")
+  createdAt     DateTime @default(now())
+}
+
+model TicketEvent {
+  id       Int      @id @default(autoincrement())
+  ticketId Int
+  actor    String   @default("")
+  kind     String   @default("note")
+  body     String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model TicketWatcher {
+  id       Int    @id @default(autoincrement())
+  ticketId Int
+  email    String
+  @@unique([ticketId, email])
+}
+
+model TicketAttachment {
+  id       Int      @id @default(autoincrement())
+  ticketId Int
+  filename String
+  mime     String   @default("")
+  size     Int      @default(0)
+  status   String   @default("pending")
+  backend  String   @default("")
+  createdAt DateTime @default(now())
+}

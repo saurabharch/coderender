@@ -164,11 +164,40 @@ export const agentCallFn = inngest.createFunction(
   }
 );
 
-export const functions = [dailyReportFn, leadCreatedFn, broadcastFn, supportTriageFn, nightlyDistillFn, agentCallFn];
+async function doScanTicketFile(data: { attachmentId: number }) {
+  const { getDb } = await import("./store");
+  const row = getDb().prepare("SELECT * FROM TicketAttachment WHERE id=?").get(data.attachmentId) as
+    { id: number; ticketId: number; filename: string; mime: string } | undefined;
+  if (!row) throw new NonRetriableError("attachment not found");
+  const { join } = await import("node:path");
+  const { scanFile } = await import("./scan");
+  const r = await scanFile(join(process.cwd(), "public", "uploads", "tickets", row.filename), row.mime);
+  const { logEvent } = await import("./tickets");
+  if (r.verdict === "infected") {
+    const { unlink } = await import("node:fs/promises");
+    await unlink(join(process.cwd(), "public", "uploads", "tickets", row.filename)).catch(() => {});
+    getDb().prepare("UPDATE TicketAttachment SET status='infected' WHERE id=?").run(row.id);
+    logEvent(row.ticketId, "scanner", "scan", `Attachment #${row.id} quarantined (${r.backend}: ${r.detail})`);
+    return { ok: true, verdict: "infected" as const };
+  }
+  getDb().prepare("UPDATE TicketAttachment SET status='clean' WHERE id=?").run(row.id);
+  logEvent(row.ticketId, "scanner", "scan", `Attachment #${row.id} cleared (${r.backend})`);
+  return { ok: true, verdict: "clean" as const };
+}
+
+export const scanTicketFileFn = inngest.createFunction(
+  { id: "scan-ticket-file", triggers: { event: "app/scan.ticketfile" }, retries: 2, concurrency: { limit: 3 } },
+  async ({ event, step }) => {
+    return step.run("scan", async () => doScanTicketFile(event.data as { attachmentId: number }));
+  }
+);
+
+export const functions = [dailyReportFn, leadCreatedFn, broadcastFn, supportTriageFn, nightlyDistillFn, agentCallFn, scanTicketFileFn];
 
 // Local runner: executes bodies in-process (scheduler, emit fallback, manual).
-export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" | "supportTriage" | "nightlyDistill" | "agentCall", data?: { leadId?: number; message?: string; threadId?: number; op?: string; params?: Record<string, unknown>; keyName?: string }) {
+export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" | "supportTriage" | "nightlyDistill" | "agentCall" | "scanTicketFile", data?: { leadId?: number; message?: string; threadId?: number; op?: string; params?: Record<string, unknown>; keyName?: string; attachmentId?: number }) {
   if (name === "agentCall") return doAgentCall({ op: data?.op ?? "", params: data?.params, keyName: data?.keyName });
+  if (name === "scanTicketFile") return doScanTicketFile({ attachmentId: data?.attachmentId ?? 0 });
   if (name === "dailyReport") return doDailyReport();
   if (name === "nightlyDistill") {
     const { runNightlyDistill } = await import("./learn");

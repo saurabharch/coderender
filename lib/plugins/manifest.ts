@@ -65,6 +65,8 @@ export const ROUTES: RouteDoc[] = [
   { method: "GET", path: "/api/meetings/upcoming", auth: "team", desc: "Meetings with parsed day keys." },
   { method: "PUT", path: "/api/schedule/[id]", auth: "team", desc: "Reschedule + notify involved.", body: "{slot}" },
   { method: "POST", path: "/api/support/ticket", auth: "public", desc: "File a support ticket (rate-limited, moderated).", body: "{name?, email, subject, message}" },
+  { method: "POST", path: "/api/support/tickets/[id]/attach", auth: "public", desc: "Attach a file (owner email or team; quarantined until scanned)." },
+  { method: "GET", path: "/api/support/tickets/[id]/files/[fileId]", auth: "public", desc: "Download a scanned-clean attachment (owner or team)." },
   { method: "GET", path: "/api/catalog", auth: "team", desc: "Services + plans (?q= suggests services)." },
   { method: "GET", path: "/api/gcal/sync", auth: "team", desc: "Google sync status for me." },
   { method: "POST", path: "/api/gcal/sync", auth: "team", desc: "Push board / pull day / disconnect.", body: "{action: push|pull|off, boardId?, day?}" },

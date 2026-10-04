@@ -14,11 +14,14 @@ export const AGENT_OPS = {
   "form.list": { scope: "agent:read", desc: "List forms with submission counts" },
   "lead.create": { scope: "agent:write", desc: "Create a lead", params: "{name, phone, businessType?, source?}" },
   "cms.list": { scope: "agent:read", desc: "List published CMS items", params: "{type, limit?}" },
+  "ticket.list": { scope: "agent:read", desc: "List tickets", params: "{status?, limit?}" },
+  "ticket.get": { scope: "agent:read", desc: "Ticket detail + timeline", params: "{id}" },
+  "ticket.resolve": { scope: "agent:write", desc: "Resolve with note", params: "{id, resolution}" },
 } as const;
 
 export type AgentOp = keyof typeof AGENT_OPS;
 
-const idParam = z.object({ id: z.number().int() });
+const idParam = z.object({ id: z.coerce.number().int() });
 
 export async function runAgentOp(op: string, params: Record<string, unknown>, keyName: string): Promise<unknown> {
   const Red = (o: unknown) => redact(JSON.stringify(o ?? {})).slice(0, 500);
@@ -96,6 +99,28 @@ export async function runAgentOp(op: string, params: Record<string, unknown>, ke
       const r = listItems(p.type, p.limit ?? 20, { publishedOnly: true, withRelated: false });
       audit({ type: p.type, n: r.length });
       return { items: r.map((x) => ({ id: x.id, slug: x.slug, data: x.data })) };
+    }
+    case "ticket.list": {
+      const { listTickets } = await import("./tickets");
+      const p = z.object({ status: z.string().max(20).optional(), limit: z.coerce.number().int().min(1).max(50).optional() }).parse(params);
+      const r = listTickets(p.status || undefined, p.limit ?? 20);
+      audit({ n: r.length });
+      return { tickets: r.map((t) => ({ id: t.id, subject: t.subject, status: t.status, assignee: t.assigneeEmail })) };
+    }
+    case "ticket.get": {
+      const { getTicket } = await import("./tickets");
+      const { id } = idParam.parse(params);
+      const t = getTicket(id);
+      if (!t) throw new Error("not found");
+      audit({ id });
+      return { result: `#${t.id} ${t.subject}: ${t.status}, owner ${t.assigneeEmail || "none"}. Latest: ${t.events[t.events.length - 1]?.body.slice(0, 200) || "filed"}` };
+    }
+    case "ticket.resolve": {
+      const { resolveTicket } = await import("./tickets");
+      const p = z.object({ id: z.coerce.number().int(), resolution: z.string().min(4).max(2000) }).parse(params);
+      await resolveTicket(p.id, `agent:${keyName}`, p.resolution);
+      audit({ id: p.id });
+      return { ok: true };
     }
     default:
       throw new Error("unknown op");

@@ -77,7 +77,59 @@ Get `<tunnel-id>` from `cloudflared tunnel list` (the ID already in `~/.cloudfla
 
 ## Routes
 
-`/` · `/industries/[slug]` (10 verticals) · `/services/[slug]` (6) · `/tools/gbp-booster-whatsapp-ai-agent` · `/tools/*` (QR, template, pricing) · `/about /careers /pricing /contact /partner /docs /privacy /terms /refund` · `/api/leads` (POST zod-validated → SQLite `Lead`) · `/login` + `/admin/*` (magic-link, owner allowlist) · `/sitemap.xml` · `/robots.txt`.
+`/` · `/industries/[slug]` (10 verticals) · `/services/[slug]` (6) · `/tools/gbp-booster-whatsapp-ai-agent` · `/tools/*` (QR, template, pricing) · `/about /careers /pricing /contact /partner /docs /privacy /terms /refund` · `/support /faqs /support/ticket /grievance /complaints` · `/blog` · `/f/[slug]` (dynamic forms) · `/p/[slug]` (composed pages) · `/api/leads` (POST zod-validated → SQLite `Lead`) · `/login` + `/admin/*` (magic-link, owner allowlist) · `/ai-chat` (team streaming chat) · `/reference` (team API docs) · `/sitemap.xml` · `/robots.txt`.
+
+## Features (v0.8.0)
+
+- **Chat**: guest wizard (vertical → goals → booking) + verified support/partner modes with real snapshots, ticket filing, meeting reschedule flow, captcha gates (math or slide-puzzle, admin-switchable), moderation + evals + self-distillation. Team: `/ai-chat` streaming with threads, votes, memory.
+- **Kanban**: boards/columns/tasks, priorities, assignees + designations, attachments, checklists with notes, comments, form-submission links, client/owner mapping, day/week/month/year/Gantt views, standalone `/admin/calendar`, Google Calendar two-way sync (keys pending).
+- **Forms**: visual builder (12 field types, validation, multi-step), public renderer, per-form captcha, submissions console, typed REST.
+- **CMS + pages**: typed collections, visual page composer (11 layer types, variables), media picker, blog with covers.
+- **Comments**: threaded + likes + edit, resource-bound (blog/kanban/todos), NSFW auto-mask, spam auto-hide, moderation console.
+- **Tickets**: console + timeline + assign/resolve, abuse layer, quarantined attachments (ClamAV-or-heuristic scan job), adjustable SLA auto-status, bot filing + tracking, agent `ticket.*` ops, loop notifications (mail/push/WhatsApp-link/Telegram-hook).
+- **Platform**: Inngest jobs (report, nurture, triage, distill, agent-call, scan) with local runner; key-scoped agent API (`/api/agent/call`, audited); durable job queue (`/admin/ops`); OpenAPI 3.1 + team reference.
+- **Captcha plugin**: math or slide-puzzle (canvas-cut piece, vendored art, hashcash worker, single-use TTL), per-form option, exclusive provider switch.
+
+```
+                    ┌─────────────┐
+                    │   Visitors  │
+                    └──────┬──────┘
+                           ▼
+            ┌──────────────────────────┐
+            │  Site + Chat + Forms     │──leads──▶ SQLite
+            └──────┬─────────┬─────────┘
+                   │         │ tickets/comments/submissions
+                   ▼         ▼
+            ┌──────────────┐ ┌──────────────┐
+            │ Team Boards  │ │ Admin consoles│
+            │ Kanban/Gantt │ │ tickets/media │
+            │ Calendar/GCal│ │ catalog/pages │
+            └──────┬───────┘ └──────┬────────┘
+                   │                │
+                   ▼                ▼
+            ┌────────────────────────────────┐
+            │ Agents (chat/tools/ApiKey) +   │
+            │ Inngest jobs + queue + notify  │
+            │ (mail/push/wa-link/tg-hook)    │
+            └────────────────────────────────┘
+```
+
+Ticket lifecycle: `filed (bot/web, abuse-screened) → open → assigned → resolved (+resolution note) → closed (auto after SLA)` · spam auto-hidden · SLA escalates stale opens · every step notifies watchers + team on connected channels · attachments unlock only after a clean scan.
+
+## Configuration
+
+| Key | Required for | Without it |
+|---|---|---|
+| `SMTP_URL`, `MAIL_FROM` | real mail | Ethereal dev previews in logs |
+| `WHATSAPP_API_URL` + `WHATSAPP_API_TOKEN` | provider WhatsApp sends | `wa.me` click-to-chat links |
+| `TELEGRAM_BOT_TOKEN` (+ `TELEGRAM_TEAM_CHAT_ID`) | Telegram sends | logged + Notification rows |
+| `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` | Calendar two-way sync | local views only, honest 422 |
+| `INNGEST_EVENT_KEY` / `SIGNING_KEY` | Cloud job execution | in-process `runLocal` |
+| `GITHUB_TOKEN` | `scripts/sync.sh` push | manual `git push` with fresh auth |
+| `CLAMAV_SOCKET` (or `clamscan` + DBs) | ClamAV engine | EICAR + executable heuristic (backend recorded per file) |
+| `CAPTCHA_SECRET` | cookie signing | dev default (change in prod) |
+| `sla_ack_hours` / `sla_close_days` (settings) | ticket SLA automation | 24h escalate / 14d auto-close |
+| `captcha_provider` (settings) | chat gate | math captcha |
 
 ## Platform: analytics, team, billing scaffolds
 
@@ -91,15 +143,16 @@ Get `<tunnel-id>` from `cloudflared tunnel list` (the ID already in `~/.cloudfla
 
 ```
 app/            routes + layout (header/footer/mobile quick-bar) + globals.css
-components/     theme-toggle, site chrome, lead-form, ui/* (shadcn-style), reveal
-lib/            lead-schema (zod), leads (node:sqlite store), site (verticals)
+components/     theme-toggle, site chrome, chat widget, kanban board/views, tables, pickers, editors
+lib/            domain ops (leads, kanban, forms, cms, comments, tickets, catalog, media, gcal, queue, notify)
 prisma/         versioned schema — migrate on Linux/prod only (engines lack android builds)
+public/captcha-bg vendored puzzle art · public/captcha-worker.js PoW worker
 skills/         vendored bb-* agent skills (see AGENTS.md)
 templates/      offer/gtm/launch/service scaffolds
-scripts/        demo.sh, status.py, a2a_new_task.py, wayfinder_map.py, validate_skills.py
+scripts/        demo.sh, sync.sh, release.sh, ci.sh, deploy.sh, status.py, ...
 .opencode/      controller + worker personas, A2A protocol + agent cards
 issues/         local tracker (inbox → brief → doing → done)
-workspaces/     research + offers decisions (rewritten, never verbatim)
+tests/          vitest suites (pure helpers; DB paths covered by live smoke)
 ```
 
 `AGENTS.md` is the source of truth for agent sessions (commands, quirks, skill order).

@@ -223,6 +223,22 @@ export function getDb(): DatabaseSync {
     db.exec(`CREATE TABLE IF NOT EXISTS Ticket (
       id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL DEFAULT '',
       subject TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open',
+      assigneeEmail TEXT NOT NULL DEFAULT '', escalated INTEGER NOT NULL DEFAULT 0, phone TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    try { db.exec("ALTER TABLE Ticket ADD COLUMN assigneeEmail TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Ticket ADD COLUMN escalated INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE Ticket ADD COLUMN phone TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS TicketEvent (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ticketId INTEGER NOT NULL,
+      actor TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'note',
+      body TEXT NOT NULL DEFAULT '',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS TicketWatcher (
+      ticketId INTEGER NOT NULL, email TEXT NOT NULL, UNIQUE(ticketId, email))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS TicketAttachment (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ticketId INTEGER NOT NULL,
+      filename TEXT NOT NULL, mime TEXT NOT NULL DEFAULT '', size INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending', backend TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     try { db.exec("ALTER TABLE ChatThread ADD COLUMN fp TEXT"); } catch { /* exists */ }
     db.exec(`CREATE TABLE IF NOT EXISTS Idempotency (

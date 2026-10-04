@@ -32,6 +32,15 @@ export function startScheduler() {
   }, 60_000);
   setInterval(async () => {
     try {
+      const { slaTick } = await import("./tickets");
+      const out = await slaTick();
+      if (out.length) console.log(`[sla] ${out.join("; ")}`);
+    } catch (e) {
+      console.error("[sla]", e);
+    }
+  }, 600_000);
+  setInterval(async () => {
+    try {
       await reportInfraTrouble(infraCheck());
     } catch (e) {
       console.error("[infra]", e);
