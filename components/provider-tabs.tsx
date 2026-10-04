@@ -55,7 +55,7 @@ export function ProviderTabs() {
     }
   }
 
-  async function useChat(id: string) {
+  async function assignChat(id: string) {
     const res = await fetch("/api/providers", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "telegram", values: { TELEGRAM_TEAM_CHAT_ID: id } }),
@@ -105,7 +105,7 @@ export function ProviderTabs() {
           {name === "telegram" && chats.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {chats.map((c) => (
-                <button key={c.id} onClick={() => void useChat(c.id)}
+                <button key={c.id} onClick={() => void assignChat(c.id)}
                   className="min-h-[44px] rounded-full border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Use {c.name} ({c.id})</button>
               ))}
             </div>
