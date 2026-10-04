@@ -190,6 +190,11 @@ export function getDb(): DatabaseSync {
       attempts INTEGER NOT NULL DEFAULT 0, code INTEGER NOT NULL DEFAULT 0,
       error TEXT NOT NULL DEFAULT '', runAfter TEXT NOT NULL DEFAULT (datetime('now')),
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`CREATE TABLE IF NOT EXISTS GatewayOrder (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, provider TEXT NOT NULL,
+      providerRef TEXT NOT NULL UNIQUE, orderId INTEGER NOT NULL,
+      amount INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'created',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
     db.exec(`CREATE TABLE IF NOT EXISTS WaMessage (
       id INTEGER PRIMARY KEY AUTOINCREMENT, waId TEXT NOT NULL DEFAULT '',
       sender TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',

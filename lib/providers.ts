@@ -21,7 +21,7 @@ export function unseal(packed: string): string {
   return Buffer.concat([d.update(Buffer.from(data, "hex")), d.final()]).toString("utf8");
 }
 
-export type ProviderName = "smtp" | "telegram" | "whatsapp" | "slack";
+export type ProviderName = "smtp" | "telegram" | "whatsapp" | "slack" | "razorpay" | "payu" | "easebuzz";
 
 export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string }[]> = {
   smtp: [
@@ -46,6 +46,19 @@ export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string
   ],
   slack: [
     { label: "SLACK_WEBHOOK_URL", hint: "incoming webhook URL" },
+  ],
+  razorpay: [
+    { label: "RAZORPAY_KEY_ID", hint: "rzp_live_* / rzp_test_*" },
+    { label: "RAZORPAY_KEY_SECRET", hint: "key secret" },
+    { label: "RAZORPAY_WEBHOOK_SECRET", hint: "webhook secret (Dashboard → Webhooks)" },
+  ],
+  payu: [
+    { label: "PAYU_MERCHANT_KEY", hint: "merchant key" },
+    { label: "PAYU_MERCHANT_SALT", hint: "merchant salt" },
+  ],
+  easebuzz: [
+    { label: "EASEBUZZ_MERCHANT_KEY", hint: "merchant key" },
+    { label: "EASEBUZZ_SALT", hint: "salt" },
   ],
 };
 
