@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Phone, Mail, MessageCircle, QrCode, Type, Calculator, MapPin, Info, Briefcase, Handshake, BookOpen, Tag, HelpCircle, MessageSquare, ShieldCheck, FileText, RotateCcw, type LucideIcon } from "lucide-react";
+import { Phone, Mail, MessageCircle, QrCode, Type, Calculator, MapPin, Info, Briefcase, Handshake, HelpCircle, MessageSquare, ShieldCheck, FileText, RotateCcw, LifeBuoy, Siren, ScrollText, type LucideIcon } from "lucide-react";
 import { CONTACT } from "@/lib/site";
 import pkg from "@/package.json";
 import { Logo } from "./logo";
@@ -38,10 +38,11 @@ const COLS: { title: string; links: { h: string; l: string; Icon: LucideIcon }[]
   {
     title: "Support",
     links: [
-      { h: "/#faq", l: "FAQ's", Icon: HelpCircle },
-      { h: "/contact", l: "Raise A Ticket", Icon: MessageSquare },
-      { h: "/docs", l: "Docs", Icon: BookOpen },
-      { h: "/pricing", l: "Pricing", Icon: Tag },
+      { h: "/support", l: "Support Hub", Icon: LifeBuoy },
+      { h: "/faqs", l: "FAQ's", Icon: HelpCircle },
+      { h: "/support/ticket", l: "Raise A Ticket", Icon: MessageSquare },
+      { h: "/grievance", l: "Grievance Redressal", Icon: ScrollText },
+      { h: "/complaints", l: "Complaint & Fraud", Icon: Siren },
     ],
   },
   {
@@ -50,7 +51,7 @@ const COLS: { title: string; links: { h: string; l: string; Icon: LucideIcon }[]
       { h: "/privacy", l: "Privacy Policy", Icon: ShieldCheck },
       { h: "/terms", l: "Terms & Conditions", Icon: FileText },
       { h: "/refund", l: "Refund Policy", Icon: RotateCcw },
-      { h: "/tools/whatsapp-qr-generator", l: "QR Generator", Icon: QrCode },
+      { h: "/grievance", l: "Grievance Policy", Icon: ScrollText },
     ],
   },
 ];

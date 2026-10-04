@@ -478,9 +478,9 @@ export async function runNetwork(opts: {
             scope: "partner", runtime: "none", verify: "partner",
           };
         }
-        // Explicit product/pricing questions skip the wizard and go straight to answers.
-        const direct = /what|how much|how does|cost|price|plan|package|audit|compare|difference|tell me about|explain|detail/i.test(msg)
-          && (findService(msg) || /price|cost|plan|package|audit|compar/i.test(msg));
+        // Explicit product/pricing/policy questions skip the wizard and go straight to answers.
+        const direct = /what|how much|how does|is|are|can|do|does|cost|price|plan|package|audit|compare|difference|tell me about|explain|detail|policy|policies|refund|privacy|terms|grievance|fraud|scam|complaint|ticket|faq|safe|safety|secure/i.test(msg)
+          && (findService(msg) || /price|cost|plan|package|audit|compar|policy|policies|refund|privacy|terms|grievance|fraud|scam|complaint|ticket|faq|safe|safety|secure/i.test(msg));
         if (direct) {
           saveState(opts.threadId, { stage: "done" });
         } else {
