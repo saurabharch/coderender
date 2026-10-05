@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.31.0] - 2026-10-05
+## [0.31.1] - 2026-10-05
+- POS camera attach fix + guided camera errors## [0.31.0] - 2026-10-05
 - POS v2: search, hold/resume, guided payments## [0.30.0] - 2026-10-05
 - POS counter, auto barcodes, camera scan, label sheets## [0.29.1] - 2026-10-05
 - UX sweep: counts, actions, hints## [0.29.0] - 2026-10-05
