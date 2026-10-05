@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.31.3] - 2026-10-06
+## [0.31.4] - 2026-10-06
+- Scanner window UI (frame, laser, torch, feedback)## [0.31.3] - 2026-10-06
 - Client crash recovery + faster builds## [0.31.2] - 2026-10-05
 - Scan fallback (photo decode) + product barcode field## [0.31.1] - 2026-10-05
 - POS camera attach fix + guided camera errors## [0.31.0] - 2026-10-05
