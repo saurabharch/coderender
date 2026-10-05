@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import { Skeleton } from "@/components/admin-ui";
 
 interface Field { label: string; hint: string; set: boolean }
@@ -41,9 +43,16 @@ export function ProviderTabs() {
   }
 
   async function clear(name: string) {
-    if (!confirm(`Clear dashboard ${name} credentials? (env still applies)`)) return;
-    await fetch(`/api/providers?name=${name}`, { method: "DELETE" }).catch(() => {});
-    void load();
+    modals.openConfirmModal({
+      title: "Clear dashboard credentials?",
+      children: "Environment values (if any) still apply after clearing.",
+      labels: { confirm: "Clear", cancel: "Keep" },
+      confirmProps: { color: "red" },
+      onConfirm: () => {
+        fetch(`/api/providers?name=${name}`, { method: "DELETE" }).catch(() => {});
+        setTimeout(() => void load(), 400);
+      },
+    });
   }
 
   async function detectChats() {
@@ -73,7 +82,10 @@ export function ProviderTabs() {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }),
     });
     const data = await res.json().catch(() => ({}));
-    setMsg((m) => ({ ...m, [name]: `${res.ok && data.ok !== false ? "✓" : "✗"} ${data.detail ?? data.error ?? ""}`.slice(0, 160) }));
+    const ok = res.ok && data.ok !== false;
+    const detail = `${data.detail ?? data.error ?? ""}`.slice(0, 160);
+    setMsg((m) => ({ ...m, [name]: `${ok ? "✓" : "✗"} ${detail}` }));
+    notifications.show({ title: name, message: detail || (ok ? "OK" : "failed"), color: ok ? "teal" : "red" });
   }
 
   return (

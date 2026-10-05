@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { getDb } from "@/lib/store";
 import { requireTeam } from "@/lib/auth";
 import { deleteAsset, listAssets, listFolders } from "@/lib/media";
+import { MediaGallery, MediaUploader } from "@/components/media-studio";
 
 async function remove(form: FormData) {
   "use server";
@@ -60,11 +61,7 @@ export default async function MediaAdmin({ searchParams }: { searchParams: Promi
           {folder && <input type="hidden" name="folder" value={folder} />}
           <button className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm dark:border-white/20">Go</button>
         </form>
-        <form action="/api/media/upload" method="post" encType="multipart/form-data" className="flex flex-wrap items-center gap-2">
-          <input type="file" name="file" accept="image/*" required className="text-sm" />
-          {folder && <input type="hidden" name="folder" value={folder} />}
-          <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Upload</button>
-        </form>
+        <MediaUploader folder={folder} />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1 text-sm">
         <Link href="/admin/media" className={`min-h-[44px] rounded-full px-4 py-2 font-semibold ${!folder ? "bg-brand text-white" : "border border-black/15 dark:border-white/20"}`}>All</Link>
@@ -81,32 +78,14 @@ export default async function MediaAdmin({ searchParams }: { searchParams: Promi
             className="min-h-[44px] w-28 rounded-xl border border-dashed border-black/20 bg-transparent px-3 text-sm dark:border-white/20" />
         </form>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {items.map((m) => {
-          const src = m.url || (m.filename ? `/uploads/${m.filename}` : "");
-          return (
-            <div key={m.id} className="overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
-              {src ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={src} alt={m.alt || m.filename} className="aspect-square w-full object-cover" loading="lazy" />
-              ) : <p className="p-2 text-xs text-zinc-500">no file</p>}
-              <div className="grid gap-1 p-2">
-                <span className="truncate font-mono text-[11px]">{src}</span>
-                <form action={saveAlt} className="flex gap-1">
-                  <input type="hidden" name="id" value={m.id} />
-                  <input name="alt" defaultValue={m.alt} placeholder="alt text" maxLength={160}
-                    className="min-h-[44px] w-full rounded-lg border border-black/15 bg-transparent px-2 text-xs dark:border-white/20" />
-                </form>
-                <div className="flex items-center justify-between gap-1">
-                  <span className="font-mono text-[11px] text-zinc-500">{m.folder || "—"}</span>
-                  <form action={remove}><input type="hidden" name="id" value={m.id} />
-                    <button className="min-h-[44px] rounded-lg border border-black/15 px-2 text-xs dark:border-white/20">Del</button></form>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <MediaGallery
+        items={items.map((m) => ({
+          id: m.id, alt: m.alt, filename: m.filename, folder: m.folder,
+          src: m.url || (m.filename ? `/uploads/${m.filename}` : ""),
+        }))}
+        remove={remove}
+        saveAlt={saveAlt}
+      />
       {items.length === 0 && <p className="mt-2 text-sm text-zinc-500">Empty — upload the first image, or register one by URL from any picker.</p>}
     </>
   );

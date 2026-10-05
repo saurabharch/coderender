@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AreaChart } from "@mantine/charts";
 import { AdminCard, Skeleton } from "@/components/admin-ui";
+import { NoSsr } from "@/components/no-ssr";
 
 interface Snap {
   revenue30: number; orders30: number; growth: number; margin: number;
   top: { name: string; q: number; s: number }[]; slow: { name: string; q: number }[];
   customers: number; repeatBuyers: number;
+  daily: { date: string; revenue: number }[];
 }
 
 export function BiConsole() {
@@ -35,6 +38,20 @@ export function BiConsole() {
           </div>
         ))}
       </div>
+      <AdminCard>
+        <p className="font-bold">Revenue — last 30 days (₹)</p>
+        <NoSsr fallback={<p className="mt-2 text-sm text-zinc-500">Loading chart…</p>}>
+          {s.daily.length > 0 ? (
+            <AreaChart
+              h={220} data={s.daily} dataKey="date" mt="md"
+              series={[{ name: "revenue", color: "brand.6" }]}
+              curveType="monotone" withGradient yAxisProps={{ width: 44 }}
+            />
+          ) : (
+            <p className="mt-2 text-sm text-zinc-500">No sales yet — the curve appears with the first order.</p>
+          )}
+        </NoSsr>
+      </AdminCard>
       <div className="grid gap-3 md:grid-cols-2">
         <AdminCard>
           <p className="font-bold">Best products</p>

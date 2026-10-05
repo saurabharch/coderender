@@ -2,8 +2,29 @@
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["geoip-lite"],
-  async headers() {
-    return [
+  experimental: {
+    optimizePackageImports: ["@mantine/core", "@mantine/hooks", "@mantine/dates", "@mantine/charts", "@mantine/form"],
+  },
+  webpack: (config, { dev, isServer }) => {
+    // Client-only: the device react dist is a CJS stub (`module.exports =
+    // require(...)`) that webpack cannot statically analyze from strict ESM
+    // (.mjs) importers. Point client builds at the real CJS files so Mantine
+    // v9's named imports resolve. Server builds keep export conditions (RSC).
+    if (!isServer) {
+      const suffix = dev ? "development.js" : "production.js";
+      const rj = (p) => `${process.cwd()}/${p}`;
+      config.resolve.alias = {
+        "react/jsx-runtime": rj(`node_modules/react/cjs/react-jsx-runtime.${suffix}`),
+        "react/jsx-dev-runtime": rj(`node_modules/react/cjs/react-jsx-dev-runtime.${suffix}`),
+        "react-dom/client": rj(`node_modules/react-dom/cjs/react-dom-client.${suffix}`),
+        ...config.resolve.alias,
+        react: rj(`node_modules/react/cjs/react.${suffix}`),
+        "react-dom": rj(`node_modules/react-dom/cjs/react-dom.${suffix}`),
+      };
+    }
+    return config;
+  },
+  async headers() {    return [
       {
         source: "/:path*",
         headers: [

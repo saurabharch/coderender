@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
+import { NoSsr } from "@/components/no-ssr";
+import { DatePickerInput } from "@mantine/dates";
 
 interface Emp { id: number; name: string; dept: string; designation: string }
 
@@ -13,6 +15,11 @@ export function PeopleConsole() {
   const [name, setName] = useState("");
   const [base, setBase] = useState("");
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [lvid, setLvid] = useState("");
+  const [lfrom, setLfrom] = useState<Date | null>(null);
+  const [lto, setLto] = useState<Date | null>(null);
+  const asDate = (v: unknown): Date | null =>
+    Array.isArray(v) ? ((v[0] as Date | undefined) ?? null) : ((v as Date | null) ?? null);
 
   async function load() {
     const [d, l] = await Promise.all([
@@ -33,6 +40,18 @@ export function PeopleConsole() {
     });
     setMsg(res.ok ? "Employee added ✓" : "failed");
     if (res.ok) { setName(""); setBase(""); void load(); }
+  }
+
+  async function fileLeave() {
+    if (!lvid || !lfrom || !lto) return;
+    const dayStr = (d: Date) => d.toISOString().slice(0, 10);
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leave: Number(lvid), fromDay: dayStr(lfrom), toDay: dayStr(lto) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Leave filed ✓" : (d.error ?? "failed"));
+    if (res.ok) { setLvid(""); setLfrom(null); setLto(null); void load(); }
   }
 
   async function decideLeave(id: number, to: string) {
@@ -88,6 +107,18 @@ export function PeopleConsole() {
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Leave requests ({leaves.length} pending)</p>
+        <div className="mt-2 flex flex-wrap items-end gap-1.5">
+          <input value={lvid} onChange={(e) => setLvid(e.target.value)} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <NoSsr fallback={<p className="text-sm text-zinc-500">Loading date pickers…</p>}>
+          <DatePickerInput value={lfrom} onChange={(v) => setLfrom(asDate(v))} label="From" valueFormat="YYYY-MM-DD"
+            className="w-36" styles={{ input: { minHeight: 44, borderRadius: 12 } }} />
+          <DatePickerInput value={lto} onChange={(v) => setLto(asDate(v))} label="To" valueFormat="YYYY-MM-DD"
+            className="w-36" styles={{ input: { minHeight: 44, borderRadius: 12 } }} />
+            <button onClick={() => void fileLeave()} disabled={!lvid || !lfrom || !lto}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">File</button>
+          </NoSsr>
+        </div>
         {leaves.length === 0 ? <div className="mt-2"><Empty>Nothing pending.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {leaves.map((l) => (

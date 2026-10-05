@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { impersonator, sessionUser } from "@/lib/auth";
 import { AdminDrawer } from "@/components/admin-drawer";
+import { MantineShell } from "@/components/mantine-shell";
 
 async function stopImpersonate() {
   "use server";
@@ -38,7 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       )}
       <div className="gap-6 md:flex">
         <AdminDrawer email={user.email} role={user.role} />
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-w-0 flex-1"><MantineShell>{children}</MantineShell></div>
       </div>
     </div>
   );

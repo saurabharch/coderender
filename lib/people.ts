@@ -221,10 +221,14 @@ export function biSnapshot() {
   const customers = (db.prepare("SELECT COUNT(*) c FROM Customer").get() as { c: number }).c;
   const repeat = (db.prepare(`SELECT COUNT(DISTINCT customerId) c FROM ShopOrder WHERE customerId>0 AND status!='cancelled'
     GROUP BY customerId HAVING COUNT(*)>1`).all() as unknown[]).length;
+  const daily = db.prepare(`SELECT date(createdAt) d, COALESCE(SUM(grand),0) s FROM ShopOrder
+    WHERE createdAt >= date('now','-30 days') AND status!='cancelled' GROUP BY d ORDER BY d`).all() as
+    { d: string; s: number }[];
   return {
     revenue30: rev30.s, orders30: rev30.n,
     growth: revPrev.s > 0 ? Math.round(((rev30.s - revPrev.s) / revPrev.s) * 100) : 0,
     margin: marginPct(rev30.s, Math.round(cogs.c)),
     top, slow, customers, repeatBuyers: repeat,
+    daily: daily.map((x) => ({ date: x.d.slice(5), revenue: Math.round(x.s / 100) })),
   };
 }
