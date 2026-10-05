@@ -67,6 +67,11 @@ export function startScheduler() {
       const { stockAlertTick } = await import("./inventory");
       const fresh = stockAlertTick();
       if (fresh.length) console.log(`[stock] low: ${fresh.map((f) => f.name).join(", ")}`);
+      const { campaignTick, cartRecoveryTick } = await import("./retail");
+      const sent = await campaignTick();
+      if (sent) console.log(`[campaign] sent ${sent}`);
+      const rec = await cartRecoveryTick();
+      if (rec) console.log(`[carts] recovered ${rec}`);
     } catch (e) {
       console.error("[stock]", e);
     }

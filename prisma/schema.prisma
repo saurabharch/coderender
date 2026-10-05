@@ -870,3 +870,61 @@ model Review {
   status     String @default("pending")
   createdAt  DateTime @default(now())
 }
+
+model Campaign {
+  id        Int    @id @default(autoincrement())
+  name      String
+  channel   String @default("whatsapp")
+  segment   String @default("active")
+  coupon    String @default("")
+  message   String @default("")
+  status    String @default("draft")
+  runAt     String @default("")
+  createdAt DateTime @default(now())
+}
+
+model CampaignSend {
+  id         Int    @id @default(autoincrement())
+  campaignId Int
+  customerId Int    @default(0)
+  status     String @default("queued")
+  detail     String @default("")
+  at         DateTime @default(now())
+}
+
+model Cart {
+  id         Int    @id @default(autoincrement())
+  customerId Int    @default(0)
+  lines      String @default("[]")
+  recovered  Int    @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model DrawerDay {
+  id       Int    @id @default(autoincrement())
+  day      String @unique
+  openedBy String @default("")
+  opening  Int    @default(0)
+  counted  Int    @default(0)
+  status   String @default("open")
+  closedAt String @default("")
+}
+
+model Shipment {
+  id        Int    @id @default(autoincrement())
+  orderId   Int
+  courier   String @default("")
+  tracking  String @default("")
+  zone      String @default("")
+  charge    Int    @default(0)
+  status    String @default("created")
+  notes     String @default("")
+  createdAt DateTime @default(now())
+}
+
+model ShipZone {
+  id     Int    @id @default(autoincrement())
+  name   String
+  charge Int    @default(0)
+  eta    String @default("")
+}
