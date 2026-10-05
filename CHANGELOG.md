@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.29.0] - 2026-10-05
+## [0.29.1] - 2026-10-05
+- UX sweep: counts, actions, hints## [0.29.0] - 2026-10-05
 - Finance advance: intents, QR/links, reminders, P&L, subs, loans, hero## [0.28.0] - 2026-10-05
 - Themes (9), public checkout, udhari ledger, service flags## [0.27.0] - 2026-10-05
 - Site modes + onboarding wizard + author role## [0.26.0] - 2026-10-05
