@@ -58,6 +58,8 @@ async function setRole(form: FormData) {
   getDb().prepare("UPDATE AppUser SET role=?, designation=? WHERE email=?").run(
     role, String(form.get("designation") || "").slice(0, 60), email);
   getDb().prepare("UPDATE Membership SET role=? WHERE userId=(SELECT id FROM AppUser WHERE email=?)").run(role, email);
+  const { audit } = await import("@/lib/scale");
+  audit(me.email, "role.change", email, `→ ${role}`);
   revalidatePath("/admin/settings");
 }
 

@@ -17,6 +17,10 @@ export const AGENT_OPS = {
   "ticket.list": { scope: "agent:read", desc: "List tickets", params: "{status?, limit?}" },
   "ticket.get": { scope: "agent:read", desc: "Ticket detail + timeline", params: "{id}" },
   "ticket.resolve": { scope: "agent:write", desc: "Resolve with note", params: "{id, resolution}" },
+  "stock.level": { scope: "agent:read", desc: "Stock levels (?warehouse)", params: "{warehouse?}" },
+  "order.list": { scope: "agent:read", desc: "Recent shop orders", params: "{status?}" },
+  "bill.list": { scope: "agent:read", desc: "Recent bills", params: "{status?}" },
+  "customer.segment": { scope: "agent:read", desc: "Customers by segment + spend", params: "{segment}" },
 } as const;
 
 export type AgentOp = keyof typeof AGENT_OPS;
@@ -114,6 +118,34 @@ export async function runAgentOp(op: string, params: Record<string, unknown>, ke
       if (!t) throw new Error("not found");
       audit({ id });
       return { result: `#${t.id} ${t.subject}: ${t.status}, owner ${t.assigneeEmail || "none"}. Latest: ${t.events[t.events.length - 1]?.body.slice(0, 200) || "filed"}` };
+    }
+    case "stock.level": {
+      const { stockLevels } = await import("./inventory");
+      const p = z.object({ warehouse: z.coerce.number().int().min(0).optional() }).parse(params);
+      const levels = (stockLevels(p.warehouse ?? 0) as { name: string; qty: number }[]).slice(0, 20);
+      audit({ n: levels.length });
+      return { levels };
+    }
+    case "order.list": {
+      const { listOrders } = await import("./commerce");
+      const p = z.object({ status: z.string().max(20).optional() }).parse(params);
+      const orders = (listOrders(p.status ?? "") as { id: number; status: string; grand: number }[]).slice(0, 20);
+      audit({ n: orders.length });
+      return { orders };
+    }
+    case "bill.list": {
+      const { listBills } = await import("./billing");
+      const p = z.object({ status: z.string().max(20).optional() }).parse(params);
+      const bills = (listBills(p.status ?? "") as { no: string; grand: number; status: string }[]).slice(0, 20);
+      audit({ n: bills.length });
+      return { bills };
+    }
+    case "customer.segment": {
+      const { segmentList } = await import("./crm");
+      const p = z.object({ segment: z.enum(["new", "active", "dormant", "lost", "vip"]) }).parse(params);
+      const customers = segmentList(p.segment, 20);
+      audit({ n: customers.length });
+      return { customers };
     }
     case "ticket.resolve": {
       const { resolveTicket } = await import("./tickets");

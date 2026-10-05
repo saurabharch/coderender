@@ -56,6 +56,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
   {
     label: "System", items: [
       ["Ops", "/admin/ops", Activity],
+      ["Scale", "/admin/scale", ShieldCheck],
       ["Flows", "/admin/flows", Workflow],
       ["Webhooks", "/admin/hooks", Plug],
       ["Keys", "/admin/keys", KeyRound],
