@@ -35,9 +35,16 @@ export interface BillInput {
   lines: { label: string; qty: number; price: number }[]; discount?: number; tax?: number; notes?: string;
 }
 
+const FINAL_DOCS: DocType[] = ["invoice", "debit-note", "receipt", "challan", "credit-note"];
+
 export function createBill(input: BillInput): { id: number; no: string } {
   billingTables();
   const db = getDb();
+  // One final bill per order per type — blocks double-billing the same order.
+  if (input.orderId && FINAL_DOCS.includes(input.type)) {
+    const dup = db.prepare("SELECT id FROM BillDoc WHERE orderId=? AND type=? AND status!='cancelled'").get(input.orderId, input.type);
+    if (dup) throw new Error(`order already has a ${input.type}`);
+  }
   const lines = input.lines.slice(0, 50).map((l) => ({
     label: l.label.slice(0, 150), qty: l.qty, price: Math.max(0, Math.round(l.price)),
   }));

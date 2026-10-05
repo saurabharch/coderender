@@ -109,6 +109,20 @@ export function redeemPoints(customerId: number, points: number): { off: number 
   return { off: redeemValue(use) };
 }
 
+// Revoke points earned for an order (cancel/return shield). Never throws.
+export function revokeForOrder(orderId: number): void {
+  try {
+    crmTables();
+    const o = getDb().prepare("SELECT customerId, grand FROM ShopOrder WHERE id=?").get(orderId) as
+      { customerId: number; grand: number } | undefined;
+    if (!o?.customerId) return;
+    const pts = earnPoints(o.grand);
+    if (pts <= 0) return;
+    applyPoints(o.customerId, -pts, `revoked order #${orderId}`);
+    logCustomer(o.customerId, "loyalty", `-${pts} pts revoked order #${orderId}`);
+  } catch { /* loyalty never breaks orders */ }
+}
+
 // ---- reviews ----
 export function listReviews(status = "", limit = 50) {
   crmTables();

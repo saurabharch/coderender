@@ -213,6 +213,7 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
   if (!orderCan(o.status, to)) throw new Error(`${o.status} → ${to} not allowed`);
   // Atomic: stock moves + earn + status flip commit together — a failed
   // confirm can never leave a phantom "confirmed" order behind.
+  const from = o.status;
   db.exec("BEGIN");
   try {
     if (to === "confirmed") {
@@ -225,6 +226,28 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
       }
       const { earnForOrder } = await import("./crm");
       earnForOrder(id);
+    }
+    if (to === "cancelled" || to === "returned") {
+      // Give back what confirm took: restock physical lines, revoke earned
+      // points, release the coupon use. Draft cancels only free the coupon.
+      const lines = db.prepare(`SELECT l.productId, l.qty, p.kind FROM OrderLine l
+        LEFT JOIN Product p ON p.id=l.productId WHERE l.orderId=?`).all(id) as
+        { productId: number; qty: number; kind: string }[];
+      if (from === "confirmed" || to === "returned") {
+        const { receiveStock } = await import("./inventory");
+        const skipped: number[] = [];
+        for (const l of lines) {
+          if (l.kind === "physical") {
+            try { receiveStock(l.productId, l.qty, 1, 0, `order#${id}-${to}`); }
+            catch { skipped.push(l.productId); } // cancel must never fail; flag it
+          }
+        }
+        const { revokeForOrder } = await import("./crm");
+        revokeForOrder(id);
+        if (skipped.length) log(id, `restock-skipped`, skipped.join(","));
+      }
+      const ord = db.prepare("SELECT coupon FROM ShopOrder WHERE id=?").get(id) as { coupon: string } | undefined;
+      if (ord?.coupon) db.prepare("UPDATE Coupon SET used = MAX(0, used - 1) WHERE code=?").run(ord.coupon);
     }
     db.prepare("UPDATE ShopOrder SET status=? WHERE id=?").run(to, id);
     log(id, `status:${to}`);

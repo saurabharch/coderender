@@ -78,6 +78,7 @@ export function adjustStock(productId: number, delta: number, reason: string, wa
 export function transferStock(productId: number, fromWh: number, toWh: number, qty: number): void {
   inventoryTables();
   if (fromWh === toWh) throw new Error("same warehouse");
+  if (fromWh < 1 || toWh < 1) throw new Error("unknown warehouse");
   if (qty <= 0) throw new Error("qty must be positive");
   if (levelOf(productId, fromWh) < qty) throw new Error("insufficient stock");
   move(productId, fromWh, "out", qty, `transfer→wh${toWh}`);
