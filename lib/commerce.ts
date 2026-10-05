@@ -3,6 +3,8 @@
 // Money in paise; math lives in commerce-core.
 import { getDb } from "./store";
 import { couponOff, orderCan, quoteCart, type CouponDef, type Quote } from "./commerce-core";
+import { bankMove } from "./billing";
+import { ledgerPost } from "./finance";
 
 export function commerceTables(): void {
   const db = getDb();
@@ -366,7 +368,7 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
         if (p?.kind === "physical") issueStock(l.productId, l.qty, `order#${id}`);
       }
       const { earnForOrder } = await import("./crm");
-      earnForOrder(id);
+      await earnForOrder(id);
     }
     if (to === "cancelled" || to === "returned") {
       // Give back what confirm took: restock physical lines, revoke earned
@@ -397,4 +399,80 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
     try { db.exec("ROLLBACK"); } catch { /* already out */ }
     throw e;
   }
+}
+
+// ---- udhari (credit ledger on the customer row) ----
+export function udhariList() {
+  commerceTables();
+  return getDb().prepare("SELECT id, name, phone, balance FROM Customer WHERE balance > 0 ORDER BY balance DESC LIMIT 100").all();
+}
+
+// Credit sale: confirmed order + balance grows. Atomic with the order.
+export async function creditSale(input: { customerId: number; lines: { productId: number; qty: number }[]; coupon?: string; notes?: string }): Promise<number> {
+  commerceTables();
+  const { flagOn } = await import("./flags");
+  if (!flagOn("udhari")) throw new Error("credit sales are off");
+  const db = getDb();
+  const c = db.prepare("SELECT credit, balance FROM Customer WHERE id=?").get(input.customerId) as
+    { credit: number; balance: number } | undefined;
+  if (!c) throw new Error("no customer");
+  const id = createOrder({ customerId: input.customerId, lines: input.lines, coupon: input.coupon, channel: "credit", notes: input.notes });
+  const o = db.prepare("SELECT grand FROM ShopOrder WHERE id=?").get(id) as { grand: number };
+  if (c.credit > 0 && c.balance + o.grand > c.credit) {
+    db.prepare("DELETE FROM OrderLine WHERE orderId=?").run(id);
+    db.prepare("DELETE FROM ShopOrder WHERE id=?").run(id);
+    throw new Error(`credit limit exceeded`);
+  }
+  await setOrderStatus(id, "confirmed");
+  db.prepare("UPDATE Customer SET balance = balance + ? WHERE id=?").run(o.grand, input.customerId);
+  logCustomerSafe(input.customerId, `udhari + order #${id}`);
+  return id;
+}
+
+function logCustomerSafe(customerId: number, detail: string): void {
+  try {
+    getDb().prepare("INSERT INTO CustomerEvent (customerId, kind, detail) VALUES (?,?,?)").run(customerId, "udhari", detail.slice(0, 500));
+  } catch { /* timeline never breaks money */ }
+}
+
+// Collection against udhari: balance shrinks, cash lands, ledger posts.
+export function collectUdhari(customerId: number, amount: number, method = "cash", accountId = 1): { left: number } {
+  commerceTables();
+  const db = getDb();
+  const c = db.prepare("SELECT balance FROM Customer WHERE id=?").get(customerId) as { balance: number } | undefined;
+  if (!c) throw new Error("no customer");
+  const take = Math.min(Math.max(1, Math.round(amount)), c.balance);
+  if (take <= 0) throw new Error("nothing due");
+  db.exec("BEGIN");
+  try {
+    db.prepare("UPDATE Customer SET balance = balance - ? WHERE id=?").run(take, customerId);
+    bankMove(accountId, "in", take, `udhari#${customerId}`, method);
+    ledgerPost({ kind: "payment", refId: customerId, amount: take, memo: `udhari collect (${method})` });
+    db.exec("COMMIT");
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch { /* already out */ }
+    throw e;
+  }
+  logCustomerSafe(customerId, `udhari collect (${method})`);
+  return { left: c.balance - take };
+}
+
+// Public checkout: find-or-make customer by phone → draft order (team confirms).
+export async function publicCheckout(input: {
+  name: string; phone: string; address?: string;
+  lines: { productId: number; qty: number }[]; coupon?: string; method?: string;
+}): Promise<{ orderId: number; grand: number }> {
+  commerceTables();
+  const { flagOn } = await import("./flags");
+  if (!flagOn("checkout")) throw new Error("checkout is off");
+  const method = input.method === "upi" ? "upi" : "cod";
+  if (method === "cod" && !flagOn("cod")) throw new Error("COD is off");
+  const db = getDb();
+  const phone = input.phone.replace(/\D/g, "").slice(-10);
+  if (phone.length < 10) throw new Error("valid phone required");
+  const c = db.prepare("SELECT id FROM Customer WHERE phone LIKE ?").get(`%${phone}`) as { id: number } | undefined;
+  const cid = c?.id ?? saveCustomer({ name: input.name.slice(0, 120), phone, notes: (input.address ?? "").slice(0, 300) });
+  const id = createOrder({ customerId: cid, lines: input.lines, coupon: input.coupon, channel: `web-${method}`, notes: (input.address ?? "").slice(0, 300) });
+  const o = db.prepare("SELECT grand FROM ShopOrder WHERE id=?").get(id) as { grand: number };
+  return { orderId: id, grand: o.grand };
 }

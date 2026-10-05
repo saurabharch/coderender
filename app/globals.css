@@ -116,3 +116,21 @@ body {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---- Storefront themes (mode pages only, data-theme scoped) ---- */
+[data-shop-theme="amazon"] { --sf-head: #131921; --sf-accent: #febd69; --sf-cta: #ffa41c; --sf-bg: #ffffff; }
+[data-shop-theme="flipkart"] { --sf-head: #2874f0; --sf-accent: #ffe500; --sf-cta: #fb641b; --sf-bg: #f1f3f6; }
+[data-shop-theme="myntra"] { --sf-head: #ffffff; --sf-accent: #ff3f6c; --sf-cta: #ff3f6c; --sf-bg: #ffffff; }
+[data-shop-theme="ajio"] { --sf-head: #0c0c0c; --sf-accent: #b1884d; --sf-cta: #b1884d; --sf-bg: #faf7f0; }
+.sf-head { background: var(--sf-head, #131921); color: #fff; }
+[data-shop-theme="myntra"] .sf-head { color: #111; border-bottom: 1px solid #eee; }
+.sf-cta { background: var(--sf-cta, #ffa41c); color: #111; }
+.sf-cta:hover { filter: brightness(1.05); }
+.sf-page { background: var(--sf-bg, #fff); }
+[data-booking-theme="cal"] { --bk-accent: #2563eb; --bk-bg: #ffffff; }
+[data-booking-theme="district"] { --bk-accent: #e11d48; --bk-bg: #0c0c0c; --bk-fg: #fafafa; }
+[data-booking-theme="bms"] { --bk-accent: #f84464; --bk-bg: #1b1b2f; --bk-fg: #f5f5f5; }
+.bk-page { background: var(--bk-bg, #fff); color: var(--bk-fg, inherit); }
+.bk-accent { background: var(--bk-accent, #2563eb); color: #fff; }
+[data-profile-theme="bold"] .pf-name { font-size: 3rem; letter-spacing: -0.03em; }
+.pf-call { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; }

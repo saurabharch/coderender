@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb, getPref, setPref } from "@/lib/store";
 import { listTaxes } from "@/lib/commerce";
+import { flagStates } from "@/lib/flags";
 import { sendDailyReport } from "@/lib/reporter";
 import { sessionUser } from "@/lib/auth";
 import { requireTeam } from "@/lib/auth";
@@ -112,8 +113,7 @@ async function stopImpersonate() {
   redirect("/admin/settings");
 }
 
-async function saveBusiness(form: FormData) {
-  "use server";
+async function saveBusiness(form: FormData) {  "use server";
   await requireTeam();
   for (const k of ["biz_name", "biz_address", "biz_city", "biz_state", "biz_pin", "biz_gstin", "biz_cin", "biz_phone", "biz_email"]) {
     const v = form.get(k);
@@ -122,8 +122,7 @@ async function saveBusiness(form: FormData) {
   revalidatePath("/admin/settings");
 }
 
-async function saveTaxRate(form: FormData) {
-  "use server";
+async function saveTaxRate(form: FormData) {  "use server";
   await requireTeam();
   const { saveTax } = await import("@/lib/commerce");
   saveTax({
@@ -132,6 +131,16 @@ async function saveTaxRate(form: FormData) {
     inter: form.get("inter") === "on",
     inclusive: form.get("inclusive") !== "off",
   });
+  revalidatePath("/admin/settings");
+}
+
+async function saveFlags(form: FormData) {
+  "use server";
+  await requireTeam();
+  const { SERVICE_FLAGS, setFlag } = await import("@/lib/flags");
+  for (const key of Object.keys(SERVICE_FLAGS)) {
+    setFlag(key, form.get(`flag_${key}`) === "on");
+  }
   revalidatePath("/admin/settings");
 }
 
@@ -275,6 +284,16 @@ export default async function SettingsPage() {
         <label className="flex min-h-[44px] items-center gap-2 text-sm">
           <input type="checkbox" name="inter" value="on" className="h-5 w-5" /> Inter-state (IGST)</label>
         <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Add rate</button>
+      </form>
+      <h2 className="mt-6 font-bold">Service flags (storefront kill-switches)</h2>
+      <form action={saveFlags} className="mt-2 grid max-w-xl gap-1 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        {flagStates().map((f) => (
+          <label key={f.key} className="flex min-h-[44px] items-center gap-2 text-sm">
+            <input type="checkbox" name={`flag_${f.key}`} value="on" defaultChecked={f.on} className="h-5 w-5" />
+            {f.label}
+          </label>
+        ))}
+        <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save flags</button>
       </form>
       <h2 className="mt-6 font-bold">Site prices (₹ — live on pricing page, calculator, agent)</h2>
       <form action={savePrices} className="mt-2 grid max-w-xl grid-cols-2 gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10 md:grid-cols-3">

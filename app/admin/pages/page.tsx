@@ -6,6 +6,10 @@ async function setMode(form: FormData) {
   await requireTeam();
   const mode = String(form.get("site_mode") || "agency");
   if (["agency", "profile", "shop", "booking"].includes(mode)) setPref("site_mode", mode);
+  const theme = String(form.get("site_theme") || "amazon");
+  if (["amazon", "flipkart", "myntra", "ajio", "cal", "district", "bms", "minimal", "bold"].includes(theme)) setPref("site_theme", theme);
+  const links = String(form.get("site_links") || "").split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 12);
+  setPref("site_links", links.join("\n"));
   revalidatePath("/admin/pages");
   revalidatePath("/");
 }
@@ -114,7 +118,8 @@ export default async function PagesAdmin() {
     <>
       <h1 className="text-2xl font-extrabold">UI Builder (pages)</h1>
       <p className="mt-1 text-sm text-zinc-500">Body lines for cards/stats/faq use <code>Label | /link-or-value</code>. Variables: <code>{"{{year}} {{siteName}} {{phone}}"}</code> plus page vars.</p>
-      <form action={setMode} className="mt-3 flex max-w-2xl flex-wrap items-end gap-2 rounded-2xl border border-brand/30 bg-brand/5 p-4">
+      <form action={setMode} className="mt-3 grid max-w-2xl gap-2 rounded-2xl border border-brand/30 bg-brand/5 p-4">
+        <div className="flex flex-wrap gap-2">
         <label className="grid gap-1 text-sm">Site mode — what the homepage <code>/</code> is
           <select name="site_mode" defaultValue={getPref("site_mode", "agency")}
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
@@ -123,8 +128,22 @@ export default async function PagesAdmin() {
             ))}
           </select>
         </label>
-        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Set mode</button>
+        <label className="grid gap-1 text-sm">Theme
+          <select name="site_theme" defaultValue={getPref("site_theme", "amazon")}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
+            {[["amazon", "Amazon-like"], ["flipkart", "Flipkart-like"], ["myntra", "Myntra-like"], ["ajio", "Ajio-like"], ["cal", "Cal-like"], ["district", "District-like"], ["bms", "BookMyShow-like"], ["minimal", "Minimal"], ["bold", "Bold"]].map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+        </label>
+        </div>
+        <label className="grid gap-1 text-sm">Link sections (one per line: <code>Label | /href</code>)
+          <textarea name="site_links" rows={3} defaultValue={getPref("site_links", "")} placeholder={"Offers | /offers\nTrack order | /contact"}
+            className="rounded-xl border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20" /></label>
+        <div className="flex flex-wrap gap-2">
+        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save front</button>
         <a href="/onboarding" className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Setup wizard →</a>
+        </div>
       </form>
       <p className="mt-1 text-sm text-zinc-500">Compose public pages from registry layers with variables. Renders at <code>/p/[slug]</code>. Body lines for cards/stats/faq use <code>Label | /link-or-value</code>. Variables: <code>{"{{year}} {{siteName}} {{phone}}"}</code> plus page vars.</p>
       <form action={add} className="mt-4 grid max-w-2xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">

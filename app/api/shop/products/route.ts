@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { deleteVariant, getProductFull, listProducts, logView, saveProduct, saveVariant } from "@/lib/commerce";
 import { shopGate } from "@/lib/shop-auth";
+import { clientKey, rateLimited, slowDown } from "@/lib/rate-limit";
 
+// Public catalogue reads (the storefront is public); writes stay gated.
 // GET ?q=&status= | ?id= → full detail (variants, similar) + logs a view.
 export async function GET(req: Request) {
-  const deny = await shopGate(req, false);
-  if (deny) return deny;
+  if (rateLimited(`${clientKey(undefined, req)}|catalog`, 120, 60_000))
+    return NextResponse.json(slowDown(), { status: 429 });
   const url = new URL(req.url);
   const id = Number(url.searchParams.get("id") || 0);
   if (id) {

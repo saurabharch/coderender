@@ -44,7 +44,7 @@ export async function PUT(req: Request) {
   const parsed = z.object({ id: z.number().int(), points: z.number().int().min(1).max(100000) }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad redeem" }, { status: 422 });
   try {
-    return NextResponse.json({ ok: true, ...redeemPoints(parsed.data.id, parsed.data.points) });
+    return NextResponse.json({ ok: true, ...(await redeemPoints(parsed.data.id, parsed.data.points)) });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "redeem failed" }, { status: 422 });
   }

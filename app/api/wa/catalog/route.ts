@@ -18,6 +18,8 @@ export async function POST(req: Request) {
     .safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad send" }, { status: 422 });
   const d = catalogueText(parsed.data.limit ?? 10);
+  const { flagOn } = await import("@/lib/flags");
+  if (!flagOn("catalog_wa")) return NextResponse.json({ error: "catalogue sends are off" }, { status: 404 });
   const { sendWhatsApp } = await import("@/lib/providers");
   const r = await sendWhatsApp(parsed.data.to, d.text);
   if (!r.sent) return NextResponse.json({ error: `not delivered (${r.via})` }, { status: 422 });

@@ -25,6 +25,8 @@ async function saveStep(form: FormData) {
   if (step === "2") {
     const mode = String(form.get("site_mode") || "agency");
     if (["agency", "profile", "shop", "booking"].includes(mode)) setPref("site_mode", mode);
+    const theme = String(form.get("site_theme") || "amazon");
+    if (["amazon", "flipkart", "myntra", "ajio", "cal", "district", "bms", "minimal", "bold"].includes(theme)) setPref("site_theme", theme);
   }
   if (step === "3") {
     const scale = String(form.get("org_scale") || "solo");
@@ -81,7 +83,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
             <input name="biz_city" defaultValue={getPref("biz_city", "")} maxLength={300}
               className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
         </>)}
-        {step === 2 && (
+        {step === 2 && (<>
           <fieldset className="grid gap-1 text-sm">What should <code>/</code> be?
             {[["agency", "Agency — full growth site (default)"], ["profile", "Business profile card"], ["shop", "Shop storefront (live catalogue)"], ["booking", "Booking app (services + industries)"]].map(([v, l]) => (
               <label key={v} className="flex min-h-[44px] items-center gap-2">
@@ -89,7 +91,14 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
               </label>
             ))}
           </fieldset>
-        )}
+          <fieldset className="grid gap-1 text-sm">Theme
+            {[["amazon", "Amazon-like"], ["flipkart", "Flipkart-like"], ["myntra", "Myntra-like"], ["ajio", "Ajio-like"], ["cal", "Cal-like"], ["district", "District-like"], ["bms", "BookMyShow-like"], ["minimal", "Minimal"], ["bold", "Bold"]].map(([v, l]) => (
+              <label key={v} className="flex min-h-[44px] items-center gap-2">
+                <input type="radio" name="site_theme" value={v} defaultChecked={getPref("site_theme", "amazon") === v} className="h-5 w-5" />{l}
+              </label>
+            ))}
+          </fieldset>
+        </>)}
         {step === 3 && (
           <fieldset className="grid gap-2 text-sm">How big is the operation? Roles unlock accordingly.
             {Object.entries(SCALES).map(([v, s]) => (

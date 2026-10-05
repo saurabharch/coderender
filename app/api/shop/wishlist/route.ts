@@ -24,6 +24,8 @@ export async function POST(req: Request) {
   if (deny) return deny;
   if (rateLimited(`${clientKey(undefined, req)}|wish`, 60, 3600_000))
     return NextResponse.json(slowDown(), { status: 429 });
+  const { flagOn } = await import("@/lib/flags");
+  if (!flagOn("wishlist")) return NextResponse.json({ error: "wishlist is off" }, { status: 404 });
   const parsed = z.object({ customerId: z.number().int().min(1), productId: z.number().int().min(1) })
     .safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad wish" }, { status: 422 });

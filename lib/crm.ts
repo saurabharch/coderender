@@ -90,9 +90,11 @@ function applyPoints(customerId: number, delta: number, reason: string): void {
 }
 
 // Earn on paid orders; called from order-confirm path (guarded, never throws).
-export function earnForOrder(orderId: number): void {
+export async function earnForOrder(orderId: number): Promise<void> {
   try {
     crmTables();
+    const { flagOn } = await import("./flags");
+    if (!flagOn("loyalty")) return;
     const o = getDb().prepare("SELECT customerId, grand FROM ShopOrder WHERE id=?").get(orderId) as
       { customerId: number; grand: number } | undefined;
     if (!o?.customerId) return;
@@ -103,8 +105,10 @@ export function earnForOrder(orderId: number): void {
   } catch { /* loyalty never breaks orders */ }
 }
 
-export function redeemPoints(customerId: number, points: number): { off: number } {
+export async function redeemPoints(customerId: number, points: number): Promise<{ off: number }> {
   crmTables();
+  const { flagOn } = await import("./flags");
+  if (!flagOn("loyalty")) throw new Error("loyalty is off");
   const cur = loyaltyOf(customerId);
   const use = Math.min(Math.max(0, Math.round(points)), cur.points);
   if (use <= 0) throw new Error("no points to redeem");

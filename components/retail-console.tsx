@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Phone } from "lucide-react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 
 interface Campaign { id: number; name: string; channel: string; segment: string; status: string }
 interface Shipment { id: number; orderId: number; courier: string; tracking: string; status: string }
+interface Due { id: number; name: string; phone: string; balance: number }
 
 export function RetailConsole() {
   const [camps, setCamps] = useState<Campaign[]>([]);
   const [ships, setShips] = useState<Shipment[]>([]);
+  const [dues, setDues] = useState<Due[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
   const [cname, setCname] = useState("");
@@ -23,14 +26,16 @@ export function RetailConsole() {
   const [scash, setScash] = useState("");
 
   async function load() {
-    const [c, s, d] = await Promise.all([
+    const [c, s, d, dr] = await Promise.all([
       fetch("/api/retail/campaigns").then((r) => r.json()).catch(() => null),
       fetch("/api/retail/ship").then((r) => r.json()).catch(() => null),
+      fetch("/api/shop/credit").then((r) => r.json()).catch(() => null),
       fetch("/api/retail/pos").then((r) => r.json()).catch(() => null),
     ]);
     if (c?.campaigns) setCamps(c.campaigns);
     if (s?.shipments) setShips(s.shipments);
-    if (d) setDrawer(d.drawer);
+    if (d?.dues) setDues(d.dues);
+    if (dr) setDrawer(dr.drawer);
     setLoaded(true);
   }
 
@@ -97,6 +102,18 @@ export function RetailConsole() {
     void load();
   }
 
+  async function collect(id: number) {
+    const amt = prompt("Collected amount (₹)?");
+    if (!amt) return;
+    const res = await fetch("/api/shop/credit", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "collect", customerId: id, amount: Math.round(Number(amt) * 100) }),
+    });
+    const r = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Collected ✓ ₹${(r.left / 100).toFixed(0)} left` : (r.error ?? "failed"));
+    if (res.ok) void load();
+  }
+
   if (!loaded) return <Skeleton lines={5} />;
   return (
     <div className="grid gap-3">
@@ -145,6 +162,26 @@ export function RetailConsole() {
           <button onClick={() => void addCampaign()} disabled={!cname.trim()}
             className="min-h-[44px] w-fit rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Draft</button>
         </div>
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Udhari — dues ({dues.length})</p>
+        {dues.length === 0 ? <div className="mt-2"><Empty>All settled — no dues.</Empty></div> : (
+          <ul className="mt-2 space-y-1 text-sm">
+            {dues.map((u) => (
+              <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>{u.name} · <b>₹{(u.balance / 100).toFixed(0)}</b></span>
+                <span className="flex gap-1">
+                  {u.phone && (
+                    <a href={`tel:${u.phone}`} aria-label={`Call ${u.name}`}
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-brand text-white"><Phone size={17} /></a>
+                  )}
+                  <button onClick={() => void collect(u.id)}
+                    className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Collect</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Campaigns ({camps.length})</p>
