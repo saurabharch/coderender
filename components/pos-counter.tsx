@@ -257,11 +257,9 @@ export function PosCounter() {
           <div className="mt-1.5 flex gap-1.5">
             <input value={q} onChange={(e) => onSearch(e.target.value)} placeholder="Search products by name…" maxLength={60}
               className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-            {cam === "on" ? (
-              <button onClick={stopCam} className="min-h-[44px] rounded-xl border border-brand/50 px-4 text-sm font-semibold text-brand-deep">■ Stop</button>
-            ) : cam === "unsupported" ? null : (
-              <button onClick={() => void startCam()} aria-label="Scan with camera"
-                className="min-h-[44px] min-w-[44px] rounded-xl border border-black/15 text-lg dark:border-white/20">📷</button>
+            {cam !== "unsupported" && (
+              <button onClick={() => void startCam()} aria-label="Open barcode scanner"
+                className="min-h-[48px] flex-1 rounded-xl bg-black text-sm font-bold text-white dark:bg-white dark:text-black">⌁ Scan</button>
             )}
           </div>
           {cam === "unsupported" && <p className="mt-1 text-xs text-zinc-500">{camErr || "No camera barcode API here — type the code or use a scan gun."}</p>}
@@ -275,34 +273,40 @@ export function PosCounter() {
             </div>
           )}
           {cam === "on" && (
-            <div className="relative mt-1.5 overflow-hidden rounded-xl bg-black">
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <video ref={videoRef} playsInline muted className="aspect-[4/3] w-full object-cover" />
-              {/* dimmed mask with a clear scan window */}
-              <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="h-32 w-4/5 max-w-sm rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
-              </div>
-              {/* corner brackets */}
-              <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="relative h-32 w-4/5 max-w-sm">
-                  {[["left-0 top-0", "border-l-4 border-t-4 rounded-tl-lg"], ["right-0 top-0", "border-r-4 border-t-4 rounded-tr-lg"], ["bottom-0 left-0", "border-b-4 border-l-4 rounded-bl-lg"], ["bottom-0 right-0", "border-b-4 border-r-4 rounded-br-lg"]].map(([pos, cls]) => (
-                    <span key={pos} className={`absolute ${pos} h-7 w-7 border-brand ${cls}`} />
-                  ))}
-                  <span className="scan-laser absolute inset-x-2 top-1/2 h-0.5 bg-red-500 shadow-[0_0_8px_2px_rgba(239,68,68,0.8)]" />
-                </div>
-              </div>
-              <p className="pointer-events-none absolute inset-x-0 top-2 text-center text-xs font-semibold text-white/90">Point at the barcode</p>
-              {flash && <p role="status" className="absolute inset-x-0 bottom-14 mx-auto w-fit rounded-full bg-emerald-500 px-4 py-1 text-sm font-bold text-white">+ {flash}</p>}
-              <div className="absolute inset-x-0 bottom-2 flex justify-center gap-2">
-                {torch && (
+            <div role="dialog" aria-modal="true" aria-label="Barcode scanner"
+              className="fixed inset-0 z-[90] flex flex-col bg-black">
+              <div className="flex min-h-[56px] items-center justify-between px-4 text-white">
+                <button onClick={stopCam} aria-label="Close scanner"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-white/15 text-xl">✕</button>
+                <p className="text-sm font-bold tracking-wide">Scan barcode</p>
+                {torch ? (
                   <button onClick={() => void flipTorch()} aria-pressed={torchOn}
-                    className={`min-h-[44px] rounded-full px-4 text-sm font-semibold ${torchOn ? "bg-amber-300 text-black" : "bg-white/20 text-white"}`}>
-                    {torchOn ? "🔦 on" : "🔦 torch"}
+                    className={`min-h-[44px] rounded-full px-4 text-sm font-semibold ${torchOn ? "bg-amber-300 text-black" : "bg-white/15 text-white"}`}>
+                    {torchOn ? "🔦 on" : "🔦 off"}
                   </button>
-                )}
-                <button onClick={stopCam} className="min-h-[44px] rounded-full bg-white/20 px-4 text-sm font-semibold text-white">■ Stop</button>
+                ) : <span className="w-[52px]" />}
               </div>
-              <style>{`@keyframes scanline{0%,100%{transform:translateY(-52px)}50%{transform:translateY(52px)}}.scan-laser{animation:scanline 2.2s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.scan-laser{animation:none}}`}</style>
+              <div className="relative flex-1 overflow-hidden">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video ref={videoRef} playsInline muted className="absolute inset-0 h-full w-full object-cover" />
+                <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className="h-56 w-4/5 max-w-sm rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]" />
+                </div>
+                <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className="relative h-56 w-4/5 max-w-sm">
+                    {[["left-0 top-0", "border-l-4 border-t-4 rounded-tl-2xl"], ["right-0 top-0", "border-r-4 border-t-4 rounded-tr-2xl"], ["bottom-0 left-0", "border-b-4 border-l-4 rounded-bl-2xl"], ["bottom-0 right-0", "border-b-4 border-r-4 rounded-br-2xl"]].map(([pos, cls]) => (
+                      <span key={pos} className={`absolute ${pos} h-9 w-9 border-white ${cls}`} />
+                    ))}
+                    <span className="scan-laser absolute inset-x-4 top-1/2 h-0.5 rounded bg-red-500 shadow-[0_0_10px_3px_rgba(239,68,68,0.9)]" />
+                  </div>
+                </div>
+                <p className="pointer-events-none absolute inset-x-0 top-3 text-center text-sm font-medium text-white/90">Align the barcode inside the frame</p>
+                {flash && <p role="status" className="absolute inset-x-0 bottom-24 mx-auto w-fit rounded-full bg-emerald-500 px-5 py-1.5 text-sm font-bold text-white">✓ {flash}</p>}
+              </div>
+              <div className="bg-black px-4 pb-6 pt-2">
+                <button onClick={stopCam} className="min-h-[48px] w-full rounded-xl bg-white/15 text-sm font-semibold text-white">Enter code manually instead</button>
+              </div>
+              <style>{`@keyframes scanline{0%,100%{transform:translateY(-100px)}50%{transform:translateY(100px)}}.scan-laser{animation:scanline 2.2s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.scan-laser{animation:none}}`}</style>
             </div>
           )}
           {found.length > 0 && (
