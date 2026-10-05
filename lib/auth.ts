@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
+import { createHmac } from "node:crypto";
 import { getDb, uid } from "./store";
+import { audit } from "./scale";
 
 export const ADMIN_EMAILS = ["saurabhkashyap0001@gmail.com", "raj90.ro@gmail.com"];
 const SESSION_DAYS = 30;
@@ -67,4 +69,53 @@ export async function requireTeam(): Promise<{ id: number; email: string; role: 
   const user = await sessionUser();
   if (!user) throw new Error("login required");
   return user;
+}
+
+// Owner impersonation: cr_imp holds `<ownerSessionToken>.<sig>` (HMAC-signed).
+// Lets /admin show a "viewing as" banner and Stop restore the owner session.
+const IMP_SECRET = process.env.CAPTCHA_SECRET || "coderender-dev-captcha-secret-change-me";
+
+function impSig(token: string): string {
+  return createHmac("sha256", IMP_SECRET).update(`impersonate:${token}`).digest("hex").slice(0, 32);
+}
+
+export async function impersonator(): Promise<{ email: string; token: string } | null> {
+  const jar = await cookies();
+  const raw = jar.get("cr_imp")?.value;
+  if (!raw) return null;
+  const i = raw.lastIndexOf(".");
+  if (i < 0) return null;
+  const token = raw.slice(0, i);
+  if (impSig(token) !== raw.slice(i + 1)) return null;
+  const row = getDb().prepare(
+    `SELECT u.email FROM Session s JOIN AppUser u ON u.id=s.userId
+     WHERE s.token=? AND s.expiresAt > datetime('now')`).get(token) as { email: string } | undefined;
+  if (!row) return null;
+  return { email: row.email, token };
+}
+
+export function signImpersonation(ownerToken: string): string {
+  return `${ownerToken}.${impSig(ownerToken)}`;
+}
+
+// Core impersonation (used by settings actions; owner-only enforced by callers).
+// Returns cookies to set. Never nests, never self-targets, target must exist.
+export function startImpersonation(ownerEmail: string, ownerToken: string, targetEmail: string): { session: string; imp: string; maxAge: number } {
+  const target = targetEmail.trim().toLowerCase();
+  if (!target || target === ownerEmail) throw new Error("bad target");
+  const row = getDb().prepare("SELECT id, role FROM AppUser WHERE email=?").get(target) as
+    { id: number; role: string } | undefined;
+  if (!row) throw new Error("no such user");
+  const token = uid(24);
+  const exp = new Date(Date.now() + 8 * 3600_000).toISOString();
+  getDb().prepare("INSERT INTO Session (userId, token, expiresAt) VALUES (?,?,?)").run(row.id, token, exp);
+  try {
+    audit(ownerEmail, "impersonate.start", target, `as ${row.role}`);
+  } catch { /* audit never blocks */ }
+  return { session: token, imp: signImpersonation(ownerToken), maxAge: 8 * 3600 };
+}
+
+export function stopImpersonation(curSession: string | undefined, ownerToken: string): void {
+  if (impSig(ownerToken) === "") throw new Error("bad token");
+  if (curSession) getDb().prepare("DELETE FROM Session WHERE token=?").run(curSession);
 }

@@ -1,4 +1,6 @@
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getDb, getPref, setPref } from "@/lib/store";
 import { listTaxes } from "@/lib/commerce";
 import { sendDailyReport } from "@/lib/reporter";
@@ -49,8 +51,7 @@ async function revokeSession(form: FormData) {
   revalidatePath("/admin/settings");
 }
 
-async function setRole(form: FormData) {
-  "use server";
+async function setRole(form: FormData) {  "use server";
   const me = await sessionUser();
   if (!me || me.role !== "owner") return;
   const email = String(form.get("email"));
@@ -62,6 +63,44 @@ async function setRole(form: FormData) {
   const { audit } = await import("@/lib/scale");
   audit(me.email, "role.change", email, `→ ${role}`);
   revalidatePath("/admin/settings");
+}
+
+async function impersonate(form: FormData) {
+  "use server";
+  const { impersonator, startImpersonation } = await import("@/lib/auth");
+  const me = await sessionUser();
+  if (!me || me.role !== "owner") return;
+  if (await impersonator()) return; // no nested impersonation
+  const jar = await cookies();
+  const ownerToken = jar.get("cr_session")?.value;
+  if (!ownerToken) return;
+  try {
+    const c = startImpersonation(me.email, ownerToken, String(form.get("email") || ""));
+    jar.set("cr_session", c.session, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: c.maxAge });
+    jar.set("cr_imp", c.imp, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: c.maxAge });
+  } catch {
+    return;
+  }
+  redirect("/admin");
+}
+
+async function stopImpersonate() {
+  "use server";
+  const { impersonator, stopImpersonation } = await import("@/lib/auth");
+  const imp = await impersonator();
+  if (!imp) return;
+  const jar = await cookies();
+  const cur = jar.get("cr_session")?.value;
+  try {
+    stopImpersonation(cur, imp.token);
+  } catch {
+    return;
+  }
+  jar.set("cr_session", imp.token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 30 * 86400 });
+  jar.delete("cr_imp");
+  const { audit } = await import("@/lib/scale");
+  audit(imp.email, "impersonate.stop", "", "");
+  redirect("/admin/settings");
 }
 
 async function saveBusiness(form: FormData) {
@@ -108,6 +147,9 @@ async function savePrices(form: FormData) {  "use server";
 }
 
 export default async function SettingsPage() {
+  const me = await sessionUser();
+  const isOwner = me?.role === "owner";
+  const meEmail = me?.email ?? "";
   const team = getDb().prepare(
     `SELECT u.email, u.role, u.designation, m.role mrole FROM AppUser u LEFT JOIN Membership m ON m.userId=u.id ORDER BY u.id`).all() as
     { email: string; role: string; designation: string; mrole: string | null }[];
@@ -171,6 +213,12 @@ export default async function SettingsPage() {
               </select>
               <button className="min-h-[44px] rounded-xl border border-black/15 px-3 dark:border-white/20">Set</button>
             </form>
+            {isOwner && t.email !== meEmail && (
+              <form action={impersonate}>
+                <input type="hidden" name="email" value={t.email} />
+                <button className="min-h-[44px] rounded-xl border border-brand/40 px-3 text-sm font-semibold text-brand-deep" title="Log in as this user (audited)">Impersonate</button>
+              </form>
+            )}
           </li>
         ))}
         {team.length === 0 && <li className="text-zinc-500">Nobody signed in yet — magic links admit owner emails.</li>}
