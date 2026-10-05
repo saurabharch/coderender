@@ -21,9 +21,11 @@ export function PosCounter() {
   const [held, setHeld] = useState<{ id: number; items: number; createdAt: string }[]>([]);
   const [msg, setMsg] = useState("");
   const [cam, setCam] = useState<"on" | "off" | "unsupported">("off");
+  const [camErr, setCamErr] = useState("");
   const [method, setMethod] = useState<"cash" | "upi" | "card">("cash");
   const [tendered, setTendered] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const stopRef = useRef(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -56,18 +58,48 @@ export function PosCounter() {
   }
 
   async function startCam() {
-    if (!("BarcodeDetector" in window) || !window.BarcodeDetector) { setCam("unsupported"); return; }
+    setCamErr("");
+    if (!window.isSecureContext) {
+      setCam("unsupported");
+      setCamErr("Camera needs HTTPS — open this page via https:// (tunnel URL), not http:// or an IP.");
+      return;
+    }
+    if (!("BarcodeDetector" in window) || !window.BarcodeDetector) {
+      setCam("unsupported");
+      setCamErr("This browser has no barcode camera API (needs Chrome/Edge on Android). Type the code or use a scan gun.");
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCam("unsupported");
+      setCamErr("No camera API in this browser. Type the code or use a scan gun.");
+      return;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      const video = videoRef.current;
-      if (!video) { stream.getTracks().forEach((t) => t.stop()); return; }
-      video.srcObject = stream;
-      await video.play();
-      setCam("on");
-      stopRef.current = false;
-      const det = new window.BarcodeDetector({ formats: FORMATS });
-      let lastAt = 0;
-      while (!stopRef.current) {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      streamRef.current = stream;
+      setCam("on"); // renders <video>; the effect below attaches + loops
+    } catch (e) {
+      setCam("unsupported");
+      setCamErr(e instanceof DOMException && e.name === "NotAllowedError"
+        ? "Camera permission denied — allow it in the browser site settings and retry."
+        : `Camera failed (${e instanceof Error ? e.message : "unknown"}). Type the code instead.`);
+    }
+  }
+
+  // Attach stream once the <video> exists, then detection-loop until stopped.
+  useEffect(() => {
+    if (cam !== "on") return;
+    let dead = false;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+    stopRef.current = false;
+    const det = new window.BarcodeDetector!({ formats: FORMATS });
+    let lastAt = 0;
+    const loop = async () => {
+      while (!stopRef.current && !dead) {
         try {
           const f = await det.detect(video);
           const v = f[0]?.rawValue || "";
@@ -78,18 +110,17 @@ export function PosCounter() {
         } catch { /* keep scanning */ }
         await new Promise((r) => setTimeout(r, 400));
       }
-      stream.getTracks().forEach((t) => t.stop());
-    } catch {
-      setCam("unsupported");
-    }
-    setCam((c) => (c === "on" ? "off" : c));
-  }
+    };
+    void loop();
+    return () => { dead = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cam]);
 
   function stopCam() {
     stopRef.current = true;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
     const v = videoRef.current;
-    const s = v?.srcObject as MediaStream | null;
-    s?.getTracks().forEach((t) => t.stop());
     if (v) v.srcObject = null;
     setCam("off");
   }
@@ -176,7 +207,7 @@ export function PosCounter() {
                 className="min-h-[44px] min-w-[44px] rounded-xl border border-black/15 text-lg dark:border-white/20">📷</button>
             )}
           </div>
-          {cam === "unsupported" && <p className="mt-1 text-xs text-zinc-500">No camera barcode API here — type the code or use a scan gun.</p>}
+          {cam === "unsupported" && <p className="mt-1 text-xs text-zinc-500">{camErr || "No camera barcode API here — type the code or use a scan gun."}</p>}
           {cam === "on" && (
             // eslint-disable-next-line jsx-a11y/media-has-caption
             <video ref={videoRef} playsInline muted className="mt-1.5 aspect-[4/3] w-full rounded-xl bg-black object-cover" />
