@@ -19,6 +19,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
       ["Boards", "/admin/boards", Trello],
       ["Todos", "/admin/todos", ListChecks],
       ["Calendar", "/admin/calendar", CalendarClock],
+      ["Services", "/admin/services", ClipboardList],
       ["Schedule", "/admin/schedule", CalendarClock],
       ["Google", "/admin/google", Plug],
     ],

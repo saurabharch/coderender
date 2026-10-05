@@ -661,6 +661,7 @@ model ShopOrder {
   grand      Int    @default(0)
   coupon     String @default("")
   channel    String @default("admin")
+  branchId   Int    @default(1)
   notes      String @default("")
   createdAt  DateTime @default(now())
 }
@@ -927,4 +928,33 @@ model ShipZone {
   name   String
   charge Int    @default(0)
   eta    String @default("")
+}
+
+model Branch {
+  id      Int     @id @default(autoincrement())
+  name    String
+  address String  @default("")
+  phone   String  @default("")
+  active  Boolean @default(true)
+}
+
+model JobCard {
+  id         Int    @id @default(autoincrement())
+  no         String @default("")
+  customerId Int    @default(0)
+  branchId   Int    @default(1)
+  service    String @default("")
+  staff      String @default("")
+  slot       String @default("")
+  status     String @default("booked")
+  notes      String @default("")
+  billId     Int    @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model PrintTemplate {
+  id        Int    @id @default(autoincrement())
+  kind      String @unique
+  body      String @default("")
+  updatedAt DateTime @updatedAt
 }
