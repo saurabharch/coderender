@@ -6,26 +6,35 @@ import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 interface Level { id: number; name: string; sku: string; lowAt: number; qty: number }
 interface PO { id: number; supplier: string; status: string; grand: number }
 interface Supplier { id: number; name: string }
+interface Bin { id: number; floor: string; rack: string; shelf: string; code: string }
 
 export function StockConsole() {
   const [levels, setLevels] = useState<Level[]>([]);
   const [pos, setPos] = useState<PO[]>([]);
   const [sups, setSups] = useState<Supplier[]>([]);
+  const [bins, setBins] = useState<Bin[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
   const [pid, setPid] = useState("");
   const [qty, setQty] = useState("");
   const [sname, setSname] = useState("");
+  const [posup, setPosup] = useState("");
+  const [popid, setPopid] = useState("");
+  const [poqty, setPoqty] = useState("");
+  const [pocost, setPocost] = useState("");
+  const [binloc, setBinloc] = useState("");
 
   async function load() {
-    const [l, p, s] = await Promise.all([
+    const [l, p, s, b] = await Promise.all([
       fetch("/api/stock/levels").then((r) => r.json()).catch(() => null),
       fetch("/api/stock/purchase").then((r) => r.json()).catch(() => null),
       fetch("/api/stock/places?what=suppliers").then((r) => r.json()).catch(() => null),
+      fetch("/api/stock/bins").then((r) => r.json()).catch(() => null),
     ]);
     if (l?.levels) setLevels(l.levels);
     if (p?.orders) setPos(p.orders);
     if (s?.suppliers) setSups(s.suppliers);
+    if (b?.bins) setBins(b.bins);
     setLoaded(true);
   }
 
@@ -48,6 +57,29 @@ export function StockConsole() {
     });
     setMsg(res.ok ? "Supplier added ✓" : "add failed");
     if (res.ok) { setSname(""); void load(); }
+  }
+
+  async function createPO() {
+    const res = await fetch("/api/stock/purchase", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        supplierId: Number(posup),
+        lines: [{ productId: Number(popid), qty: Number(poqty), cost: Math.round(Number(pocost) * 100) }],
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `PO #${d.id} drafted ✓ (send → receive → bill → pay via API)` : (d.error ?? "failed"));
+    if (res.ok) { setPosup(""); setPopid(""); setPoqty(""); setPocost(""); void load(); }
+  }
+
+  async function addBin() {
+    const [floor, rack, shelf] = binloc.split("/").map((s) => s.trim());
+    const res = await fetch("/api/stock/bins", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ floor, rack, shelf }),
+    });
+    setMsg(res.ok ? "Bin added ✓" : "failed");
+    if (res.ok) { setBinloc(""); void load(); }
   }
 
   if (!loaded) return <Skeleton lines={5} />;
@@ -85,8 +117,37 @@ export function StockConsole() {
         )}
       </AdminCard>
       <AdminCard>
+        <p className="font-bold">New purchase order <span className="text-xs font-normal text-zinc-500">(supplier + one line; pipeline continues via API)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={posup} onChange={(e) => setPosup(e.target.value)} placeholder="Supplier id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={popid} onChange={(e) => setPopid(e.target.value)} placeholder="Product id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={poqty} onChange={(e) => setPoqty(e.target.value)} placeholder="Qty" inputMode="decimal"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={pocost} onChange={(e) => setPocost(e.target.value)} placeholder="₹ cost" inputMode="decimal"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void createPO()} disabled={!posup || !popid || !poqty || !pocost}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Draft PO</button>
+        </div>
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Bins ({bins.length}) <span className="text-xs font-normal text-zinc-500">(floor/rack/shelf)</span></p>
+        <div className="mt-2 flex gap-1.5">
+          <input value={binloc} onChange={(e) => setBinloc(e.target.value)} placeholder="G/A/3" maxLength={40}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addBin()} disabled={!binloc.trim()}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+        </div>
+        {bins.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
+            {bins.map((b) => <li key={b.id} className="rounded-full border border-black/15 px-3 py-1.5 font-mono dark:border-white/20">{b.code}</li>)}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
         <p className="font-bold">Purchase orders ({pos.length})</p>
-        {pos.length === 0 ? <div className="mt-2"><Empty>No POs — create via API, full UI in a later pass.</Empty></div> : (
+        {pos.length === 0 ? <div className="mt-2"><Empty>No POs yet — draft one above.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {pos.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">

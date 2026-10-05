@@ -55,7 +55,7 @@ async function setRole(form: FormData) {
   if (!me || me.role !== "owner") return;
   const email = String(form.get("email"));
   const role = String(form.get("role"));
-  if (!["owner", "member"].includes(role) || email === me.email) return;
+  if (!["owner", "manager", "sales", "cashier", "inventory", "accountant", "hr", "marketing", "staff", "member"].includes(role) || email === me.email) return;
   getDb().prepare("UPDATE AppUser SET role=?, designation=? WHERE email=?").run(
     role, String(form.get("designation") || "").slice(0, 60), email);
   getDb().prepare("UPDATE Membership SET role=? WHERE userId=(SELECT id FROM AppUser WHERE email=?)").run(role, email);
@@ -164,9 +164,10 @@ export default async function SettingsPage() {
               <input type="hidden" name="email" value={t.email} />
               <input name="designation" defaultValue={t.designation ?? ""} placeholder="Designation" maxLength={60}
                 className="min-h-[44px] w-36 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20" />
-              <select name="role" defaultValue={t.role} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
-                <option value="member">member</option>
-                <option value="owner">owner</option>
+              <select name="role" defaultValue={["owner", "manager", "sales", "cashier", "inventory", "accountant", "hr", "marketing", "staff"].includes(t.role) ? t.role : "member"} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
+                {[["member", "member (legacy)"], ["staff", "staff"], ["sales", "sales"], ["cashier", "cashier"], ["inventory", "inventory"], ["accountant", "accountant"], ["hr", "hr"], ["marketing", "marketing"], ["manager", "manager"], ["owner", "owner"]].map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
               </select>
               <button className="min-h-[44px] rounded-xl border border-black/15 px-3 dark:border-white/20">Set</button>
             </form>

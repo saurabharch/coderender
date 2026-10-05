@@ -8,63 +8,67 @@ import {
   Blocks, Image, Mail, Bell, Handshake, KeyRound, ShieldCheck, Route, Settings, CalendarClock, Activity, Workflow, Plug, Menu, X, LogOut, Star, Package, GraduationCap, MessageSquare, MessageCircle, LayoutTemplate, Ticket, Trello, ListChecks, IndianRupee, Megaphone, Contact,
 } from "lucide-react";
 
-type Item = [string, string, React.ComponentType<{ size?: number; className?: string }>];
+import { hasPerm } from "@/lib/scale-core";
+import type { Perm } from "@/lib/scale-core";
 
+type Item = [string, string, React.ComponentType<{ size?: number; className?: string }>, Perm | "any"];
+
+// Fourth element = required permission ("any" = every signed-in team member).
 const GROUPS: { label: string; items: Item[] }[] = [
   {
     label: "Workspace", items: [
-      ["Overview", "/admin", LayoutDashboard],
-      ["BI", "/admin/bi", Activity],
-      ["Leads", "/admin/leads", Users],
-      ["Pipeline", "/admin/pipeline", KanbanSquare],
-      ["Boards", "/admin/boards", Trello],
-      ["Todos", "/admin/todos", ListChecks],
-      ["Calendar", "/admin/calendar", CalendarClock],
-      ["People", "/admin/people", Users],
-      ["Services", "/admin/services", ClipboardList],
-      ["Schedule", "/admin/schedule", CalendarClock],
-      ["Google", "/admin/google", Plug],
+      ["Overview", "/admin", LayoutDashboard, "any"],
+      ["BI", "/admin/bi", Activity, "reports"],
+      ["Leads", "/admin/leads", Users, "crm"],
+      ["Pipeline", "/admin/pipeline", KanbanSquare, "crm"],
+      ["Boards", "/admin/boards", Trello, "any"],
+      ["Todos", "/admin/todos", ListChecks, "any"],
+      ["Calendar", "/admin/calendar", CalendarClock, "any"],
+      ["People", "/admin/people", Users, "people"],
+      ["Services", "/admin/services", ClipboardList, "services"],
+      ["Schedule", "/admin/schedule", CalendarClock, "any"],
+      ["Google", "/admin/google", Plug, "any"],
     ],
   },
   {
     label: "Sell", items: [
-      ["Orders", "/admin/orders", ShoppingCart],
-      ["Shop", "/admin/shop", ShoppingCart],
-      ["Billing", "/admin/billing", IndianRupee],
-      ["Retail", "/admin/retail", Megaphone],
-      ["Stock", "/admin/stock", Package],
-      ["Packages", "/admin/packages", Package],
-      ["Partners", "/admin/partners", Handshake],
-      ["Proof", "/admin/proof", Star],
-      ["Pages", "/admin/pages", LayoutTemplate],
-      ["CMS", "/admin/cms", Blocks],
-      ["Blog", "/admin/blog", FileText],
-      ["Media", "/admin/media", Image],
-      ["Forms", "/admin/forms", ClipboardList],
+      ["Orders", "/admin/orders", ShoppingCart, "sell"],
+      ["Shop", "/admin/shop", ShoppingCart, "sell"],
+      ["Billing", "/admin/billing", IndianRupee, "billing"],
+      ["Retail", "/admin/retail", Megaphone, "retail"],
+      ["Stock", "/admin/stock", Package, "stock"],
+      ["Packages", "/admin/packages", Package, "sell"],
+      ["Partners", "/admin/partners", Handshake, "partners"],
+      ["Proof", "/admin/proof", Star, "marketing"],
+      ["Pages", "/admin/pages", LayoutTemplate, "marketing"],
+      ["CMS", "/admin/cms", Blocks, "marketing"],
+      ["Blog", "/admin/blog", FileText, "marketing"],
+      ["Media", "/admin/media", Image, "marketing"],
+      ["Forms", "/admin/forms", ClipboardList, "any"],
     ],
   },
   {
     label: "Engage", items: [
-      ["WhatsApp", "/admin/whatsapp", MessageCircle],
-      ["CRM", "/admin/crm", Users],
-      ["Customers", "/admin/customers", Contact],
-      ["Comments", "/admin/comments", MessageSquare],
-      ["Tickets", "/admin/tickets", Ticket],
-      ["Subscribers", "/admin/subscribers", Mail],
-      ["Notify", "/admin/notify", Bell],
+      ["WhatsApp", "/admin/whatsapp", MessageCircle, "crm"],
+      ["CRM", "/admin/crm", Users, "crm"],
+      ["Customers", "/admin/customers", Contact, "crm"],
+      ["Comments", "/admin/comments", MessageSquare, "marketing"],
+      ["Tickets", "/admin/tickets", Ticket, "crm"],
+      ["Subscribers", "/admin/subscribers", Mail, "marketing"],
+      ["Notify", "/admin/notify", Bell, "marketing"],
     ],
   },
   {
     label: "System", items: [
-      ["Ops", "/admin/ops", Activity],
-      ["Scale", "/admin/scale", ShieldCheck],
-      ["Flows", "/admin/flows", Workflow],
-      ["Webhooks", "/admin/hooks", Plug],
-      ["Keys", "/admin/keys", KeyRound],
-      ["Learn", "/admin/learn", GraduationCap],
-      ["Flags", "/admin/flags", ShieldCheck],
-      ["Routes", "/admin/routes", Route],
-      ["Settings", "/admin/settings", Settings],
+      ["Ops", "/admin/ops", Activity, "reports"],
+      ["Scale", "/admin/scale", ShieldCheck, "settings"],
+      ["Flows", "/admin/flows", Workflow, "settings"],
+      ["Webhooks", "/admin/hooks", Plug, "settings"],
+      ["Keys", "/admin/keys", KeyRound, "keys"],
+      ["Learn", "/admin/learn", GraduationCap, "reports"],
+      ["Flags", "/admin/flags", ShieldCheck, "settings"],
+      ["Routes", "/admin/routes", Route, "reports"],
+      ["Settings", "/admin/settings", Settings, "settings"],
     ],
   },
 ];
@@ -72,14 +76,18 @@ const GROUPS: { label: string; items: Item[] }[] = [
 export function AdminDrawer({ email, role }: { email: string; role: string }) {
   const [open, setOpen] = useState(false);
   const path = usePathname();
+  const can = (p: Perm | "any") => p === "any" || hasPerm(role, p);
   const active = (h: string) => (h === "/admin" ? path === h : path === h || path.startsWith(`${h}/`));
   const list = (
     <nav aria-label="Admin" className="grid gap-3">
-      {GROUPS.map((g) => (
+      {GROUPS.map((g) => {
+        const items = g.items.filter(([, , , p]) => can(p));
+        if (!items.length) return null;
+        return (
         <div key={g.label}>
           <p className="px-2 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">{g.label}</p>
           <div className="grid gap-0.5">
-            {g.items.map(([l, h, Icon]) => (
+            {items.map(([l, h, Icon]) => (
               <Link key={h} href={h} onClick={() => setOpen(false)} aria-current={active(h) ? "page" : undefined}
                 className={`flex min-h-[44px] items-center gap-2.5 rounded-xl px-3 text-sm font-semibold transition-colors ${active(h)
                   ? "bg-brand/10 text-brand-deep dark:bg-brand/20"
@@ -89,7 +97,8 @@ export function AdminDrawer({ email, role }: { email: string; role: string }) {
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
       <form action="/api/auth/logout" method="post" className="mt-1">
         <button className="flex min-h-[44px] w-full items-center gap-2.5 rounded-xl px-3 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">
           <LogOut size={17} className="shrink-0" />Sign out

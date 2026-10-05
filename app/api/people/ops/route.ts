@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRun, listRuns, logTime, markAttendance, monthAttendance, openRun, payRun, requestLeave, setLeave, weekHours } from "@/lib/people";
+import { getRun, listLeaves, listRuns, logTime, markAttendance, monthAttendance, openRun, payRun, requestLeave, setLeave, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
@@ -17,6 +17,9 @@ export async function GET(req: Request) {
   }
   if (url.searchParams.get("week")) {
     return NextResponse.json({ hours: weekHours(Number(url.searchParams.get("week")), url.searchParams.get("from") || new Date().toISOString().slice(0, 10)) });
+  }
+  if (url.searchParams.get("leaves") !== null) {
+    return NextResponse.json({ leaves: listLeaves(url.searchParams.get("leaves") || "") });
   }
   return NextResponse.json({ runs: listRuns() });
 }

@@ -12,6 +12,8 @@ export function ScaleConsole() {
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
   const [csv, setCsv] = useState("");
+  const [fname, setFname] = useState("");
+  const [chname, setChname] = useState("");
 
   async function load() {
     const [a, m] = await Promise.all([
@@ -25,14 +27,33 @@ export function ScaleConsole() {
 
   useEffect(() => { void load(); }, []);
 
-  async function runImport(what: string) {
-    const res = await fetch("/api/scale/ops", {
+  async function runImport(what: string) {    const res = await fetch("/api/scale/ops", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ import: what, csv }),
     });
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? `${what}: ${d.imported} imported, ${d.errors.length} errors${d.errors[0] ? ` — ${d.errors[0]}` : ""}` : (d.error ?? "failed"));
     if (res.ok) setCsv("");
+  }
+
+  async function addFranchise() {
+    const res = await fetch("/api/scale/franchise", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: fname }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Franchisee added ✓" : (d.error ?? "failed (owners/managers only)"));
+    if (res.ok) { setFname(""); void load(); }
+  }
+
+  async function addChannel() {
+    const res = await fetch("/api/scale/channels", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: chname }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Channel added ✓" : (d.error ?? "failed (owners/managers only)"));
+    if (res.ok) { setChname(""); }
   }
 
   if (!loaded) return <Skeleton lines={5} />;
@@ -49,6 +70,21 @@ export function ScaleConsole() {
           ))}
         </ul>
         <p className="mt-1 text-xs text-zinc-500">Enforced on franchise, royalty, channel, import and role-change writes. Change a member&apos;s role in Settings → Team.</p>
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Franchise & channels</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={fname} onChange={(e) => setFname(e.target.value)} placeholder="Franchisee name" maxLength={120}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addFranchise()} disabled={!fname.trim()}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <input value={chname} onChange={(e) => setChname(e.target.value)} placeholder="Channel (Amazon, Instagram…)" maxLength={80}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addChannel()} disabled={!chname.trim()}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Add channel</button>
+        </div>
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Import CSV <span className="text-xs font-normal text-zinc-500">(products need name,price · customers need name · 500 rows max)</span></p>

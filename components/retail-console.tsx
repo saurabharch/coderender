@@ -15,6 +15,8 @@ export function RetailConsole() {
   const [cmsg, setCmsg] = useState("");
   const [opening, setOpening] = useState("");
   const [drawer, setDrawer] = useState<{ status: string; opening: number } | null>(null);
+  const [shoid, setShoid] = useState("");
+  const [shcourier, setShcourier] = useState("");
 
   async function load() {
     const [c, s, d] = await Promise.all([
@@ -57,8 +59,17 @@ export function RetailConsole() {
     if (res.ok) { setOpening(""); void load(); }
   }
 
-  async function settle() {
-    const counted = prompt("Counted cash (₹)?");
+  async function createShip() {
+    const res = await fetch("/api/retail/ship", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: Number(shoid), courier: shcourier }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Shipment #${d.id} created ✓ (advance via API)` : (d.error ?? "failed"));
+    if (res.ok) { setShoid(""); setShcourier(""); void load(); }
+  }
+
+  async function settle() {    const counted = prompt("Counted cash (₹)?");
     if (!counted) return;
     const res = await fetch("/api/retail/pos", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -114,6 +125,14 @@ export function RetailConsole() {
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Shipments ({ships.length})</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={shoid} onChange={(e) => setShoid(e.target.value)} placeholder="Order id" inputMode="numeric"
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={shcourier} onChange={(e) => setShcourier(e.target.value)} placeholder="Courier" maxLength={60}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void createShip()} disabled={!shoid}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Ship</button>
+        </div>
         {ships.length === 0 ? <div className="mt-2"><Empty>No shipments — create via API with an order id.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {ships.map((s) => (

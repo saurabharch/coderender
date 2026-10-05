@@ -7,6 +7,7 @@ interface Emp { id: number; name: string; dept: string; designation: string }
 
 export function PeopleConsole() {
   const [emps, setEmps] = useState<Emp[]>([]);
+  const [leaves, setLeaves] = useState<{ id: number; name: string; fromDay: string; toDay: string; kind: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
@@ -14,8 +15,12 @@ export function PeopleConsole() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
 
   async function load() {
-    const d = await fetch("/api/people/employees").then((r) => r.json()).catch(() => null);
+    const [d, l] = await Promise.all([
+      fetch("/api/people/employees").then((r) => r.json()).catch(() => null),
+      fetch("/api/people/ops?leaves=pending").then((r) => r.json()).catch(() => null),
+    ]);
     if (d?.employees) setEmps(d.employees);
+    if (l?.leaves) setLeaves(l.leaves);
     setLoaded(true);
   }
 
@@ -28,6 +33,15 @@ export function PeopleConsole() {
     });
     setMsg(res.ok ? "Employee added ✓" : "failed");
     if (res.ok) { setName(""); setBase(""); void load(); }
+  }
+
+  async function decideLeave(id: number, to: string) {
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approve: id, to }),
+    });
+    setMsg(res.ok ? `${to} ✓` : "failed");
+    if (res.ok) void load();
   }
 
   async function runPayroll() {
@@ -67,6 +81,22 @@ export function PeopleConsole() {
               <li key={e.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
                 <span>#{e.id} {e.name} {e.designation && <span className="text-xs text-zinc-500">{e.designation}</span>}</span>
                 <span className="text-xs text-zinc-500">{e.dept || "—"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Leave requests ({leaves.length} pending)</p>
+        {leaves.length === 0 ? <div className="mt-2"><Empty>Nothing pending.</Empty></div> : (
+          <ul className="mt-2 space-y-1 text-sm">
+            {leaves.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>{l.name} · {l.fromDay} → {l.toDay} · {l.kind}</span>
+                <span className="flex gap-1">
+                  <button onClick={() => void decideLeave(l.id, "approved")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Approve</button>
+                  <button onClick={() => void decideLeave(l.id, "rejected")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Reject</button>
+                </span>
               </li>
             ))}
           </ul>

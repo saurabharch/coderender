@@ -20,11 +20,13 @@ const MATRIX: Record<string, Perm[]> = {
 
 export function hasPerm(role: string, perm: Perm): boolean {
   if (role === "owner") return true;
-  return (MATRIX[role] ?? []).includes(perm);
+  const r = role === "member" ? "manager" : role; // legacy member = manager
+  return (MATRIX[r] ?? []).includes(perm);
 }
 
 export function rolePerms(role: string): Perm[] {
   if (role === "owner") return MATRIX.owner;
+  if (role === "member") return MATRIX.manager;
   return MATRIX[role] ?? [];
 }
 

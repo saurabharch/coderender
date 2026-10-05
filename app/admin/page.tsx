@@ -1,10 +1,29 @@
 import Link from "next/link";
-import { totals, leadsPerDay, topPages, recentLeads, recentOrders, upcomingMeetings, meetingCount, evalAvg } from "@/lib/store";
-import { Users, CalendarClock, MousePointerClick, Mail, ShoppingCart, IndianRupee, Sparkles, Server } from "lucide-react";
+import { totals, leadsPerDay, topPages, recentLeads, recentOrders, upcomingMeetings, meetingCount, evalAvg, getDb } from "@/lib/store";
+import { lowStockList } from "@/lib/inventory";
+import { attentionFeed } from "@/lib/crm";
+import { hasPerm } from "@/lib/scale-core";
+import { sessionUser } from "@/lib/auth";
+import { Users, CalendarClock, MousePointerClick, Mail, ShoppingCart, IndianRupee, Sparkles, Server, Package, Wallet } from "lucide-react";
 import { Empty, Stat } from "@/components/admin-ui";
 
 export default async function AdminHome() {
   const t = totals();
+  const todaySales = () => {
+    try {
+      return ((getDb().prepare("SELECT COALESCE(SUM(grand),0) s FROM ShopOrder WHERE date(createdAt)=date('now') AND status!='cancelled'").get() as { s: number }).s / 100).toFixed(0);
+    } catch { return "0"; }
+  };
+  const openRecv = () => {
+    try {
+      return ((getDb().prepare("SELECT COALESCE(SUM(grand),0) s FROM BillDoc WHERE status IN ('sent','overdue')").get() as { s: number }).s / 100).toFixed(0);
+    } catch { return "0"; }
+  };
+  const teamSize = () => {
+    try {
+      return (getDb().prepare("SELECT COUNT(*) c FROM Employee WHERE active=1").get() as { c: number }).c;
+    } catch { return 0; }
+  };
   const perDay = leadsPerDay(14);
   const max = Math.max(1, ...perDay.map((d) => d.n));
   const pages = topPages(6);
@@ -24,12 +43,52 @@ export default async function AdminHome() {
     { label: "Reply quality", value: `${avg}/100`, sub: "heuristic eval", Icon: Sparkles, href: "/admin/learn" },
     { label: "Jobs", value: inngestMode, sub: "durable layer", Icon: Server, href: "/admin/ops" },
   ];
+  // Role-tailored home: each role sees its own numbers first (owner/manager see all).
+  const me = await sessionUser();
+  const role = me?.role ?? "staff";
+  const roleCards: Record<string, typeof cards> = {
+    cashier: [
+      { label: "Counter sales today", value: `₹${todaySales()}`, sub: "pos channel", Icon: ShoppingCart, href: "/admin/retail" },
+      { label: "Orders", value: String(t.orders), sub: "pipeline", Icon: ShoppingCart, href: "/admin/orders" },
+    ],
+    inventory: [
+      { label: "Low stock", value: String(lowStockList().length), sub: "needs purchase", Icon: Package, href: "/admin/stock" },
+      { label: "Orders", value: String(t.orders), sub: "pipeline", Icon: ShoppingCart, href: "/admin/orders" },
+    ],
+    accountant: [
+      { label: "Receivables open", value: `₹${openRecv()}`, sub: "bills sent", Icon: Wallet, href: "/admin/billing" },
+      { label: "Revenue paid", value: `₹${t.revenue}`, sub: "collected", Icon: IndianRupee, href: "/admin/orders" },
+    ],
+    hr: [
+      { label: "Team", value: String(teamSize()), sub: "active employees", Icon: Users, href: "/admin/people" },
+      { label: "Meetings booked", value: String(meetingCount()), sub: "upcoming", Icon: CalendarClock, href: "/admin/schedule" },
+    ],
+    marketing: [
+      { label: "Subscribers", value: String(t.subscribers), sub: "newsletter", Icon: Mail, href: "/admin/subscribers" },
+      { label: "Clicks today", value: String(t.eventsToday), sub: "tracked events", Icon: MousePointerClick, href: "/admin/routes" },
+    ],
+    sales: [
+      { label: "Leads", value: String(t.leads), sub: `${t.leadsToday} today`, Icon: Users, href: "/admin/leads" },
+      { label: "Orders", value: String(t.orders), sub: "pipeline", Icon: ShoppingCart, href: "/admin/orders" },
+    ],
+  };
+  const shown = roleCards[role] ?? cards;
+  const attn = hasPerm(role, "reports") ? attentionFeed().slice(0, 4) : [];
   return (
     <>
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">{today}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">{today} · {role}</p>
       <h1 className="display-2 mt-1">Good day — here is the business at a glance.</h1>
+      {attn.length > 0 && (
+        <ul className="mt-4 space-y-1.5 text-sm">
+          {attn.map((a, i) => (
+            <li key={i} className="rounded-xl border border-amber-500/40 px-3 py-2">
+              <Link href={a.href} className="underline">{a.text} →</Link>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards.map((c) => <Stat key={c.label} {...c} />)}
+        {shown.map((c) => <Stat key={c.label} {...c} />)}
       </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-5">
         <div className="glass rounded-2xl p-5 lg:col-span-3">
