@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.20.0] - 2026-10-05
+## [0.21.0] - 2026-10-05
+- Phase H: channels + franchise + RBAC + audit + CSV + agent ops (plan complete)## [0.20.0] - 2026-10-05
 - Phase G: payroll + loans, attendance/leave/time, budgets, BI## [0.19.0] - 2026-10-05
 - Phase F: job cards book-to-invoice, branches, print templates## [0.18.1] - 2026-10-05
 - Mailer survives Ethereal outage; affiliate redirect never 500s## [0.18.0] - 2026-10-05
