@@ -22,6 +22,9 @@ export function PosCounter() {
   const [msg, setMsg] = useState("");
   const [cam, setCam] = useState<"on" | "off" | "unsupported">("off");
   const [camErr, setCamErr] = useState("");
+  const [torch, setTorch] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [flash, setFlash] = useState("");
   const [method, setMethod] = useState<"cash" | "upi" | "card">("cash");
   const [tendered, setTendered] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -37,6 +40,9 @@ export function PosCounter() {
     if (!d?.ok) { setMsg(`No product for ${c}`); return; }
     addLine(d.productId, d.name, d.price);
     setMsg(`Added ${d.name} ✓`);
+    setFlash(d.name);
+    try { navigator.vibrate?.(60); } catch { /* ignore */ }
+    setTimeout(() => setFlash((f) => (f === d.name ? "" : f)), 1800);
     setCode("");
   }
 
@@ -127,6 +133,10 @@ export function PosCounter() {
     if (!video || !stream) return;
     video.srcObject = stream;
     video.play().catch(() => {});
+    try {
+      const caps = stream.getVideoTracks()[0]?.getCapabilities() as { torch?: boolean } | undefined;
+      setTorch(!!caps?.torch);
+    } catch { setTorch(false); }
     stopRef.current = false;
     const det = new window.BarcodeDetector!({ formats: FORMATS });
     let lastAt = 0;
@@ -155,6 +165,21 @@ export function PosCounter() {
     const v = videoRef.current;
     if (v) v.srcObject = null;
     setCam("off");
+    setTorch(false);
+    setTorchOn(false);
+  }
+
+  async function flipTorch() {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const caps = track.getCapabilities() as { torch?: boolean };
+    if (!caps.torch) { setTorch(false); setMsg("This camera has no torch."); return; }
+    try {
+      await track.applyConstraints({ advanced: [{ torch: !torchOn } as MediaTrackConstraintSet] });
+      setTorchOn(!torchOn);
+    } catch {
+      setMsg("Torch not available.");
+    }
   }
 
   async function loadHeld() {
@@ -250,8 +275,35 @@ export function PosCounter() {
             </div>
           )}
           {cam === "on" && (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
-            <video ref={videoRef} playsInline muted className="mt-1.5 aspect-[4/3] w-full rounded-xl bg-black object-cover" />
+            <div className="relative mt-1.5 overflow-hidden rounded-xl bg-black">
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <video ref={videoRef} playsInline muted className="aspect-[4/3] w-full object-cover" />
+              {/* dimmed mask with a clear scan window */}
+              <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="h-32 w-4/5 max-w-sm rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
+              </div>
+              {/* corner brackets */}
+              <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="relative h-32 w-4/5 max-w-sm">
+                  {[["left-0 top-0", "border-l-4 border-t-4 rounded-tl-lg"], ["right-0 top-0", "border-r-4 border-t-4 rounded-tr-lg"], ["bottom-0 left-0", "border-b-4 border-l-4 rounded-bl-lg"], ["bottom-0 right-0", "border-b-4 border-r-4 rounded-br-lg"]].map(([pos, cls]) => (
+                    <span key={pos} className={`absolute ${pos} h-7 w-7 border-brand ${cls}`} />
+                  ))}
+                  <span className="scan-laser absolute inset-x-2 top-1/2 h-0.5 bg-red-500 shadow-[0_0_8px_2px_rgba(239,68,68,0.8)]" />
+                </div>
+              </div>
+              <p className="pointer-events-none absolute inset-x-0 top-2 text-center text-xs font-semibold text-white/90">Point at the barcode</p>
+              {flash && <p role="status" className="absolute inset-x-0 bottom-14 mx-auto w-fit rounded-full bg-emerald-500 px-4 py-1 text-sm font-bold text-white">+ {flash}</p>}
+              <div className="absolute inset-x-0 bottom-2 flex justify-center gap-2">
+                {torch && (
+                  <button onClick={() => void flipTorch()} aria-pressed={torchOn}
+                    className={`min-h-[44px] rounded-full px-4 text-sm font-semibold ${torchOn ? "bg-amber-300 text-black" : "bg-white/20 text-white"}`}>
+                    {torchOn ? "🔦 on" : "🔦 torch"}
+                  </button>
+                )}
+                <button onClick={stopCam} className="min-h-[44px] rounded-full bg-white/20 px-4 text-sm font-semibold text-white">■ Stop</button>
+              </div>
+              <style>{`@keyframes scanline{0%,100%{transform:translateY(-52px)}50%{transform:translateY(52px)}}.scan-laser{animation:scanline 2.2s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.scan-laser{animation:none}}`}</style>
+            </div>
           )}
           {found.length > 0 && (
             <ul className="mt-1.5 space-y-1">
