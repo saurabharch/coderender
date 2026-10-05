@@ -10,10 +10,19 @@ import { requireTeam } from "@/lib/auth";
 async function save(form: FormData) {
   "use server";
   await requireTeam();
-  // Checkboxes: unchecked sends nothing, so write both states explicitly
-  // (previously unchecking never stuck).
-  for (const k of ["daily_report", "backup"]) {
-    setPref(k, form.get(k) === "on" ? "on" : "off");
+  // Checkboxes: unchecked sends nothing, so write both states explicitly —
+  // but only when the main settings form was submitted (the invites mini-form
+  // must not wipe them).
+  if (form.has("contact_phone")) {
+    for (const k of ["daily_report", "backup"]) {
+      setPref(k, form.get(k) === "on" ? "on" : "off");
+    }
+  }
+  const invitesRaw = form.get("team_invites");
+  if (typeof invitesRaw === "string") {
+    const invites = invitesRaw.split(",")
+      .map((s) => s.trim().toLowerCase()).filter((s) => s.includes("@")).slice(0, 50);
+    setPref("team_invites", invites.join(", "));
   }
   for (const k of ["contact_phone", "contact_email", "partner_plan"]) {    const v = form.get(k);
     if (typeof v === "string") setPref(k, v.slice(0, 4000));
@@ -22,9 +31,9 @@ async function save(form: FormData) {
     const n = Math.max(1, Math.round(Number(form.get(k) || 0) || 0));
     if (n > 0) setPref(k, String(n));
   }
-  const provider = String(form.get("captcha_provider") || "default");
-  // Single active gate — default, slider, or off. Never more than one.
-  setPref("captcha_provider", provider === "slider" || provider === "off" ? provider : "default");
+  const provider = String(form.get("captcha_provider") || "");
+  // Single active gate — only when the main form was submitted.
+  if (provider) setPref("captcha_provider", provider === "slider" || provider === "off" ? provider : "default");
   revalidatePath("/admin/settings");
 }
 
@@ -198,6 +207,12 @@ export default async function SettingsPage() {
         <button className="min-h-[44px] rounded-full border border-black/15 px-5 text-sm font-semibold dark:border-white/20">Run infra check now</button>
       </form>
       <h2 className="mt-6 font-bold">Team ({team.length})</h2>
+      <form action={save} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        <label className="grid gap-1 text-sm">Invite emails (comma-separated — they can sign in as member; assign roles below)
+          <input name="team_invites" defaultValue={getPref("team_invites", "")} maxLength={2000}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+        <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save invites</button>
+      </form>
       <ul className="mt-2 space-y-2 text-sm">
         {team.map((t) => (
           <li key={t.email} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">

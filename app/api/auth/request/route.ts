@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isAdminEmail, issueMagicToken } from "@/lib/auth";
+import { canSignIn, issueMagicToken } from "@/lib/auth";
 import { sendMail, magicLinkMail } from "@/lib/mailer";
 import { rateLimited, slowDown, clientKey } from "@/lib/rate-limit";
 
@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const parsed = z.object({ email: z.string().email().max(120) }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad email" }, { status: 422 });
   const email = parsed.data.email.toLowerCase();
-  if (!isAdminEmail(email)) return NextResponse.json({ error: "not invited" }, { status: 403 });
+  if (!canSignIn(email)) return NextResponse.json({ error: "not invited" }, { status: 403 });
   const token = issueMagicToken(email);
   const base = process.env.APP_URL ?? "http://localhost:3100";
   const link = `${base}/api/auth/verify?token=${token}`;

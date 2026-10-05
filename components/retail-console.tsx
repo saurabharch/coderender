@@ -17,6 +17,10 @@ export function RetailConsole() {
   const [drawer, setDrawer] = useState<{ status: string; opening: number } | null>(null);
   const [shoid, setShoid] = useState("");
   const [shcourier, setShcourier] = useState("");
+  const [spid, setSpid] = useState("");
+  const [sqty, setSqty] = useState("1");
+  const [smethod, setSmethod] = useState("cash");
+  const [scash, setScash] = useState("");
 
   async function load() {
     const [c, s, d] = await Promise.all([
@@ -59,6 +63,19 @@ export function RetailConsole() {
     if (res.ok) { setOpening(""); void load(); }
   }
 
+  async function quickSale() {
+    const res = await fetch("/api/retail/pos", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "sale", lines: [{ productId: Number(spid), qty: Number(sqty) || 1 }],
+        method: smethod, cashIn: smethod === "cash" && scash ? Math.round(Number(scash) * 100) : 0,
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Sold ✓ order #${d.orderId}${d.change ? ` · change ₹${(d.change / 100).toFixed(0)}` : ""}` : (d.error ?? "sale failed"));
+    if (res.ok) { setSpid(""); setSqty("1"); setScash(""); void load(); }
+  }
+
   async function createShip() {
     const res = await fetch("/api/retail/ship", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -96,6 +113,27 @@ export function RetailConsole() {
           <button onClick={() => void settle()} className="mt-2 min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Day-end settle</button>
         )}
         <p className="mt-1 text-xs text-zinc-500">Counter sales: POST /api/retail/pos {"{op:'sale', lines, method}"} — confirm + payment + change in one call.</p>
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Quick sale <span className="text-xs font-normal text-zinc-500">(counter checkout)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={spid} onChange={(e) => setSpid(e.target.value)} placeholder="Product id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={sqty} onChange={(e) => setSqty(e.target.value)} placeholder="Qty" inputMode="decimal"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <select value={smethod} onChange={(e) => setSmethod(e.target.value)}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            <option value="cash">cash</option>
+            <option value="upi">upi</option>
+            <option value="card">card</option>
+          </select>
+          {smethod === "cash" && (
+            <input value={scash} onChange={(e) => setScash(e.target.value)} placeholder="Tendered ₹" inputMode="decimal"
+              className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          )}
+          <button onClick={() => void quickSale()} disabled={!spid}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Sell</button>
+        </div>
       </AdminCard>
       <AdminCard>
         <p className="font-bold">New campaign</p>

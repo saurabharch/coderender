@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createHmac } from "node:crypto";
-import { getDb, uid } from "./store";
+import { getDb, getPref, uid } from "./store";
 import { audit } from "./scale";
 
 export const ADMIN_EMAILS = ["saurabhkashyap0001@gmail.com", "raj90.ro@gmail.com"];
@@ -10,14 +10,30 @@ export function isAdminEmail(email: string): boolean {
   return ADMIN_EMAILS.includes(email.trim().toLowerCase());
 }
 
+// Owner-managed invite list (Settings → Team): extra emails allowed to sign
+// in. They land as member; the owner assigns a real role afterwards.
+export function isInvited(email: string): boolean {
+  try {
+    const list = getPref("team_invites", "");
+    return list.split(",").map((s) => s.trim().toLowerCase()).includes(email.trim().toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+export function canSignIn(email: string): boolean {
+  return isAdminEmail(email) || isInvited(email);
+}
+
 export function upsertUser(email: string) {
   const d = getDb();
   const e = email.trim().toLowerCase();
+  // Fresh teammates land least-privileged (staff); the owner upgrades them.
   d.prepare("INSERT INTO AppUser (email, role) VALUES (?, ?) ON CONFLICT(email) DO NOTHING")
-    .run(e, isAdminEmail(e) ? "owner" : "member");
+    .run(e, isAdminEmail(e) ? "owner" : "staff");
   const id = (d.prepare("SELECT id FROM AppUser WHERE email=?").get(e) as { id: number }).id;
   d.prepare("INSERT INTO Membership (userId, orgId, role) VALUES (?,?,?) ON CONFLICT(userId, orgId) DO NOTHING")
-    .run(id, 1, isAdminEmail(e) ? "owner" : "member");
+    .run(id, 1, isAdminEmail(e) ? "owner" : "staff");
   return id;
 }
 

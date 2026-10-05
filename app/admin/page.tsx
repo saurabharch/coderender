@@ -72,7 +72,11 @@ export default async function AdminHome() {
       { label: "Orders", value: String(t.orders), sub: "pipeline", Icon: ShoppingCart, href: "/admin/orders" },
     ],
   };
-  const shown = roleCards[role] ?? cards;
+  const full = ["owner", "manager", "member"].includes(role);
+  const shown = full ? cards : (roleCards[role] ?? [
+    { label: "Boards", value: "workspace", sub: "your tasks live here", Icon: Users, href: "/admin/boards" },
+    { label: "Meetings booked", value: String(meetingCount()), sub: "upcoming", Icon: CalendarClock, href: "/admin/schedule" },
+  ]);
   const attn = hasPerm(role, "reports") ? attentionFeed().slice(0, 4) : [];
   return (
     <>
