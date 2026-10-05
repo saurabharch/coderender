@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.18.1] - 2026-10-05
+## [0.19.0] - 2026-10-05
+- Phase F: job cards book-to-invoice, branches, print templates## [0.18.1] - 2026-10-05
 - Mailer survives Ethereal outage; affiliate redirect never 500s## [0.18.0] - 2026-10-05
 - Phase E: campaigns + recovery, POS counter + settlement, shipments## [0.17.1] - 2026-10-05
 - Order integrity: restock on cancel/return, loyalty revoke, coupon release, double-bill guard## [0.17.0] - 2026-10-05
