@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.31.1] - 2026-10-05
+## [0.31.2] - 2026-10-05
+- Scan fallback (photo decode) + product barcode field## [0.31.1] - 2026-10-05
 - POS camera attach fix + guided camera errors## [0.31.0] - 2026-10-05
 - POS v2: search, hold/resume, guided payments## [0.30.0] - 2026-10-05
 - POS counter, auto barcodes, camera scan, label sheets## [0.29.1] - 2026-10-05
