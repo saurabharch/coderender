@@ -12,3 +12,4 @@ tsconfig.tsbuildinfo
 public/uploads/*
 !public/uploads/.gitkeep
 backups/
+.next.bak/
