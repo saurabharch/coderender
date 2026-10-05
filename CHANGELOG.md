@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.22.0] - 2026-10-05
+## [0.23.0] - 2026-10-05
+- Role dashboards + full console coverage for every manager## [0.22.0] - 2026-10-05
 - Catalogue depth: tax UI, business profile, variants, barcodes, wishlist, bins, R2, WA catalog## [0.21.0] - 2026-10-05
 - Phase H: channels + franchise + RBAC + audit + CSV + agent ops (plan complete)## [0.20.0] - 2026-10-05
 - Phase G: payroll + loans, attendance/leave/time, budgets, BI## [0.19.0] - 2026-10-05
