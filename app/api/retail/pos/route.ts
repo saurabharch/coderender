@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { drawerToday, openDrawer, posSale, saveCart, settleDay } from "@/lib/retail";
+import { drawerToday, listHeldCarts, openDrawer, posSale, resumeCart, saveCart, settleDay } from "@/lib/retail";
 import { shopGate } from "@/lib/shop-auth";
 
 const line = z.object({ productId: z.number().int(), qty: z.number().min(0.001).max(100000) });
 
-// GET → drawer state. POST cart|drawer|sale|settle by {op}.
+// GET → drawer state. POST cart|drawer|sale|settle|hold|resume by {op}.
 export async function GET(req: Request) {
   const deny = await shopGate(req, false);
   if (deny) return deny;
+  const url = new URL(req.url);
+  if (url.searchParams.get("held")) return NextResponse.json({ held: listHeldCarts() });
   return NextResponse.json({ drawer: drawerToday() });
 }
 
@@ -42,6 +44,20 @@ export async function POST(req: Request) {
       const parsed = z.object({ op: z.literal("settle"), counted: z.number().min(0).max(1000000000) }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad settle" }, { status: 422 });
       return NextResponse.json({ ok: true, ...settleDay(parsed.data.counted) });
+    }
+    if (body?.op === "hold") {
+      const parsed = z.object({
+        op: z.literal("hold"), lines: z.array(line).min(1).max(50), customerId: z.number().int().optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad hold" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: saveCart(parsed.data.customerId ?? 0, parsed.data.lines) });
+    }
+    if (body?.op === "resume") {
+      const parsed = z.object({ op: z.literal("resume"), id: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad resume" }, { status: 422 });
+      const lines = resumeCart(parsed.data.id);
+      if (!lines) return NextResponse.json({ error: "cart gone" }, { status: 404 });
+      return NextResponse.json({ ok: true, lines });
     }
     return NextResponse.json({ error: "unknown op" }, { status: 422 });
   } catch (e) {

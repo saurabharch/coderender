@@ -93,6 +93,25 @@ export function saveCart(customerId: number, lines: { productId: number; qty: nu
     .run(customerId, JSON.stringify(lines.slice(0, 50)).slice(0, 4000)).lastInsertRowid);
 }
 
+export function listHeldCarts(): { id: number; lines: { productId: number; qty: number }[]; createdAt: string; items: number }[] {
+  retailTables();
+  return (getDb().prepare("SELECT id, lines, createdAt FROM Cart WHERE recovered=0 ORDER BY id DESC LIMIT 20").all() as
+    { id: number; lines: string; createdAt: string }[]).map((c) => {
+    const lines = JSON.parse(c.lines || "[]") as { productId: number; qty: number }[];
+    return { id: c.id, lines, createdAt: c.createdAt, items: lines.reduce((s, l) => s + l.qty, 0) };
+  });
+}
+
+// Resume pulls names/prices fresh (a held cart stores ids only).
+export function resumeCart(id: number): { productId: number; qty: number }[] | null {
+  retailTables();
+  const db = getDb();
+  const c = db.prepare("SELECT lines FROM Cart WHERE id=? AND recovered=0").get(id) as { lines: string } | undefined;
+  if (!c) return null;
+  db.prepare("UPDATE Cart SET recovered=1 WHERE id=?").run(id);
+  return JSON.parse(c.lines || "[]") as { productId: number; qty: number }[];
+}
+
 export async function cartRecoveryTick(): Promise<number> {
   retailTables();
   const db = getDb();
