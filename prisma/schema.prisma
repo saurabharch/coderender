@@ -763,3 +763,75 @@ model StockAlert {
   productId Int    @id
   at        DateTime @default(now())
 }
+
+model DocSeq {
+  type  String
+  year  Int
+  next  Int    @default(1)
+
+  @@id([type, year])
+}
+
+model BillDoc {
+  id         Int    @id @default(autoincrement())
+  no         String @unique
+  type       String
+  customerId Int    @default(0)
+  orderId    Int    @default(0)
+  lines      String @default("[]")
+  subtotal   Int    @default(0)
+  discount   Int    @default(0)
+  tax        Int    @default(0)
+  grand      Int    @default(0)
+  status     String @default("draft")
+  notes      String @default("")
+  createdAt  DateTime @default(now())
+}
+
+model BankAccount {
+  id      Int     @id @default(autoincrement())
+  name    String
+  kind    String  @default("cash")
+  opening Int     @default(0)
+  active  Boolean @default(true)
+}
+
+model BankTx {
+  id        Int    @id @default(autoincrement())
+  accountId Int
+  kind      String
+  amount    Int    @default(0)
+  ref       String @default("")
+  notes     String @default("")
+  at        DateTime @default(now())
+}
+
+model Expense {
+  id      Int    @id @default(autoincrement())
+  head    String
+  amount  Int    @default(0)
+  vendor  String @default("")
+  billRef String @default("")
+  status  String @default("pending")
+  notes   String @default("")
+  createdAt DateTime @default(now())
+}
+
+model Asset {
+  id          Int   @id @default(autoincrement())
+  name        String
+  value       Int   @default(0)
+  depPct      Float @default(0)
+  purchasedAt String @default("")
+  notes       String @default("")
+}
+
+model Refund {
+  id        Int    @id @default(autoincrement())
+  paymentId Int
+  orderId   Int    @default(0)
+  amount    Int    @default(0)
+  reason    String @default("")
+  method    String @default("upi")
+  at        DateTime @default(now())
+}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, KanbanSquare, ShoppingCart, FileText, ClipboardList,
-  Blocks, Image, Mail, Bell, Handshake, KeyRound, ShieldCheck, Route, Settings, CalendarClock, Activity, Workflow, Plug, Menu, X, LogOut, Star, Package, GraduationCap, MessageSquare, MessageCircle, LayoutTemplate, Ticket, Trello, ListChecks,
+  Blocks, Image, Mail, Bell, Handshake, KeyRound, ShieldCheck, Route, Settings, CalendarClock, Activity, Workflow, Plug, Menu, X, LogOut, Star, Package, GraduationCap, MessageSquare, MessageCircle, LayoutTemplate, Ticket, Trello, ListChecks, IndianRupee,
 } from "lucide-react";
 
 type Item = [string, string, React.ComponentType<{ size?: number; className?: string }>];
@@ -27,6 +27,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     label: "Sell", items: [
       ["Orders", "/admin/orders", ShoppingCart],
       ["Shop", "/admin/shop", ShoppingCart],
+      ["Billing", "/admin/billing", IndianRupee],
       ["Stock", "/admin/stock", Package],
       ["Packages", "/admin/packages", Package],
       ["Partners", "/admin/partners", Handshake],
