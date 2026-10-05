@@ -29,7 +29,7 @@ export function roleGate(role: string, perm: Perm): string | null {
 }
 
 export function roleMatrix(): { role: string; perms: Perm[] }[] {
-  return ["owner", "manager", "sales", "cashier", "inventory", "accountant", "hr", "marketing", "staff"]
+  return ["owner", "manager", "sales", "cashier", "inventory", "accountant", "hr", "marketing", "author", "staff"]
     .map((role) => ({ role, perms: rolePerms(role) }));
 }
 

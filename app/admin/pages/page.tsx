@@ -1,5 +1,14 @@
 import { revalidatePath } from "next/cache";
-import { getDb } from "@/lib/store";
+import { getDb, getPref, setPref } from "@/lib/store";
+
+async function setMode(form: FormData) {
+  "use server";
+  await requireTeam();
+  const mode = String(form.get("site_mode") || "agency");
+  if (["agency", "profile", "shop", "booking"].includes(mode)) setPref("site_mode", mode);
+  revalidatePath("/admin/pages");
+  revalidatePath("/");
+}
 import { requireTeam } from "@/lib/auth";
 import { isLayerType, sanitizeProps } from "@/lib/uibuilder";
 import { ServerLayerRenderer } from "@/components/layer-renderer";
@@ -104,6 +113,19 @@ export default async function PagesAdmin() {
   return (
     <>
       <h1 className="text-2xl font-extrabold">UI Builder (pages)</h1>
+      <p className="mt-1 text-sm text-zinc-500">Body lines for cards/stats/faq use <code>Label | /link-or-value</code>. Variables: <code>{"{{year}} {{siteName}} {{phone}}"}</code> plus page vars.</p>
+      <form action={setMode} className="mt-3 flex max-w-2xl flex-wrap items-end gap-2 rounded-2xl border border-brand/30 bg-brand/5 p-4">
+        <label className="grid gap-1 text-sm">Site mode — what the homepage <code>/</code> is
+          <select name="site_mode" defaultValue={getPref("site_mode", "agency")}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
+            {[["agency", "Agency (default full site)"], ["profile", "Business profile card"], ["shop", "Shop storefront"], ["booking", "Booking app"]].map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+        </label>
+        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Set mode</button>
+        <a href="/onboarding" className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Setup wizard →</a>
+      </form>
       <p className="mt-1 text-sm text-zinc-500">Compose public pages from registry layers with variables. Renders at <code>/p/[slug]</code>. Body lines for cards/stats/faq use <code>Label | /link-or-value</code>. Variables: <code>{"{{year}} {{siteName}} {{phone}}"}</code> plus page vars.</p>
       <form action={add} className="mt-4 grid max-w-2xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
         <div className="grid gap-2 md:grid-cols-3">

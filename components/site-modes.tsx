@@ -1,0 +1,109 @@
+import Link from "next/link";
+import { CONTACT, VERTICALS } from "@/lib/site";
+import { getDb, getPref } from "@/lib/store";
+import { listProducts } from "@/lib/commerce";
+import { listServices } from "@/lib/catalog";
+import { LeadForm } from "@/components/lead-form";
+
+function biz(k: string, fb: string): string {
+  return getPref(k, "") || fb;
+}
+
+// Business profile card: name, address, GSTIN/CIN, contact, enquiry form.
+export function ProfileMode() {
+  return (
+    <section className="wrap section max-w-2xl text-center">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Welcome</p>
+      <h1 className="display-1 mt-2">{biz("biz_name", "Our Business")}</h1>
+      <p className="mt-3 text-zinc-600 dark:text-zinc-400">
+        {[biz("biz_address", ""), biz("biz_city", ""), biz("biz_state", ""), biz("biz_pin", "")].filter(Boolean).join(", ")}
+      </p>
+      {(getPref("biz_gstin", "") || getPref("biz_cin", "")) && (
+        <p className="mt-1 text-xs text-zinc-500">
+          {[getPref("biz_gstin", "") && `GSTIN ${getPref("biz_gstin", "")}`, getPref("biz_cin", "") && `CIN ${getPref("biz_cin", "")}`].filter(Boolean).join(" · ")}
+        </p>
+      )}
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <a href={CONTACT.whatsapp} className="beam beam-rainbow btn-dark inline-flex min-h-[44px] items-center rounded-full px-6 font-semibold">WhatsApp us →</a>
+        <a href={`tel:${biz("biz_phone", CONTACT.phone)}`} className="btn-glass inline-flex min-h-[44px] items-center rounded-full px-6 font-semibold">Call</a>
+      </div>
+      <div className="mt-8 text-left"><LeadForm /></div>
+    </section>
+  );
+}
+
+// Shop storefront: live catalogue grid + enquiry.
+export function ShopMode() {
+  let products: { id: number; name: string; price: number; mrp: number; shortDesc: string; images: string }[] = [];
+  try {
+    products = listProducts({ status: "active", limit: 24 }) as typeof products;
+  } catch { /* first boot */ }
+  return (
+    <section className="wrap section">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Shop</p>
+      <h1 className="display-1 mt-2">{biz("biz_name", "Our Shop")}</h1>
+      {products.length === 0 ? (
+        <p className="mt-4 text-zinc-500">Catalogue coming soon — <Link href="/contact" className="underline">ask us on WhatsApp</Link>.</p>
+      ) : (
+        <ul className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {products.map((p) => {
+            const img = (JSON.parse(p.images || "[]") as string[])[0];
+            return (
+              <li key={p.id} className="overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
+                {img ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={img} alt={p.name} loading="lazy" className="aspect-square w-full object-cover" />
+                ) : <div aria-hidden className="aspect-square w-full bg-black/5 dark:bg-white/10" />}
+                <div className="p-3">
+                  <p className="truncate text-sm font-bold">{p.name}</p>
+                  <p className="text-sm">₹{(p.price / 100).toFixed(0)}
+                    {p.mrp > p.price && <span className="ml-1 text-xs text-zinc-500 line-through">₹{(p.mrp / 100).toFixed(0)}</span>}</p>
+                  {p.shortDesc && <p className="mt-0.5 truncate text-xs text-zinc-500">{p.shortDesc}</p>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="mt-8 flex flex-wrap gap-3">
+        <a href={CONTACT.whatsapp} className="beam beam-rainbow btn-dark inline-flex min-h-[44px] items-center rounded-full px-6 font-semibold">Order on WhatsApp →</a>
+      </div>
+    </section>
+  );
+}
+
+// Booking app: services + verticals + booking form.
+export function BookingMode() {
+  const services = listServices().slice(0, 8) as { slug: string; title: string }[];
+  return (
+    <section className="wrap section">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Book a service</p>
+      <h1 className="display-1 mt-2">{biz("biz_name", "Book with us")}</h1>
+      <ul className="mt-6 grid gap-2 md:grid-cols-2">
+        {services.map((s) => (
+          <li key={s.slug}>
+            <Link href={`/services/${s.slug}`} className="flex min-h-[44px] items-center justify-between rounded-2xl border border-black/10 px-4 py-3 font-semibold dark:border-white/10">
+              {s.title}<span aria-hidden>→</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-6 text-sm font-bold">Industries we serve</p>
+      <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
+        {VERTICALS.map((v) => (
+          <li key={v.slug}><Link href={`/industries/${v.slug}`} className="inline-flex min-h-[44px] items-center rounded-full border border-black/15 px-4 dark:border-white/20">{v.label}</Link></li>
+        ))}
+      </ul>
+      <div className="mt-8"><LeadForm /></div>
+    </section>
+  );
+}
+
+export function siteMode(): string {
+  try {
+    const m = getDb().prepare("SELECT value FROM Preference WHERE key='site_mode'").get() as { value: string } | undefined;
+    return ["agency", "profile", "shop", "booking"].includes(m?.value ?? "") ? m!.value : "agency";
+  } catch {
+    return "agency";
+  }
+}

@@ -20,7 +20,11 @@ const CHANNELS = [
   { icon: "telegram", label: "Telegram" },
 ];
 import { FaqJsonLd } from "@/components/json-ld";
+import { ProfileMode, ShopMode, BookingMode, siteMode } from "@/components/site-modes";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+// Live-data front door: mode, testimonials and catalogue change at runtime.
+export const dynamic = "force-dynamic";
 
 const FAQS = [
   { q: "What does CodeRender do?", a: "We run your local growth: Google profile, posts, reviews, WhatsApp replies, ads, and a fast website — so enquiries arrive while you focus on customers." },
@@ -34,6 +38,13 @@ const FAQS = [
 ];
 
 export default function Home() {
+  let mode = "agency";
+  try {
+    mode = siteMode();
+  } catch { /* default */ }
+  if (mode === "profile") return <ProfileMode />;
+  if (mode === "shop") return <ShopMode />;
+  if (mode === "booking") return <BookingMode />;
   let proof: { name: string; business: string; beforeTx: string; afterTx: string }[] = [];
   try {
     proof = getDb().prepare("SELECT name, business, beforeTx, afterTx FROM Testimonial WHERE published=1 ORDER BY id DESC LIMIT 3").all() as typeof proof;

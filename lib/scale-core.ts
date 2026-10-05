@@ -1,6 +1,6 @@
 // Pure scale-platform helpers (no sqlite — safe for vitest).
 
-export const ROLES = ["owner", "manager", "sales", "cashier", "inventory", "accountant", "hr", "marketing", "staff"] as const;
+export const ROLES = ["owner", "manager", "sales", "cashier", "inventory", "accountant", "hr", "marketing", "author", "staff"] as const;
 
 export type Perm =
   | "sell" | "stock" | "billing" | "crm" | "retail" | "people" | "marketing"
@@ -15,6 +15,7 @@ const MATRIX: Record<string, Perm[]> = {
   accountant: ["billing", "stock", "reports"],
   hr: ["people", "reports"],
   marketing: ["marketing", "crm", "reports"],
+  author: ["marketing"],
   staff: [],
 };
 
