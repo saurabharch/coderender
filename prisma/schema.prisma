@@ -1083,3 +1083,86 @@ model BinLoc {
   shelf       String @default("")
   code        String @default("")
 }
+
+model PayIntent {
+  id          Int    @id @default(autoincrement())
+  ikey        String @unique
+  orderId     Int    @default(0)
+  billId      Int    @default(0)
+  amount      Int    @default(0)
+  method      String @default("upi")
+  status      String @default("created")
+  providerRef String @default("")
+  createdAt   DateTime @default(now())
+}
+
+model PayLink {
+  token     String @id
+  billId    Int    @default(0)
+  orderId   Int    @default(0)
+  amount    Int    @default(0)
+  status    String @default("open")
+  hits      Int    @default(0)
+  createdAt DateTime @default(now())
+}
+
+model UpiQr {
+  id     Int     @id @default(autoincrement())
+  upiId  String
+  name   String  @default("")
+  amount Int     @default(0)
+  label  String  @default("")
+  active Boolean @default(true)
+}
+
+model ReminderLog {
+  id      Int    @id @default(autoincrement())
+  billId  Int
+  channel String @default("")
+  at      DateTime @default(now())
+}
+
+model LedgerAcct {
+  code String @id
+  name String
+  type String @default("ASSET")
+}
+
+model BizSub {
+  id        Int    @id @default(autoincrement())
+  plan      String
+  cycle     String @default("monthly")
+  status    String @default("active")
+  renewsAt  String @default("")
+  createdAt DateTime @default(now())
+}
+
+model BizLoan {
+  id          Int    @id @default(autoincrement())
+  provider    String @default("")
+  principal   Int    @default(0)
+  outstanding Int    @default(0)
+  rateBps     Int    @default(0)
+  tenure      Int    @default(0)
+  status      String @default("active")
+  createdAt   DateTime @default(now())
+}
+
+model BizRepay {
+  id     Int    @id @default(autoincrement())
+  loanId Int
+  amount Int    @default(0)
+  at     DateTime @default(now())
+}
+
+model HeroSlide {
+  id       Int     @id @default(autoincrement())
+  image    String  @default("")
+  title    String  @default("")
+  subtitle String  @default("")
+  cta      String  @default("")
+  href     String  @default("/")
+  anim     String  @default("slide")
+  ord      Int     @default(0)
+  active   Boolean @default(true)
+}

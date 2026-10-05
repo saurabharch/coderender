@@ -5,6 +5,8 @@ import { CONTACT, VERTICALS } from "@/lib/site";
 import { getDb, getPref } from "@/lib/store";
 import { listProducts } from "@/lib/commerce";
 import { listServices } from "@/lib/catalog";
+import { listSlides } from "@/lib/vyapar";
+import { HeroSlider } from "@/components/hero-slider";
 import { LeadForm } from "@/components/lead-form";
 
 function biz(k: string, fb: string): string {
@@ -43,8 +45,11 @@ export function ProfileMode() {
 // Shop storefront: live catalogue grid + enquiry.
 export function ShopMode() {
   let products: { id: number; name: string; price: number; mrp: number; shortDesc: string; images: string }[] = [];
+  let slides: { id: number; image: string; title: string; subtitle: string; cta: string; href: string; anim: string }[] = [];
   try {
     products = listProducts({ status: "active", limit: 24 }) as typeof products;
+    // Deep-plain: null-prototype sqlite rows crash client components.
+    slides = JSON.parse(JSON.stringify(listSlides(true))) as typeof slides;
   } catch { /* first boot */ }
   const theme = siteTheme();
   return (
@@ -56,7 +61,8 @@ export function ShopMode() {
         </div>
       </div>
       <section className="wrap section">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] opacity-70">Shop</p>
+      <HeroSlider slides={slides} />
+      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] opacity-70">Shop</p>
       <h1 className="display-1 mt-2">Today&apos;s picks</h1>
       {products.length === 0 ? (
         <p className="mt-4 text-zinc-500">Catalogue coming soon — <Link href="/contact" className="underline">ask us on WhatsApp</Link>.</p>

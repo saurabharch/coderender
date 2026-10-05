@@ -148,21 +148,27 @@ export function saveProduct(input: {
 }): number {
   commerceTables();
   const db = getDb();
-  const media = JSON.stringify((input.media ?? []).slice(0, 8)).slice(0, 2000);
-  const seo = JSON.stringify(input.seo ?? {}).slice(0, 1000);
-  const attrs = JSON.stringify(input.attrs ?? {}).slice(0, 2000);
-  const specs = JSON.stringify(input.specs ?? {}).slice(0, 4000);
-  const images = JSON.stringify((input.images ?? []).slice(0, 10)).slice(0, 4000);
-  const videos = JSON.stringify((input.videos ?? []).slice(0, 3)).slice(0, 2000);
   const bt = BARCODES.includes(input.barcodeType ?? "") ? (input.barcodeType ?? "") : "";
-  const vals = [input.name.slice(0, 150), (input.sku ?? "").slice(0, 40), (input.kind ?? "physical").slice(0, 20),
-    Math.max(0, Math.round(input.price)), Math.max(0, Math.round(input.mrp ?? 0)),
-    (input.unit ?? "pc").slice(0, 10), Math.max(1, Math.round(input.perPack ?? 1)),
-    Math.max(0, input.taxPct ?? 0), Math.max(0, Math.round(input.stock ?? 0)),
-    (input.status ?? "active").slice(0, 20), media, seo, attrs,
-    (input.category ?? "").slice(0, 60), (input.subcategory ?? "").slice(0, 60),
-    (input.shortDesc ?? "").slice(0, 300), (input.description ?? "").slice(0, 8000), specs, images, videos,
-    (input.barcode ?? "").slice(0, 40), bt, (input.bin ?? "").slice(0, 40)];
+  const prev = input.id
+    ? (db.prepare("SELECT * FROM Product WHERE id=?").get(input.id) as Record<string, string | number> | undefined)
+    : undefined;
+  if (input.id && !prev) throw new Error("no product");
+  const keep = <T,>(v: T | undefined, k: string, fb: T): T => (v !== undefined ? v : ((prev?.[k] ?? fb) as T));
+  const keepStr = (v: string | undefined, k: string, fb = ""): string => (v !== undefined ? v : String(prev?.[k] ?? fb));
+  const media = JSON.stringify(input.media ?? JSON.parse(String(prev?.media ?? "[]"))).slice(0, 2000);
+  const seo = JSON.stringify(input.seo ?? JSON.parse(String(prev?.seo ?? "{}"))).slice(0, 1000);
+  const attrs = JSON.stringify(input.attrs ?? JSON.parse(String(prev?.attrs ?? "{}"))).slice(0, 2000);
+  const specs = JSON.stringify(input.specs ?? JSON.parse(String(prev?.specs ?? "{}"))).slice(0, 4000);
+  const images = JSON.stringify((input.images ?? JSON.parse(String(prev?.images ?? "[]"))).slice(0, 10)).slice(0, 4000);
+  const videos = JSON.stringify((input.videos ?? JSON.parse(String(prev?.videos ?? "[]"))).slice(0, 3)).slice(0, 2000);
+  const vals = [input.name.slice(0, 150), keepStr(input.sku, "sku"), keepStr(input.kind, "kind", "physical"),
+    Math.max(0, Math.round(input.price)), Math.max(0, Math.round(keep(input.mrp, "mrp", 0))),
+    keepStr(input.unit, "unit", "pc"), Math.max(1, Math.round(keep(input.perPack, "perPack", 1))),
+    Math.max(0, keep(input.taxPct, "taxPct", 0) as number), Math.max(0, Math.round(keep(input.stock, "stock", 0))),
+    keepStr(input.status, "status", "active"), media, seo, attrs,
+    keepStr(input.category, "category"), keepStr(input.subcategory, "subcategory"),
+    keepStr(input.shortDesc, "shortDesc"), keepStr(input.description, "description"), specs, images, videos,
+    keepStr(input.barcode, "barcode"), input.barcodeType !== undefined ? bt : keepStr(input.barcodeType, "barcodeType"), keepStr(input.bin, "bin")];
   const cols = `name=?, sku=?, kind=?, price=?, mrp=?, unit=?, perPack=?, taxPct=?, stock=?, status=?, media=?, seo=?, attrs=?,
     category=?, subcategory=?, shortDesc=?, description=?, specs=?, images=?, videos=?, barcode=?, barcodeType=?, bin=?`;
   const names = `name, sku, kind, price, mrp, unit, perPack, taxPct, stock, status, media, seo, attrs,

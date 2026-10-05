@@ -79,6 +79,22 @@ export function startScheduler() {
   setInterval(async () => {
     try {
       const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      if (now.getHours() === 9 && now.getMinutes() < 10 && getPref("reminders", "on") === "on") {
+        const today = now.toISOString().slice(0, 10);
+        if (getPref("last_remind_day", "") !== today) {
+          setPref("last_remind_day", today);
+          const { reminderTick } = await import("./vyapar");
+          const n = await reminderTick();
+          if (n) console.log(`[reminders] sent ${n}`);
+        }
+      }
+    } catch (e) {
+      console.error("[reminders]", e);
+    }
+  }, 600_000);
+  setInterval(async () => {
+    try {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
       if (now.getHours() === 9 && now.getMinutes() < 10 && getPref("payout_digest", "on") === "on") {
         const today = now.toISOString().slice(0, 10);
         if (getPref("last_payout_day", "") !== today) {

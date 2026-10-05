@@ -24,16 +24,24 @@ export function ShopConsole() {
   const [ccode, setCcode] = useState("");
   const [ckind, setCkind] = useState("pct");
   const [cval, setCval] = useState("");
+  const [eid, setEid] = useState("");
+  const [eprice, setEprice] = useState("");
+  const [estock, setEstock] = useState("");
+  const [slides, setSlides] = useState<{ id: number; title: string; anim: string; active: number }[]>([]);
+  const [stitle, setStitle] = useState("");
+  const [sanim, setSanim] = useState("slide");
 
   async function load() {
-    const [p, o, c] = await Promise.all([
+    const [p, o, c, h] = await Promise.all([
       fetch("/api/shop/products").then((r) => r.json()).catch(() => null),
       fetch("/api/shop/orders").then((r) => r.json()).catch(() => null),
       fetch("/api/shop/pricing").then((r) => r.json()).catch(() => null),
+      fetch("/api/finance?view=hero").then((r) => r.json()).catch(() => null),
     ]);
     if (p?.products) setProducts(p.products);
     if (o?.orders) setOrders(o.orders);
     if (c?.coupons) setCoupons(c.coupons);
+    if (h?.slides) setSlides(h.slides);
     setLoaded(true);
   }
 
@@ -72,6 +80,39 @@ export function ShopConsole() {
     if (res.ok) { setCcode(""); setCval(""); void load(); }
   }
 
+  async function quickEdit() {
+    const body: Record<string, unknown> = { id: Number(eid), name: "x" };
+    // Name is required by the schema; fetch the real one first (merge keeps the rest).
+    const cur = products.find((p) => p.id === Number(eid));
+    if (!cur) { setMsg("unknown product id"); return; }
+    Object.assign(body, { name: cur.name });
+    if (eprice) body.price = Math.round(Number(eprice) * 100);
+    if (estock) body.stock = Math.round(Number(estock));
+    const res = await fetch("/api/shop/products", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Updated ✓ (other fields kept)" : (d.error ?? "failed"));
+    if (res.ok) { setEid(""); setEprice(""); setEstock(""); void load(); }
+  }
+
+  async function addSlide() {
+    const res = await fetch("/api/finance", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "slide", title: stitle, anim: sanim }),
+    });
+    setMsg(res.ok ? "Slide added ✓" : "failed");
+    if (res.ok) { setStitle(""); void load(); }
+  }
+
+  async function delSlide(id: number) {
+    await fetch("/api/finance", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "slide-del", id }),
+    }).catch(() => {});
+    void load();
+  }
+
   async function move(id: number, to: string) {
     const res = await fetch("/api/shop/orders", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -100,6 +141,16 @@ export function ShopConsole() {
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Products ({products.length})</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={eid} onChange={(e) => setEid(e.target.value)} placeholder="Edit id" inputMode="numeric"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={eprice} onChange={(e) => setEprice(e.target.value)} placeholder="₹ new" inputMode="decimal"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={estock} onChange={(e) => setEstock(e.target.value)} placeholder="Stock" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void quickEdit()} disabled={!eid}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Update</button>
+        </div>
         {products.length === 0 ? <div className="mt-2"><Empty>No products yet — add the first above.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {products.map((p) => (
@@ -110,6 +161,33 @@ export function ShopConsole() {
             ))}
           </ul>
         )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Hero slider ({slides.length}) <span className="text-xs font-normal text-zinc-500">(shop theme front)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={stitle} onChange={(e) => setStitle(e.target.value)} placeholder="Title" maxLength={120}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <select value={sanim} onChange={(e) => setSanim(e.target.value)}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            <option value="slide">slide</option>
+            <option value="fade">fade</option>
+            <option value="zoom">zoom</option>
+          </select>
+          <button onClick={() => void addSlide()} disabled={!stitle.trim()}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+        </div>
+        {slides.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {slides.map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>#{s.id} {s.title || "(no title)"} · {s.anim} · {s.active ? "on" : "off"}</span>
+                <button onClick={() => void delSlide(s.id)}
+                  className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Del</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-1 text-xs text-zinc-500">Tip: paste a media-library URL via Edit — set image per slide with the API (image field).</p>
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Orders ({orders.length})</p>

@@ -11,21 +11,28 @@ export function BillingConsole() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [accts, setAccts] = useState<Acct[]>([]);
   const [exps, setExps] = useState<Expense[]>([]);
+  const [pnl, setPnl] = useState<{ sales: number; expenses: number; wages: number; profit: number } | null>(null);
+  const [qrs, setQrs] = useState<{ id: number; upiId: string; label: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
   const [oid, setOid] = useState("");
   const [head, setHead] = useState("");
   const [amt, setAmt] = useState("");
+  const [upiId, setUpiId] = useState("");
 
   async function load() {
-    const [b, a, e] = await Promise.all([
+    const [b, a, e, p, q] = await Promise.all([
       fetch("/api/billing/docs").then((r) => r.json()).catch(() => null),
       fetch("/api/billing/accounts").then((r) => r.json()).catch(() => null),
       fetch("/api/billing/money").then((r) => r.json()).catch(() => null),
+      fetch("/api/finance?view=pnl").then((r) => r.json()).catch(() => null),
+      fetch("/api/pay/link?qr=1").then((r) => r.json()).catch(() => null),
     ]);
     if (b?.bills) setBills(b.bills);
     if (a?.accounts) setAccts(a.accounts);
     if (e?.expenses) setExps(e.expenses);
+    if (p && typeof p.sales === "number") setPnl(p);
+    if (q?.qrs) setQrs(q.qrs);
     setLoaded(true);
   }
 
@@ -70,6 +77,16 @@ export function BillingConsole() {
     if (res.ok) void load();
   }
 
+  async function saveQr() {
+    const res = await fetch("/api/pay/link", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qr: true, upiId }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "QR saved ✓" : (d.error ?? "failed"));
+    if (res.ok) { setUpiId(""); void load(); }
+  }
+
   if (!loaded) return <Skeleton lines={5} />;
   return (
     <div className="grid gap-3">
@@ -96,6 +113,26 @@ export function BillingConsole() {
                 </span>
               </li>
             ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">P&amp;L {pnl && <span className="text-xs font-normal text-zinc-500">(collected − expenses − wages)</span>}</p>
+        {pnl ? (
+          <p className="mt-1 text-sm">Sales ₹{(pnl.sales / 100).toFixed(0)} · Expenses ₹{(pnl.expenses / 100).toFixed(0)} · Wages ₹{(pnl.wages / 100).toFixed(0)} · <b>Profit ₹{(pnl.profit / 100).toFixed(0)}</b></p>
+        ) : <p className="mt-1 text-sm text-zinc-500">Loading…</p>}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">UPI QR codes ({qrs.length})</p>
+        <div className="mt-2 flex gap-1.5">
+          <input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="merchant@upi" maxLength={60}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void saveQr()} disabled={!upiId.includes("@")}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save</button>
+        </div>
+        {qrs.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5 font-mono text-xs">
+            {qrs.map((q) => <li key={q.id} className="rounded-full border border-black/15 px-3 py-1.5 dark:border-white/20">{q.upiId}{q.label ? ` · ${q.label}` : ""}</li>)}
           </ul>
         )}
       </AdminCard>
