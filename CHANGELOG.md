@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.27.0] - 2026-10-05
+## [0.28.0] - 2026-10-05
+- Themes (9), public checkout, udhari ledger, service flags## [0.27.0] - 2026-10-05
 - Site modes + onboarding wizard + author role## [0.26.0] - 2026-10-05
 - Mantine v9 admin layer (charts, spotlight, dates, media studio)## [0.25.0] - 2026-10-05
 - Team access: invites, least-privilege, staff home, quick sale## [0.24.0] - 2026-10-05
