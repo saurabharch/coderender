@@ -1,6 +1,6 @@
 # Ticket 091-people-planning-bi
 
-Status: todo
+Status: done
 Labels: feature
 
 Phase G: HR/payroll/timesheets/leave, budgets + forecasts, BI command center.

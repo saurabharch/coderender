@@ -958,3 +958,78 @@ model PrintTemplate {
   body      String @default("")
   updatedAt DateTime @updatedAt
 }
+
+model Employee {
+  id          Int     @id @default(autoincrement())
+  name        String
+  email       String  @default("")
+  phone       String  @default("")
+  dept        String  @default("")
+  designation String  @default("")
+  base        Int     @default(0)
+  allowances  Int     @default(0)
+  deductions  Int     @default(0)
+  joinedAt    String  @default("")
+  active      Boolean @default(true)
+}
+
+model EmpLoan {
+  id          Int    @id @default(autoincrement())
+  employeeId  Int
+  amount      Int    @default(0)
+  balance     Int    @default(0)
+  installment Int    @default(0)
+  status      String @default("open")
+  createdAt   DateTime @default(now())
+}
+
+model PayrollRun {
+  id        Int    @id @default(autoincrement())
+  month     String @unique
+  status    String @default("draft")
+  createdAt DateTime @default(now())
+}
+
+model PayrollLine {
+  id          Int @id @default(autoincrement())
+  runId       Int
+  employeeId  Int
+  base        Int @default(0)
+  allowances  Int @default(0)
+  deductions  Int @default(0)
+  loanCut     Int @default(0)
+  net         Int @default(0)
+}
+
+model Attendance {
+  employeeId Int
+  day        String
+  status     String @default("present")
+
+  @@id([employeeId, day])
+}
+
+model LeaveReq {
+  id         Int    @id @default(autoincrement())
+  employeeId Int
+  fromDay    String @default("")
+  toDay      String @default("")
+  kind       String @default("casual")
+  status     String @default("pending")
+  notes      String @default("")
+}
+
+model Timesheet {
+  id         Int   @id @default(autoincrement())
+  employeeId Int
+  day        String @default("")
+  hours      Float @default(0)
+  taskRef    String @default("")
+}
+
+model Budget {
+  id      Int    @id @default(autoincrement())
+  head    String
+  month   String @default("")
+  planned Int    @default(0)
+}

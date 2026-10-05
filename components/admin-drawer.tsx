@@ -14,11 +14,13 @@ const GROUPS: { label: string; items: Item[] }[] = [
   {
     label: "Workspace", items: [
       ["Overview", "/admin", LayoutDashboard],
+      ["BI", "/admin/bi", Activity],
       ["Leads", "/admin/leads", Users],
       ["Pipeline", "/admin/pipeline", KanbanSquare],
       ["Boards", "/admin/boards", Trello],
       ["Todos", "/admin/todos", ListChecks],
       ["Calendar", "/admin/calendar", CalendarClock],
+      ["People", "/admin/people", Users],
       ["Services", "/admin/services", ClipboardList],
       ["Schedule", "/admin/schedule", CalendarClock],
       ["Google", "/admin/google", Plug],
