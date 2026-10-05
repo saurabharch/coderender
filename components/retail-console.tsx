@@ -87,8 +87,18 @@ export function RetailConsole() {
       body: JSON.stringify({ orderId: Number(shoid), courier: shcourier }),
     });
     const d = await res.json().catch(() => ({}));
-    setMsg(res.ok ? `Shipment #${d.id} created ✓ (advance via API)` : (d.error ?? "failed"));
+    setMsg(res.ok ? `Shipment #${d.id} created ✓` : (d.error ?? "failed"));
     if (res.ok) { setShoid(""); setShcourier(""); void load(); }
+  }
+
+  async function moveShip(id: number, to: string) {
+    const res = await fetch("/api/retail/ship", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, to }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `${to} ✓` : (d.error ?? "failed"));
+    if (res.ok) void load();
   }
 
   async function settle() {    const counted = prompt("Counted cash (₹)?");
@@ -211,9 +221,15 @@ export function RetailConsole() {
         {ships.length === 0 ? <div className="mt-2"><Empty>No shipments — create via API with an order id.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {ships.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
                 <span>#{s.id} · order #{s.orderId} · {s.courier || "—"} {s.tracking || ""}</span>
-                <span className="font-semibold">{s.status}</span>
+                <span className="flex items-center gap-1">
+                  <b className="text-xs">{s.status}</b>
+                  {(s.status === "created" ? ["packed"] : s.status === "packed" ? ["shipped"] : s.status === "shipped" ? ["delivered", "rto"] : [] as string[]).map((to) => (
+                    <button key={to} onClick={() => void moveShip(s.id, to)}
+                      className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">{to}</button>
+                  ))}
+                </span>
               </li>
             ))}
           </ul>

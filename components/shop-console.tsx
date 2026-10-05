@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 
-interface Product { id: number; name: string; sku: string; price: number; stock: number; status: string }
+interface Product { id: number; name: string; sku: string; price: number; stock: number; status: string; category: string; ratingAvg: number; ratingCount: number; vcount: number }
 interface Order { id: number; status: string; grand: number; coupon: string; createdAt: string }
 interface Coupon { code: string; kind: string; value: number; active: number }
 
@@ -155,7 +155,10 @@ export function ShopConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {products.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span className="min-w-0 truncate">#{p.id} {p.name} {p.sku && <span className="text-xs text-zinc-500">{p.sku}</span>}</span>
+                <span className="min-w-0 truncate">#{p.id} {p.name} {p.sku && <span className="text-xs text-zinc-500">{p.sku}</span>}
+                  {p.category && <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[11px] dark:bg-white/10">{p.category}</span>}
+                  {p.ratingCount > 0 && <span className="ml-1 text-xs text-amber-600">★{p.ratingAvg}({p.ratingCount})</span>}
+                  {p.vcount > 0 && <span className="ml-1 text-xs text-zinc-500">{p.vcount} variants</span>}</span>
                 <span className="shrink-0">₹{(p.price / 100).toFixed(0)} · {p.stock} · {p.status}</span>
               </li>
             ))}

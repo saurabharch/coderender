@@ -68,8 +68,18 @@ export function StockConsole() {
       }),
     });
     const d = await res.json().catch(() => ({}));
-    setMsg(res.ok ? `PO #${d.id} drafted ✓ (send → receive → bill → pay via API)` : (d.error ?? "failed"));
+    setMsg(res.ok ? `PO #${d.id} drafted ✓` : (d.error ?? "failed"));
     if (res.ok) { setPosup(""); setPopid(""); setPoqty(""); setPocost(""); void load(); }
+  }
+
+  async function poStep(id: number, to: string) {
+    const res = await fetch("/api/stock/purchase", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, to }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `${to} ✓` : (d.error ?? "failed"));
+    if (res.ok) void load();
   }
 
   async function addBin() {
@@ -150,9 +160,15 @@ export function StockConsole() {
         {pos.length === 0 ? <div className="mt-2"><Empty>No POs yet — draft one above.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {pos.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
                 <span>#{p.id} · {p.supplier || "?"} · ₹{(p.grand / 100).toFixed(0)}</span>
-                <span className="font-semibold">{p.status}</span>
+                <span className="flex items-center gap-1">
+                  <b className="text-xs">{p.status}</b>
+                  {(p.status === "draft" ? ["sent"] : p.status === "sent" ? ["cancelled"] : [] as string[]).map((to) => (
+                    <button key={to} onClick={() => void poStep(p.id, to)}
+                      className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">{to}</button>
+                  ))}
+                </span>
               </li>
             ))}
           </ul>

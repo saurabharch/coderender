@@ -104,6 +104,7 @@ export function AdminDrawer({ email, role }: { email: string; role: string }) {
           <LogOut size={17} className="shrink-0" />Sign out
         </button>
       </form>
+      <p className="px-2 pt-2 text-[11px] text-zinc-400">Tip: <kbd className="rounded border border-black/15 px-1 font-mono dark:border-white/20">Ctrl K</kbd> to search</p>
     </nav>
   );
   return (
