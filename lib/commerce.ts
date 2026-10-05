@@ -211,15 +211,26 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
   const o = db.prepare("SELECT status FROM ShopOrder WHERE id=?").get(id) as { status: string } | undefined;
   if (!o) throw new Error("no order");
   if (!orderCan(o.status, to)) throw new Error(`${o.status} → ${to} not allowed`);
-  db.prepare("UPDATE ShopOrder SET status=? WHERE id=?").run(to, id);
-  if (to === "confirmed") {
-    // Reserve stock at confirm through the ledger (086); physical decrement,
-    // Main warehouse mirror keeps Product.stock in sync.
-    const { issueStock } = await import("./inventory");
-    for (const l of db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[]) {
-      const p = db.prepare("SELECT kind FROM Product WHERE id=?").get(l.productId) as { kind: string } | undefined;
-      if (p?.kind === "physical") issueStock(l.productId, l.qty, `order#${id}`);
+  // Atomic: stock moves + earn + status flip commit together — a failed
+  // confirm can never leave a phantom "confirmed" order behind.
+  db.exec("BEGIN");
+  try {
+    if (to === "confirmed") {
+      // Reserve stock at confirm through the ledger (086); physical decrement,
+      // Main warehouse mirror keeps Product.stock in sync.
+      const { issueStock } = await import("./inventory");
+      for (const l of db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[]) {
+        const p = db.prepare("SELECT kind FROM Product WHERE id=?").get(l.productId) as { kind: string } | undefined;
+        if (p?.kind === "physical") issueStock(l.productId, l.qty, `order#${id}`);
+      }
+      const { earnForOrder } = await import("./crm");
+      earnForOrder(id);
     }
+    db.prepare("UPDATE ShopOrder SET status=? WHERE id=?").run(to, id);
+    log(id, `status:${to}`);
+    db.exec("COMMIT");
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch { /* already out */ }
+    throw e;
   }
-  log(id, `status:${to}`);
 }

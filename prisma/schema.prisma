@@ -624,6 +624,7 @@ model Customer {
   phone     String @default("")
   email     String @default("")
   cgroup    String @default("retail")
+  stage     String @default("lead")
   tags      String @default("")
   credit    Int    @default(0)
   balance   Int    @default(0)
@@ -834,4 +835,38 @@ model Refund {
   reason    String @default("")
   method    String @default("upi")
   at        DateTime @default(now())
+}
+
+model CustomerEvent {
+  id         Int    @id @default(autoincrement())
+  customerId Int
+  kind       String
+  detail     String @default("")
+  at         DateTime @default(now())
+}
+
+model LoyaltyAcct {
+  customerId Int    @id
+  points     Int    @default(0)
+  lifetime   Int    @default(0)
+  tier       String @default("silver")
+}
+
+model LoyaltyTx {
+  id         Int    @id @default(autoincrement())
+  customerId Int
+  delta      Int    @default(0)
+  reason     String @default("")
+  at         DateTime @default(now())
+}
+
+model Review {
+  id         Int    @id @default(autoincrement())
+  productId  Int    @default(0)
+  customerId Int    @default(0)
+  rating     Int    @default(5)
+  title      String @default("")
+  body       String @default("")
+  status     String @default("pending")
+  createdAt  DateTime @default(now())
 }

@@ -42,6 +42,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
   {
     label: "Engage", items: [
       ["WhatsApp", "/admin/whatsapp", MessageCircle],
+      ["CRM", "/admin/crm", Users],
       ["Comments", "/admin/comments", MessageSquare],
       ["Tickets", "/admin/tickets", Ticket],
       ["Subscribers", "/admin/subscribers", Mail],

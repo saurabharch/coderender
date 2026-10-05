@@ -40,11 +40,21 @@ function move(productId: number, warehouseId: number, kind: MoveKind, qty: numbe
   }
 }
 
+function ensureLevel(productId: number, warehouseId: number): number {
+  const db = getDb();
+  const r = db.prepare("SELECT qty FROM StockLevel WHERE productId=? AND warehouseId=?").get(productId, warehouseId) as
+    { qty: number } | undefined;
+  if (r) return r.qty;
+  // Pre-ledger products (or new rows): seed from the Product.stock mirror once.
+  const p = db.prepare("SELECT stock FROM Product WHERE id=?").get(productId) as { stock: number } | undefined;
+  const seed = warehouseId === 1 ? Math.max(0, Math.round(p?.stock ?? 0)) : 0;
+  db.prepare("INSERT INTO StockLevel (productId, warehouseId, qty, avgCost) VALUES (?,?,?,0)").run(productId, warehouseId, seed);
+  return seed;
+}
+
 export function levelOf(productId: number, warehouseId = 1): number {
   inventoryTables();
-  const r = getDb().prepare("SELECT qty FROM StockLevel WHERE productId=? AND warehouseId=?").get(productId, warehouseId) as
-    { qty: number } | undefined;
-  return r?.qty ?? 0;
+  return ensureLevel(productId, warehouseId);
 }
 
 export function receiveStock(productId: number, qty: number, warehouseId = 1, cost = 0, ref = "receive"): void {
@@ -208,15 +218,22 @@ export function receivePO(id: number, lines: { productId: number; qty: number }[
   if (o.status !== "sent") throw new Error("PO must be sent before receiving");
   const clean = lines.filter((l) => l.qty > 0).slice(0, 50);
   if (!clean.length) throw new Error("nothing to receive");
-  for (const l of clean) {
-    const line = db.prepare("SELECT cost FROM POLine WHERE poId=? AND productId=?").get(id, l.productId) as
-      { cost: number } | undefined;
-    receiveStock(l.productId, l.qty, warehouseId, line?.cost ?? 0, `grn:po${id}`);
+  db.exec("BEGIN");
+  try {
+    for (const l of clean) {
+      const line = db.prepare("SELECT cost FROM POLine WHERE poId=? AND productId=?").get(id, l.productId) as
+        { cost: number } | undefined;
+      receiveStock(l.productId, l.qty, warehouseId, line?.cost ?? 0, `grn:po${id}`);
+    }
+    const grn = Number(db.prepare("INSERT INTO GRN (poId, lines, notes) VALUES (?,?,?)")
+      .run(id, JSON.stringify(clean).slice(0, 2000), notes.slice(0, 300)).lastInsertRowid);
+    db.prepare("UPDATE PurchaseOrder SET status='received' WHERE id=?").run(id);
+    db.exec("COMMIT");
+    return grn;
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch { /* already out */ }
+    throw e;
   }
-  const grn = Number(db.prepare("INSERT INTO GRN (poId, lines, notes) VALUES (?,?,?)")
-    .run(id, JSON.stringify(clean).slice(0, 2000), notes.slice(0, 300)).lastInsertRowid);
-  db.prepare("UPDATE PurchaseOrder SET status='received' WHERE id=?").run(id);
-  return grn;
 }
 
 export function billPO(id: number, amount?: number, dueAt = ""): number {
