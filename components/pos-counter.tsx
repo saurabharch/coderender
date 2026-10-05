@@ -6,7 +6,7 @@ import { AdminCard, Empty } from "@/components/admin-ui";
 interface Line { productId: number; name: string; price: number; qty: number }
 interface Found { id: number; name: string; price: number; stock: number }
 
-type Detector = { detect(v: HTMLVideoElement): Promise<{ rawValue: string }[]> };
+type Detector = { detect(v: HTMLVideoElement | ImageBitmap): Promise<{ rawValue: string }[]> };
 declare global {
   interface Window { BarcodeDetector?: new (opts?: object) => Detector }
 }
@@ -25,6 +25,7 @@ export function PosCounter() {
   const [method, setMethod] = useState<"cash" | "upi" | "card">("cash");
   const [tendered, setTendered] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const stopRef = useRef(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,16 +75,47 @@ export function PosCounter() {
       setCamErr("No camera API in this browser. Type the code or use a scan gun.");
       return;
     }
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    } catch (e) {
+      // Some devices reject constraints — retry plain before giving up.
+      if (e instanceof DOMException && (e.name === "OverconstrainedError" || e.name === "NotFoundError")) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch { /* fall through to message */ }
+      }
+      if (!stream) throw e;
+    }
+    try {
       streamRef.current = stream;
       setCam("on"); // renders <video>; the effect below attaches + loops
     } catch (e) {
       setCam("unsupported");
       setCamErr(e instanceof DOMException && e.name === "NotAllowedError"
-        ? "Camera permission denied — allow it in the browser site settings and retry."
+        ? "Camera permission denied — allow it in the browser site settings and retry, or use Take photo below (separate permission)."
         : `Camera failed (${e instanceof Error ? e.message : "unknown"}). Type the code instead.`);
     }
+  }
+
+  // Photo fallback: opens the native camera app (separate permission from the
+  // browser live-camera gate), then decodes the still locally — no network.
+  async function photoScan(file: File | undefined) {
+    if (!file) return;
+    setMsg("Reading photo…");
+    try {
+      if (!("BarcodeDetector" in window) || !window.BarcodeDetector) throw new Error("no decoder");
+      const bmp = await createImageBitmap(file);
+      const det = new window.BarcodeDetector({ formats: FORMATS });
+      const found = await det.detect(bmp);
+      bmp.close();
+      const v = found[0]?.rawValue || "";
+      if (!v) throw new Error("empty");
+      await addCode(v);
+    } catch {
+      setMsg("No barcode found in that photo — try closer, steadier, better light.");
+    }
+    if (photoRef.current) photoRef.current.value = "";
   }
 
   // Attach stream once the <video> exists, then detection-loop until stopped.
@@ -208,6 +240,15 @@ export function PosCounter() {
             )}
           </div>
           {cam === "unsupported" && <p className="mt-1 text-xs text-zinc-500">{camErr || "No camera barcode API here — type the code or use a scan gun."}</p>}
+          {cam !== "on" && (
+            <div className="mt-1.5">
+              <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
+                aria-label="Take a barcode photo"
+                onChange={(e) => void photoScan(e.target.files?.[0])} />
+              <button onClick={() => photoRef.current?.click()}
+                className="min-h-[44px] w-full rounded-xl border border-black/15 text-sm font-semibold dark:border-white/20">📸 Take barcode photo</button>
+            </div>
+          )}
           {cam === "on" && (
             // eslint-disable-next-line jsx-a11y/media-has-caption
             <video ref={videoRef} playsInline muted className="mt-1.5 aspect-[4/3] w-full rounded-xl bg-black object-cover" />

@@ -16,6 +16,7 @@ export function ShopConsole() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
+  const [barcode, setBarcode] = useState("");
   const [vpid, setVpid] = useState("");
   const [vname, setVname] = useState("");
   const [vsize, setVsize] = useState("");
@@ -50,10 +51,10 @@ export function ShopConsole() {
   async function addProduct() {
     const res = await fetch("/api/shop/products", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price: Math.round(Number(price) * 100), stock: Math.round(Number(stock) || 0) }),
+      body: JSON.stringify({ name, price: Math.round(Number(price) * 100), stock: Math.round(Number(stock) || 0), ...(barcode.trim() ? { barcode: barcode.trim() } : {}) }),
     });
-    setMsg(res.ok ? "Product added ✓" : "Add failed");
-    if (res.ok) { setName(""); setPrice(""); setStock(""); void load(); }
+    setMsg(res.ok ? "Product added ✓ (auto-barcode when left blank)" : "Add failed");
+    if (res.ok) { setName(""); setPrice(""); setStock(""); setBarcode(""); void load(); }
   }
 
   async function addVariant() {
@@ -135,6 +136,8 @@ export function ShopConsole() {
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Barcode (blank = auto)" maxLength={40}
+            className="min-h-[44px] w-40 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
           <button onClick={() => void addProduct()} disabled={!name.trim() || !price}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
         </div>
