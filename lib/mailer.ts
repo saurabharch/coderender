@@ -13,6 +13,7 @@ function shell(title: string, body: string): string {
 
 let transporter: Transporter | null = null;
 let previewOnly = false;
+let offlineOnly = false;
 
 async function getTransport(): Promise<Transporter> {
   if (transporter) return transporter;
@@ -22,12 +23,20 @@ async function getTransport(): Promise<Transporter> {
     transporter = nodemailer.createTransport(url);
     return transporter;
   }
-  const test = await nodemailer.createTestAccount();
-  transporter = nodemailer.createTransport({
-    host: "smtp.ethereal.email", port: 587, secure: false,
-    auth: { user: test.user, pass: test.pass },
-  });
-  previewOnly = true;
+  try {
+    const test = await nodemailer.createTestAccount();
+    transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email", port: 587, secure: false,
+      auth: { user: test.user, pass: test.pass },
+    });
+    previewOnly = true;
+  } catch {
+    // Ethereal unreachable (offline DNS etc.) — login/OTP must not die with
+    // it. Buffer the message locally and hand back a log preview instead.
+    transporter = nodemailer.createTransport({ streamTransport: true, buffer: true });
+    previewOnly = true;
+    offlineOnly = true;
+  }
   return transporter;
 }
 
@@ -37,8 +46,9 @@ export async function sendMail(to: string, subject: string, html: string): Promi
   const from = smtpConfig().from;
   const info = await t.sendMail({ from, to, subject, html });
   const url = nodemailer.getTestMessageUrl(info);
-  const preview = typeof url === "string" ? url : undefined;
+  const preview = typeof url === "string" ? url : offlineOnly ? "log-only (ethereal unreachable — check console)" : undefined;
   if (preview) console.log(`[mail/dev-preview] ${to}: ${preview}`);
+  else if (offlineOnly) console.log(`[mail/log-only] to=${to} subject=${subject}`);
   return { preview };
 }
 
