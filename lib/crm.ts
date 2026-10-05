@@ -12,6 +12,9 @@ export function crmTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS LoyaltyAcct (customerId INTEGER PRIMARY KEY, points INTEGER NOT NULL DEFAULT 0, lifetime INTEGER NOT NULL DEFAULT 0, tier TEXT NOT NULL DEFAULT 'silver')`);
   db.exec(`CREATE TABLE IF NOT EXISTS LoyaltyTx (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL, delta INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Review (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL DEFAULT 0, customerId INTEGER NOT NULL DEFAULT 0, rating INTEGER NOT NULL DEFAULT 5, title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  for (const c of ["ratingAvg REAL NOT NULL DEFAULT 0", "ratingCount INTEGER NOT NULL DEFAULT 0"]) {
+    try { db.exec(`ALTER TABLE Product ADD COLUMN ${c}`); } catch { /* exists */ }
+  }
   try { db.exec("ALTER TABLE Customer ADD COLUMN stage TEXT NOT NULL DEFAULT 'lead'"); } catch { /* exists */ }
 }
 
@@ -141,6 +144,7 @@ export function saveReview(input: { productId?: number; customerId?: number; rat
     getDb().prepare("INSERT INTO Notification (title, body, audience, kind, target) VALUES (?,?,?,?,?)")
       .run(`Negative review (${r}★)`, `Review #${id} needs attention.`, "team", "warning", "team");
   }
+  refreshProductRating(input.productId ?? 0);
   return id;
 }
 
@@ -148,6 +152,19 @@ export function moderateReview(id: number, to: "approved" | "spam"): void {
   crmTables();
   if (!["approved", "spam"].includes(to)) throw new Error("bad status");
   getDb().prepare("UPDATE Review SET status=? WHERE id=?").run(to, id);
+  const r = getDb().prepare("SELECT productId FROM Review WHERE id=?").get(id) as { productId: number } | undefined;
+  refreshProductRating(r?.productId ?? 0);
+}
+
+// Rating rollup lives here (not commerce) to avoid a lib cycle:
+// approved-only average straight onto the product row.
+function refreshProductRating(productId: number): void {
+  if (!productId) return;
+  try {
+    const r = getDb().prepare("SELECT COUNT(*) n, COALESCE(AVG(rating),0) a FROM Review WHERE productId=? AND status='approved'").get(productId) as
+      { n: number; a: number };
+    getDb().prepare("UPDATE Product SET ratingAvg=?, ratingCount=? WHERE id=?").run(Math.round(r.a * 10) / 10, r.n, productId);
+  } catch { /* products table may predate rating columns on very old DBs — commerceTables backfills */ }
 }
 
 // ---- owner cockpit ----

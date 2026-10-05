@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const user = await sessionUser();
   if (!user) return NextResponse.json({ error: "login required" }, { status: 401 });
-  const parsed = z.object({ name: z.enum(["smtp", "telegram", "whatsapp", "slack", "razorpay", "payu", "easebuzz", "google"]), values: z.record(z.string(), z.string()) })
+  const parsed = z.object({ name: z.enum(["smtp", "telegram", "whatsapp", "slack", "razorpay", "payu", "easebuzz", "google", "media"]), values: z.record(z.string(), z.string()) })
     .safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad provider" }, { status: 422 });
   saveProvider(parsed.data.name, parsed.data.values);

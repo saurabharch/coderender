@@ -14,6 +14,20 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS ShopOrder (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', subtotal INTEGER NOT NULL DEFAULT 0, discount INTEGER NOT NULL DEFAULT 0, tax INTEGER NOT NULL DEFAULT 0, grand INTEGER NOT NULL DEFAULT 0, coupon TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT 'admin', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS OrderLine (id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER NOT NULL, productId INTEGER NOT NULL DEFAULT 0, name TEXT NOT NULL, qty REAL NOT NULL DEFAULT 1, price INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0)`);
   db.exec(`CREATE TABLE IF NOT EXISTS OrderEvent (id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ProductVariant (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '', sku TEXT NOT NULL DEFAULT '', attrs TEXT NOT NULL DEFAULT '{}', price INTEGER NOT NULL DEFAULT 0, mrp INTEGER NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0, barcode TEXT NOT NULL DEFAULT '', barcodeType TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Wishlist (customerId INTEGER NOT NULL, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (customerId, productId))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ProductView (id INTEGER PRIMARY KEY AUTOINCREMENT, fp TEXT NOT NULL DEFAULT '', customerId INTEGER NOT NULL DEFAULT 0, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS BinLoc (id INTEGER PRIMARY KEY AUTOINCREMENT, warehouseId INTEGER NOT NULL DEFAULT 1, floor TEXT NOT NULL DEFAULT '', rack TEXT NOT NULL DEFAULT '', shelf TEXT NOT NULL DEFAULT '', code TEXT NOT NULL DEFAULT '')`);
+  for (const [t, c] of [
+    ["Product", "category TEXT NOT NULL DEFAULT ''"], ["Product", "subcategory TEXT NOT NULL DEFAULT ''"],
+    ["Product", "shortDesc TEXT NOT NULL DEFAULT ''"], ["Product", "description TEXT NOT NULL DEFAULT ''"],
+    ["Product", "specs TEXT NOT NULL DEFAULT '{}'"], ["Product", "images TEXT NOT NULL DEFAULT '[]'"],
+    ["Product", "videos TEXT NOT NULL DEFAULT '[]'"], ["Product", "barcode TEXT NOT NULL DEFAULT ''"],
+    ["Product", "barcodeType TEXT NOT NULL DEFAULT ''"], ["Product", "bin TEXT NOT NULL DEFAULT ''"],
+    ["Product", "ratingAvg REAL NOT NULL DEFAULT 0"], ["Product", "ratingCount INTEGER NOT NULL DEFAULT 0"],
+  ] as [string, string][]) {
+    try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c}`); } catch { /* exists */ }
+  }
   if ((db.prepare("SELECT COUNT(*) c FROM Unit").get() as { c: number }).c === 0) {
     const ins = db.prepare("INSERT INTO Unit (name, kind, factor) VALUES (?,?,?)");
     for (const [n, k, f] of [["pc", "pc", 1], ["kg", "kg", 1000], ["g", "g", 1], ["l", "l", 1000], ["ml", "ml", 1], ["m", "m", 100], ["cm", "cm", 1], ["box", "box", 1], ["dozen", "dozen", 12], ["pack", "pack", 1]] as [string, string, number][])
@@ -120,32 +134,159 @@ export function listProducts(opts: { q?: string; status?: string; limit?: number
   return getDb().prepare(`SELECT * FROM Product ${where} ORDER BY id DESC LIMIT ?`).all(...args, Math.min(100, opts.limit ?? 50));
 }
 
+export const BARCODES = ["", "isbn", "imei", "ean", "upc", "custom"];
+
 export function saveProduct(input: {
   id?: number; name: string; sku?: string; kind?: string; price: number; mrp?: number;
   unit?: string; perPack?: number; taxPct?: number; stock?: number; status?: string;
   media?: string[]; seo?: Record<string, string>; attrs?: Record<string, string>;
+  category?: string; subcategory?: string; shortDesc?: string; description?: string;
+  specs?: Record<string, string>; images?: string[]; videos?: string[];
+  barcode?: string; barcodeType?: string; bin?: string;
 }): number {
   commerceTables();
   const db = getDb();
   const media = JSON.stringify((input.media ?? []).slice(0, 8)).slice(0, 2000);
   const seo = JSON.stringify(input.seo ?? {}).slice(0, 1000);
   const attrs = JSON.stringify(input.attrs ?? {}).slice(0, 2000);
+  const specs = JSON.stringify(input.specs ?? {}).slice(0, 4000);
+  const images = JSON.stringify((input.images ?? []).slice(0, 10)).slice(0, 4000);
+  const videos = JSON.stringify((input.videos ?? []).slice(0, 3)).slice(0, 2000);
+  const bt = BARCODES.includes(input.barcodeType ?? "") ? (input.barcodeType ?? "") : "";
+  const vals = [input.name.slice(0, 150), (input.sku ?? "").slice(0, 40), (input.kind ?? "physical").slice(0, 20),
+    Math.max(0, Math.round(input.price)), Math.max(0, Math.round(input.mrp ?? 0)),
+    (input.unit ?? "pc").slice(0, 10), Math.max(1, Math.round(input.perPack ?? 1)),
+    Math.max(0, input.taxPct ?? 0), Math.max(0, Math.round(input.stock ?? 0)),
+    (input.status ?? "active").slice(0, 20), media, seo, attrs,
+    (input.category ?? "").slice(0, 60), (input.subcategory ?? "").slice(0, 60),
+    (input.shortDesc ?? "").slice(0, 300), (input.description ?? "").slice(0, 8000), specs, images, videos,
+    (input.barcode ?? "").slice(0, 40), bt, (input.bin ?? "").slice(0, 40)];
+  const cols = `name=?, sku=?, kind=?, price=?, mrp=?, unit=?, perPack=?, taxPct=?, stock=?, status=?, media=?, seo=?, attrs=?,
+    category=?, subcategory=?, shortDesc=?, description=?, specs=?, images=?, videos=?, barcode=?, barcodeType=?, bin=?`;
+  const names = `name, sku, kind, price, mrp, unit, perPack, taxPct, stock, status, media, seo, attrs,
+    category, subcategory, shortDesc, description, specs, images, videos, barcode, barcodeType, bin`;
   if (input.id) {
-    db.prepare(`UPDATE Product SET name=?, sku=?, kind=?, price=?, mrp=?, unit=?, perPack=?, taxPct=?, stock=?, status=?, media=?, seo=?, attrs=? WHERE id=?`)
-      .run(input.name.slice(0, 150), (input.sku ?? "").slice(0, 40), (input.kind ?? "physical").slice(0, 20),
-        Math.max(0, Math.round(input.price)), Math.max(0, Math.round(input.mrp ?? 0)),
-        (input.unit ?? "pc").slice(0, 10), Math.max(1, Math.round(input.perPack ?? 1)),
-        Math.max(0, input.taxPct ?? 0), Math.max(0, Math.round(input.stock ?? 0)),
-        (input.status ?? "active").slice(0, 20), media, seo, attrs, input.id);
+    db.prepare(`UPDATE Product SET ${cols} WHERE id=?`).run(...vals, input.id);
     return input.id;
   }
-  const r = db.prepare(`INSERT INTO Product (name, sku, kind, price, mrp, unit, perPack, taxPct, stock, status, media, seo, attrs) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(input.name.slice(0, 150), (input.sku ?? "").slice(0, 40), (input.kind ?? "physical").slice(0, 20),
-      Math.max(0, Math.round(input.price)), Math.max(0, Math.round(input.mrp ?? 0)),
-      (input.unit ?? "pc").slice(0, 10), Math.max(1, Math.round(input.perPack ?? 1)),
-      Math.max(0, input.taxPct ?? 0), Math.max(0, Math.round(input.stock ?? 0)),
-      (input.status ?? "active").slice(0, 20), media, seo, attrs);
+  const r = db.prepare(`INSERT INTO Product (${names}) VALUES (${vals.map(() => "?").join(",")})`).run(...vals);
   return Number(r.lastInsertRowid);
+}
+
+// Full detail: product + variants + similar (same category) + rating.
+export function getProductFull(id: number) {
+  commerceTables();
+  const db = getDb();
+  const p = db.prepare("SELECT * FROM Product WHERE id=?").get(id) as
+    { category?: string; [k: string]: unknown } | undefined;
+  if (!p) return null;
+  const variants = db.prepare("SELECT * FROM ProductVariant WHERE productId=? ORDER BY id").all(id);
+  const similar = p.category
+    ? db.prepare("SELECT id, name, price, mrp, images FROM Product WHERE category=? AND id!=? AND status='active' ORDER BY id DESC LIMIT 4").all(p.category, id)
+    : [];
+  return { product: p, variants, similar };
+}
+
+export function saveVariant(input: { id?: number; productId: number; name?: string; sku?: string; attrs?: Record<string, string>; price?: number; mrp?: number; stock?: number; barcode?: string; barcodeType?: string }): number {
+  commerceTables();
+  const db = getDb();
+  if (!db.prepare("SELECT id FROM Product WHERE id=?").get(input.productId)) throw new Error("no product");
+  const attrs = JSON.stringify(input.attrs ?? {}).slice(0, 1000);
+  const bt = BARCODES.includes(input.barcodeType ?? "") ? (input.barcodeType ?? "") : "";
+  if (input.id) {
+    db.prepare("UPDATE ProductVariant SET name=?, sku=?, attrs=?, price=?, mrp=?, stock=?, barcode=?, barcodeType=? WHERE id=? AND productId=?")
+      .run((input.name ?? "").slice(0, 120), (input.sku ?? "").slice(0, 40), attrs,
+        Math.max(0, Math.round(input.price ?? 0)), Math.max(0, Math.round(input.mrp ?? 0)), Math.max(0, Math.round(input.stock ?? 0)),
+        (input.barcode ?? "").slice(0, 40), bt, input.id, input.productId);
+    return input.id;
+  }
+  return Number(db.prepare("INSERT INTO ProductVariant (productId, name, sku, attrs, price, mrp, stock, barcode, barcodeType) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(input.productId, (input.name ?? "").slice(0, 120), (input.sku ?? "").slice(0, 40), attrs,
+      Math.max(0, Math.round(input.price ?? 0)), Math.max(0, Math.round(input.mrp ?? 0)), Math.max(0, Math.round(input.stock ?? 0)),
+      (input.barcode ?? "").slice(0, 40), bt).lastInsertRowid);
+}
+
+export function deleteVariant(id: number, productId: number): void {
+  commerceTables();
+  getDb().prepare("DELETE FROM ProductVariant WHERE id=? AND productId=?").run(id, productId);
+}
+
+// Ratings roll up from approved reviews only.
+export function refreshRating(productId: number): void {
+  commerceTables();
+  const db = getDb();
+  const r = db.prepare("SELECT COUNT(*) n, COALESCE(AVG(rating),0) a FROM Review WHERE productId=? AND status='approved'").get(productId) as
+    { n: number; a: number };
+  db.prepare("UPDATE Product SET ratingAvg=?, ratingCount=? WHERE id=?").run(Math.round(r.a * 10) / 10, r.n, productId);
+}
+
+// ---- wishlist + views (customer side) ----
+export function wishList(customerId: number) {
+  commerceTables();
+  return getDb().prepare(`SELECT p.id, p.name, p.price, p.images FROM Wishlist w JOIN Product p ON p.id=w.productId
+    WHERE w.customerId=? ORDER BY w.at DESC LIMIT 50`).all(customerId);
+}
+
+export function wishToggle(customerId: number, productId: number): { wished: boolean } {
+  commerceTables();
+  const db = getDb();
+  if (customerId <= 0) throw new Error("sign in to wishlist");
+  const ex = db.prepare("SELECT productId FROM Wishlist WHERE customerId=? AND productId=?").get(customerId, productId);
+  if (ex) {
+    db.prepare("DELETE FROM Wishlist WHERE customerId=? AND productId=?").run(customerId, productId);
+    return { wished: false };
+  }
+  db.prepare("INSERT INTO Wishlist (customerId, productId) VALUES (?,?)").run(customerId, productId);
+  return { wished: true };
+}
+
+export function logView(fp: string, customerId: number, productId: number): void {
+  commerceTables();
+  getDb().prepare("INSERT INTO ProductView (fp, customerId, productId) VALUES (?,?,?)")
+    .run(fp.slice(0, 80), customerId, productId);
+}
+
+export function lastViewed(fp: string, customerId = 0, limit = 8) {
+  commerceTables();
+  return getDb().prepare(`SELECT p.id, p.name, p.price, p.images FROM ProductView v JOIN Product p ON p.id=v.productId
+    WHERE (v.fp=? OR (? > 0 AND v.customerId=?)) GROUP BY p.id ORDER BY MAX(v.id) DESC LIMIT ?`)
+    .all(fp.slice(0, 80), customerId, customerId, Math.min(20, limit));
+}
+
+// WhatsApp-ready catalogue text (name · price · short). Used by /api/wa/catalog.
+export function catalogueText(limit: number): { count: number; text: string } {
+  commerceTables();
+  const n = Math.min(30, Math.max(1, limit));
+  const items = (listProducts({ status: "active", limit: 100 }) as
+    { name: string; price: number; shortDesc: string }[]).slice(0, n);
+  const text = ["*Our catalogue* 🛍️", ...items.map((p, i) =>
+    `${i + 1}. ${p.name} — ₹${(p.price / 100).toFixed(0)}${p.shortDesc ? `\n   ${p.shortDesc.slice(0, 80)}` : ""}`),
+    items.length ? "_Reply with the item number to order_" : "_Catalogue is empty — add products in Shop_",
+  ].join("\n");
+  return { count: items.length, text };
+}
+export function listBins(warehouseId = 0) {
+  commerceTables();
+  const db = getDb();
+  if (warehouseId) {
+    return db.prepare("SELECT * FROM BinLoc WHERE warehouseId=? ORDER BY floor, rack, shelf").all(warehouseId);
+  }
+  return db.prepare("SELECT * FROM BinLoc ORDER BY warehouseId, floor, rack, shelf").all();
+}
+
+export function saveBin(input: { id?: number; warehouseId?: number; floor?: string; rack?: string; shelf?: string; code?: string }): number {
+  commerceTables();
+  const db = getDb();
+  const code = (input.code || [input.floor, input.rack, input.shelf].filter(Boolean).join("-")).slice(0, 40).toUpperCase() || "BIN";
+  if (input.id) {
+    db.prepare("UPDATE BinLoc SET warehouseId=?, floor=?, rack=?, shelf=?, code=? WHERE id=?")
+      .run(input.warehouseId ?? 1, (input.floor ?? "").slice(0, 20), (input.rack ?? "").slice(0, 20),
+        (input.shelf ?? "").slice(0, 20), code, input.id);
+    return input.id;
+  }
+  return Number(db.prepare("INSERT INTO BinLoc (warehouseId, floor, rack, shelf, code) VALUES (?,?,?,?,?)")
+    .run(input.warehouseId ?? 1, (input.floor ?? "").slice(0, 20), (input.rack ?? "").slice(0, 20),
+      (input.shelf ?? "").slice(0, 20), code).lastInsertRowid);
 }
 
 // ---- quote + orders ----

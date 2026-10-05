@@ -21,6 +21,9 @@ export const AGENT_OPS = {
   "order.list": { scope: "agent:read", desc: "Recent shop orders", params: "{status?}" },
   "bill.list": { scope: "agent:read", desc: "Recent bills", params: "{status?}" },
   "customer.segment": { scope: "agent:read", desc: "Customers by segment + spend", params: "{segment}" },
+  "product.list": { scope: "agent:read", desc: "Catalogue products", params: "{q?, status?}" },
+  "product.get": { scope: "agent:read", desc: "Product detail + variants + similar", params: "{id}" },
+  "product.create": { scope: "shop:write", desc: "Push a product to the catalogue", params: "{name, price, ...}" },
 } as const;
 
 export type AgentOp = keyof typeof AGENT_OPS;
@@ -146,6 +149,32 @@ export async function runAgentOp(op: string, params: Record<string, unknown>, ke
       const customers = segmentList(p.segment, 20);
       audit({ n: customers.length });
       return { customers };
+    }
+    case "product.list": {
+      const { listProducts } = await import("./commerce");
+      const p = z.object({ q: z.string().max(60).optional(), status: z.string().max(20).optional() }).parse(params);
+      const products = (listProducts({ q: p.q ?? "", status: p.status ?? "" }) as { id: number; name: string; price: number }[]).slice(0, 20);
+      audit({ n: products.length });
+      return { products };
+    }
+    case "product.get": {
+      const { getProductFull } = await import("./commerce");
+      const p = z.object({ id: z.coerce.number().int() }).parse(params);
+      const full = getProductFull(p.id);
+      if (!full) throw new Error("no product");
+      audit({ id: p.id });
+      return full;
+    }
+    case "product.create": {
+      const { saveProduct } = await import("./commerce");
+      const p = z.object({
+        name: z.string().min(1).max(150), price: z.coerce.number().min(0).max(100000000),
+        category: z.string().max(60).optional(), shortDesc: z.string().max(300).optional(),
+        stock: z.coerce.number().min(0).max(1000000).optional(),
+      }).parse(params);
+      const id = saveProduct(p);
+      audit({ id });
+      return { ok: true, id };
     }
     case "ticket.resolve": {
       const { resolveTicket } = await import("./tickets");

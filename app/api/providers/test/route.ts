@@ -6,7 +6,7 @@ import { sessionUser } from "@/lib/auth";
 export async function POST(req: Request) {
   const user = await sessionUser();
   if (!user) return NextResponse.json({ error: "login required" }, { status: 401 });
-  const parsed = z.object({ name: z.enum(["smtp", "telegram", "whatsapp", "slack", "razorpay", "payu", "easebuzz", "google"]) }).safeParse(await req.json().catch(() => null));
+  const parsed = z.object({ name: z.enum(["smtp", "telegram", "whatsapp", "slack", "razorpay", "payu", "easebuzz", "google", "media"]) }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad provider" }, { status: 422 });
   const name: ProviderName = parsed.data.name;
   try {
@@ -38,6 +38,12 @@ export async function POST(req: Request) {
       const { waDebugToken } = await import("@/lib/whatsapp");
       const r = await waDebugToken();
       return NextResponse.json({ ok: r.ok, detail: r.detail });
+    }
+    if (name === "media") {
+      const { r2Config } = await import("@/lib/r2");
+      const cfg = r2Config();
+      if (!cfg) return NextResponse.json({ ok: false, detail: "save R2 keys first (dashboard Providers → media)" });
+      return NextResponse.json({ ok: true, detail: `R2 ready (${cfg.source}) — uploads go to ${cfg.bucket}` });
     }
     if (name === "razorpay") {
       const { getProvider } = await import("@/lib/providers");

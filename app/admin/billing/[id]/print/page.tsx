@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBill } from "@/lib/billing";
+import { getPref } from "@/lib/store";
 import { PrintButton } from "@/components/print-button";
 import { sessionUser } from "@/lib/auth";
 
@@ -13,12 +14,20 @@ export default async function BillPrint({ params }: { params: Promise<{ id: stri
       status: string; createdAt: string; customer: string; phone: string; lines: string } | null;
   if (!b) return notFound();
   const lines = JSON.parse(b.lines || "[]") as { label: string; qty: number; price: number }[];
+  const biz = (k: string, fb: string) => getPref(k, "") || fb;
   return (
     <div className="mx-auto max-w-2xl bg-white p-8 text-black print:p-0">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-2xl font-extrabold">CodeRender</p>
-          <p className="text-sm text-zinc-600">hello@coderender.in · +919831778894</p>
+          <p className="text-2xl font-extrabold">{biz("biz_name", "CodeRender")}</p>
+          <p className="text-sm text-zinc-600">
+            {[biz("biz_address", ""), biz("biz_city", ""), biz("biz_state", ""), biz("biz_pin", "")].filter(Boolean).join(", ") || `${biz("biz_email", "hello@coderender.in")} · ${biz("biz_phone", "+919831778894")}`}
+          </p>
+          {(getPref("biz_gstin", "") || getPref("biz_cin", "")) && (
+            <p className="text-xs text-zinc-500">
+              {[getPref("biz_gstin", "") && `GSTIN ${getPref("biz_gstin", "")}`, getPref("biz_cin", "") && `CIN ${getPref("biz_cin", "")}`].filter(Boolean).join(" · ")}
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-xl font-bold uppercase">{b.type}</p>

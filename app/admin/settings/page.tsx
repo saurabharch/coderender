@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { getDb, getPref, setPref } from "@/lib/store";
+import { listTaxes } from "@/lib/commerce";
 import { sendDailyReport } from "@/lib/reporter";
 import { sessionUser } from "@/lib/auth";
 import { requireTeam } from "@/lib/auth";
@@ -63,8 +64,30 @@ async function setRole(form: FormData) {
   revalidatePath("/admin/settings");
 }
 
-async function savePrices(form: FormData) {
+async function saveBusiness(form: FormData) {
   "use server";
+  await requireTeam();
+  for (const k of ["biz_name", "biz_address", "biz_city", "biz_state", "biz_pin", "biz_gstin", "biz_cin", "biz_phone", "biz_email"]) {
+    const v = form.get(k);
+    if (typeof v === "string") setPref(k, v.slice(0, 300));
+  }
+  revalidatePath("/admin/settings");
+}
+
+async function saveTaxRate(form: FormData) {
+  "use server";
+  await requireTeam();
+  const { saveTax } = await import("@/lib/commerce");
+  saveTax({
+    name: String(form.get("name") || "GST").slice(0, 60),
+    pct: Math.max(0, Number(form.get("pct") || 0)),
+    inter: form.get("inter") === "on",
+    inclusive: form.get("inclusive") !== "off",
+  });
+  revalidatePath("/admin/settings");
+}
+
+async function savePrices(form: FormData) {  "use server";
   const me = await sessionUser();
   if (!me || me.role !== "owner") return;
   const num = (k: string, fb: number) => {
@@ -161,6 +184,34 @@ export default async function SettingsPage() {
           </li>
         ))}
       </ul>
+      <h2 className="mt-6 font-bold">Business profile (prints on bills)</h2>
+      <form action={saveBusiness} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 md:grid-cols-2 dark:border-white/10">
+        {[["biz_name", "Business name"], ["biz_phone", "Phone"], ["biz_email", "Email"], ["biz_address", "Address"], ["biz_city", "City"], ["biz_state", "State"], ["biz_pin", "Pincode"], ["biz_gstin", "GSTIN"], ["biz_cin", "CIN"]].map(([k, l]) => (
+          <label key={k} className="grid gap-1 text-sm">{l}
+            <input name={k} defaultValue={getPref(k, "")} maxLength={300}
+              className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+          </label>
+        ))}
+        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white md:col-span-2 md:w-fit">Save business</button>
+      </form>
+      <h2 className="mt-6 font-bold">Tax rates (GST-ready: rate table, CGST/SGST vs IGST per bill)</h2>
+      <ul className="mt-2 max-w-xl space-y-1 text-sm">
+        {(listTaxes() as { id: number; name: string; pct: number; inter: number; inclusive: number; active: number }[]).map((t) => (
+          <li key={t.id} className="flex justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+            <span>{t.name} · {t.pct}% · {t.inter ? "IGST" : "CGST+SGST"} · {t.inclusive ? "inclusive" : "exclusive"}</span>
+            <span className={t.active ? "text-emerald-700" : "text-zinc-400"}>{t.active ? "on" : "off"}</span>
+          </li>
+        ))}
+      </ul>
+      <form action={saveTaxRate} className="mt-2 flex max-w-xl flex-wrap items-end gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        <label className="grid gap-1 text-sm">Name<input name="name" required maxLength={60} placeholder="GST 18%"
+          className="min-h-[44px] w-32 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+        <label className="grid gap-1 text-sm">%<input name="pct" inputMode="decimal" required
+          className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+        <label className="flex min-h-[44px] items-center gap-2 text-sm">
+          <input type="checkbox" name="inter" value="on" className="h-5 w-5" /> Inter-state (IGST)</label>
+        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Add rate</button>
+      </form>
       <h2 className="mt-6 font-bold">Site prices (₹ — live on pricing page, calculator, agent)</h2>
       <form action={savePrices} className="mt-2 grid max-w-xl grid-cols-2 gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10 md:grid-cols-3">
         {[["audit", "Audit"], ["packFrom", "Pack from"], ["siteFrom", "Site from"], ["retainerFrom", "Retainer/mo"], ["leadsFrom", "Leads/mo"]].map(([k, l]) => (

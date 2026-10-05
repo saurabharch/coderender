@@ -645,6 +645,18 @@ model Product {
   stock   Int    @default(0)
   status  String @default("active")
   lowAt   Int    @default(5)
+  category String @default("")
+  subcategory String @default("")
+  shortDesc String @default("")
+  description String @default("")
+  specs String @default("{}")
+  images String @default("[]")
+  videos String @default("[]")
+  barcode String @default("")
+  barcodeType String @default("")
+  bin String @default("")
+  ratingAvg Float @default(0)
+  ratingCount Int @default(0)
   media   String @default("[]")
   seo     String @default("{}")
   attrs   String @default("{}")
@@ -1032,4 +1044,42 @@ model Budget {
   head    String
   month   String @default("")
   planned Int    @default(0)
+}
+
+model ProductVariant {
+  id          Int    @id @default(autoincrement())
+  productId   Int
+  name        String @default("")
+  sku         String @default("")
+  attrs       String @default("{}")
+  price       Int    @default(0)
+  mrp         Int    @default(0)
+  stock       Int    @default(0)
+  barcode     String @default("")
+  barcodeType String @default("")
+}
+
+model Wishlist {
+  customerId Int
+  productId  Int
+  at         DateTime @default(now())
+
+  @@id([customerId, productId])
+}
+
+model ProductView {
+  id         Int    @id @default(autoincrement())
+  fp         String @default("")
+  customerId Int    @default(0)
+  productId  Int
+  at         DateTime @default(now())
+}
+
+model BinLoc {
+  id          Int    @id @default(autoincrement())
+  warehouseId Int    @default(1)
+  floor       String @default("")
+  rack        String @default("")
+  shelf       String @default("")
+  code        String @default("")
 }
