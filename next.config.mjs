@@ -2,6 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["geoip-lite"],
+  // Lint + typecheck run explicitly in scripts/ci.sh; skipping them in-build
+  // keeps device builds fast and avoids the standalone ESLint crash.
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
   experimental: {
     optimizePackageImports: ["@mantine/core", "@mantine/hooks", "@mantine/dates", "@mantine/charts", "@mantine/form"],
   },

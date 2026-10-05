@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { QuickBar } from "@/components/quick-bar";
 import { Preloader } from "@/components/preloader";
 import { Tracker } from "@/components/tracker";
+import { ChunkRecovery } from "@/components/chunk-recovery";
 import { ChatWidget } from "@/components/chat-widget";
 import { ServiceWorker } from "@/components/service-worker";
 import { JsonLd } from "@/components/json-ld";
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <Preloader />
+          <ChunkRecovery />
           <Tracker />
           <ServiceWorker />
           <JsonLd />
