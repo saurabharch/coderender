@@ -123,8 +123,8 @@ export function exportCsv(what: "products" | "customers" | "stock"): string {
       LEFT JOIN StockLevel s ON s.productId=p.id LEFT JOIN Warehouse w ON w.id=s.warehouseId WHERE p.kind='physical' ORDER BY p.id`).all() as Record<string, unknown>[];
     return buildCsv(["id", "name", "sku", "qty", "warehouse"], rows);
   }
-  const rows = db.prepare("SELECT id, name, sku, kind, price, mrp, unit, taxPct, stock, status FROM Product ORDER BY id").all() as Record<string, unknown>[];
-  return buildCsv(["id", "name", "sku", "kind", "price", "mrp", "unit", "taxPct", "stock", "status"], rows);
+  const rows = db.prepare("SELECT id, name, sku, kind, price, mrp, unit, taxPct, stock, status, category, barcode, barcodeType FROM Product ORDER BY id").all() as Record<string, unknown>[];
+  return buildCsv(["id", "name", "sku", "kind", "price", "mrp", "unit", "taxPct", "stock", "status", "category", "barcode", "barcodeType"], rows);
 }
 
 export async function importCsv(what: "products" | "customers", text: string, actor = ""): Promise<{ ok: number; errors: string[] }> {
@@ -146,6 +146,8 @@ export async function importCsv(what: "products" | "customers", text: string, ac
           taxPct: Math.max(0, Number(r.taxPct) || 0), stock: Math.max(0, Math.round(Number(r.stock) || 0)),
           status: ["active", "draft", "archived"].includes(r.status) ? r.status : "active",
           kind: ["physical", "digital", "service"].includes(r.kind) ? r.kind : "physical",
+          category: r.category ?? "", barcode: r.barcode ?? "",
+          barcodeType: ["isbn", "imei", "ean", "upc", "custom"].includes(r.barcodeType) ? r.barcodeType : undefined,
         });
         ok++;
       } catch (e) {

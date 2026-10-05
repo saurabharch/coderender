@@ -159,7 +159,10 @@ export function ShopConsole() {
                   {p.category && <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[11px] dark:bg-white/10">{p.category}</span>}
                   {p.ratingCount > 0 && <span className="ml-1 text-xs text-amber-600">★{p.ratingAvg}({p.ratingCount})</span>}
                   {p.vcount > 0 && <span className="ml-1 text-xs text-zinc-500">{p.vcount} variants</span>}</span>
-                <span className="shrink-0">₹{(p.price / 100).toFixed(0)} · {p.stock} · {p.status}</span>
+                <span className="flex shrink-0 items-center gap-1">₹{(p.price / 100).toFixed(0)} · {p.stock}
+                  <a href={`/admin/shop/${p.id}/labels`} aria-label={`Print labels for ${p.name}`}
+                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-xs dark:border-white/20">🏷</a>
+                </span>
               </li>
             ))}
           </ul>

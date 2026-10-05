@@ -3,6 +3,7 @@
 // Money in paise; math lives in commerce-core.
 import { getDb } from "./store";
 import { couponOff, orderCan, quoteCart, type CouponDef, type Quote } from "./commerce-core";
+import { eanFromId } from "./barcode-core";
 import { bankMove } from "./billing";
 import { ledgerPost } from "./finance";
 
@@ -178,7 +179,28 @@ export function saveProduct(input: {
     return input.id;
   }
   const r = db.prepare(`INSERT INTO Product (${names}) VALUES (${vals.map(() => "?").join(",")})`).run(...vals);
-  return Number(r.lastInsertRowid);
+  const id = Number(r.lastInsertRowid);
+  // Default shelf barcode (in-store EAN range) when none given — editable later.
+  if (!(input.barcode ?? "").trim()) {
+    db.prepare("UPDATE Product SET barcode=?, barcodeType=? WHERE id=?").run(eanFromId(id), "ean", id);
+  }
+  return id;
+}
+
+// Scan lookup: exact barcode (product or variant), then SKU fallback.
+export function productByCode(code: string): { productId: number; variantId: number; name: string; price: number; stock: number } | null {
+  commerceTables();
+  const db = getDb();
+  const c = code.trim().slice(0, 40);
+  if (!c) return null;
+  const v = db.prepare(`SELECT v.productId, v.id variantId, p.name || ' / ' || v.name name,
+    CASE WHEN v.price > 0 THEN v.price ELSE p.price END price, v.stock FROM ProductVariant v
+    JOIN Product p ON p.id=v.productId WHERE v.barcode=? LIMIT 1`).get(c) as
+    { productId: number; variantId: number; name: string; price: number; stock: number } | undefined;
+  if (v) return v;
+  const p = db.prepare("SELECT id productId, 0 variantId, name, price, stock FROM Product WHERE (barcode=? OR sku=?) AND status='active' LIMIT 1").get(c, c) as
+    { productId: number; variantId: number; name: string; price: number; stock: number } | undefined;
+  return p ?? null;
 }
 
 // Full detail: product + variants + similar (same category) + rating.

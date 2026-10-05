@@ -111,6 +111,8 @@ export const ROUTES: RouteDoc[] = [
   { method: "POST", path: "/api/google/docs", auth: "team", desc: "Create a Google Doc.", body: "{title, text?}" },
   { method: "GET", path: "/api/shop/products", auth: "public", desc: "Public catalogue (?q=, ?status=, ?id=full). Rate-limited." },
   { method: "POST", path: "/api/shop/products", auth: "team", desc: "Create/update a product. Key: shop:write." },
+  { method: "GET", path: "/api/shop/scan", auth: "team", desc: "Barcode/SKU lookup for POS. Key: shop:read." },
+  { method: "POST", path: "/api/shop/scan", auth: "team", desc: "(Re)assign a product barcode. Key: shop:write." },
   { method: "GET", path: "/api/shop/customers", auth: "team", desc: "List customers (?q=). Key: shop:read." },
   { method: "POST", path: "/api/shop/customers", auth: "team", desc: "Create/update a customer. Key: shop:write." },
   { method: "GET", path: "/api/shop/pricing", auth: "team", desc: "Coupons or taxes (?what=taxes). Key: shop:read." },
