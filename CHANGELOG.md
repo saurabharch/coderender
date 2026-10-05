@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.24.0] - 2026-10-05
+## [0.25.0] - 2026-10-05
+- Team access: invites, least-privilege, staff home, quick sale## [0.24.0] - 2026-10-05
 - Owner impersonation: login-as any role, audited, one-click return## [0.23.0] - 2026-10-05
 - Role dashboards + full console coverage for every manager## [0.22.0] - 2026-10-05
 - Catalogue depth: tax UI, business profile, variants, barcodes, wishlist, bins, R2, WA catalog## [0.21.0] - 2026-10-05
