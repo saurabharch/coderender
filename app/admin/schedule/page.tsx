@@ -2,6 +2,8 @@ import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
 import { requireTeam } from "@/lib/auth";
 import { nextSlots } from "@/lib/slots";
+import { Empty, PageHead } from "@/components/admin-ui";
+import { AvatarInitials, StatusBadge } from "@/components/admin-ux";
 
 async function setStatus(form: FormData) {
   "use server";
@@ -27,39 +29,58 @@ export default async function SchedulePage() {
   const upcoming = rows.filter((r) => r.status === "confirmed" || r.status === "proposed");
   const past = rows.filter((r) => r.status === "done" || r.status === "cancelled");
   const isStale = (createdAt: string) => Date.now() - new Date(createdAt).getTime() > 2 * 864e5;
-  const card = (r: (typeof rows)[number]) => (
-    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">
-      <span className="text-sm"><b>{r.slot || "unscheduled"}</b> · {r.name} · {r.contact} · {r.mode} · <b>{r.status}</b>
-        {(r.status === "proposed" || r.status === "confirmed") && isStale(r.createdAt) && <em className="ml-1 text-amber-600">· stale, confirm or cancel</em>}
-      </span>
-      <form action={setStatus} className="flex gap-2">
-        <input type="hidden" name="id" value={r.id} />
-        <select name="status" defaultValue={r.status} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
-          {["proposed", "confirmed", "done", "cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <button className="min-h-[44px] rounded-xl border border-black/15 px-3 text-sm dark:border-white/20">Set</button>
-      </form>
-      {(r.status === "proposed" || r.status === "confirmed") && (
-        <form action={reschedule} className="flex gap-2">
-          <input type="hidden" name="id" value={r.id} />
-          <select name="slot" defaultValue={r.slot} required className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
-            {r.slot && <option value={r.slot}>Keep: {r.slot}</option>}
-            {slots.filter((s) => s.id !== r.slot).map((s) => <option key={s.id} value={s.id}>{s.label} (reschedule + notify)</option>)}
-          </select>
-          <button className="min-h-[44px] rounded-xl bg-brand px-3 text-sm font-semibold text-white">Reschedule</button>
-        </form>
-      )}
-    </li>
-  );
+  const card = (r: (typeof rows)[number]) => {
+    const stale = (r.status === "proposed" || r.status === "confirmed") && isStale(r.createdAt);
+    return (
+      <li key={r.id} className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
+        <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <AvatarInitials name={r.name} size="sm" />
+          <b className="text-base">{r.slot || "unscheduled"}</b>
+          <span className="min-w-0 truncate font-semibold">{r.name}</span>
+          <StatusBadge status={r.status} />
+          {stale && <span className="text-xs font-semibold text-amber-600">stale — confirm or cancel</span>}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-zinc-500">{r.contact || "no contact"} · {r.mode || "no mode"}</p>
+        <div className="mt-2 grid gap-1.5 sm:flex sm:flex-wrap">
+          <form action={setStatus} className="flex min-w-0 flex-1 flex-wrap gap-1.5 sm:flex-none">
+            <input type="hidden" name="id" value={r.id} />
+            <select name="status" defaultValue={r.status} aria-label="Meeting status"
+              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+              {["proposed", "confirmed", "done", "cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <button className="min-h-[44px] shrink-0 rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Set</button>
+          </form>
+          {(r.status === "proposed" || r.status === "confirmed") && (
+            <form action={reschedule} className="flex min-w-0 flex-1 flex-wrap gap-1.5 sm:flex-none">
+              <input type="hidden" name="id" value={r.id} />
+              <select name="slot" defaultValue={r.slot} required aria-label="New slot"
+                className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+                {r.slot && <option value={r.slot}>Keep: {r.slot}</option>}
+                {slots.filter((s) => s.id !== r.slot).map((s) => <option key={s.id} value={s.id}>{s.label} (reschedule + notify)</option>)}
+              </select>
+              <button className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white">Reschedule</button>
+            </form>
+          )}
+        </div>
+      </li>
+    );
+  };
   return (
     <>
-      <h1 className="text-2xl font-extrabold">Meeting schedule</h1>
+      <PageHead eyebrow="Operations" title="Meeting schedule"
+        blurb="Chat bookings land here — confirm, reschedule or close them. Stale ones need attention." />
       <h2 className="mt-4 font-bold">Upcoming ({upcoming.length})</h2>
-      <ul className="mt-2 space-y-2">{upcoming.map(card)}
-        {upcoming.length === 0 && <li className="text-sm text-zinc-500">Nothing scheduled — bookings from the chat widget land here.</li>}
-      </ul>
+      {upcoming.length === 0 ? (
+        <div className="mt-2"><Empty>Nothing scheduled — bookings from the chat widget land here.</Empty></div>
+      ) : (
+        <ul className="mt-2 space-y-2">{upcoming.map(card)}</ul>
+      )}
       <h2 className="mt-6 font-bold">History ({past.length})</h2>
-      <ul className="mt-2 space-y-2">{past.map(card)}</ul>
+      {past.length === 0 ? (
+        <div className="mt-2"><Empty>No closed meetings yet.</Empty></div>
+      ) : (
+        <ul className="mt-2 space-y-2">{past.map(card)}</ul>
+      )}
     </>
   );
 }

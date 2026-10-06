@@ -85,6 +85,7 @@ const TONE: Record<string, string> = {
   draft: "gray", sent: "blue", paid: "green", done: "green", active: "green",
   booked: "yellow", assigned: "blue", "in-progress": "orange", failed: "red",
   expired: "red", low: "orange", off: "gray", on: "teal",
+  proposed: "yellow", confirmed: "blue", cancelled: "gray",
 };
 
 export function StatusBadge({ status }: { status: string }) {

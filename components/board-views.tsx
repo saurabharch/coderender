@@ -4,6 +4,7 @@ import { Plus } from "lucide-react"
 import { useEffect, useMemo, useState } from "react";
 import { MultiSelect } from "@mantine/core";
 import { NoSsr } from "@/components/no-ssr";
+import { AvatarInitials } from "@/components/admin-ux";
 import { addDays, barSpan, dayKey, groupByDay, monthGrid, parseSlotDay, type CalTask } from "@/lib/calendar-core";
 import { priorityBadge } from "@/lib/kanban-core";
 import type { BoardTask } from "@/lib/kanban";
@@ -218,20 +219,48 @@ export function BoardViews({ boardId, initialTasks, columns, designations, board
                       )}
                     </span>
                     {(byDay[day] ?? []).slice(0, 2).map((t) => (
-                      <span key={t.id} className="mt-0.5 block truncate rounded bg-black/10 px-1 text-[11px] dark:bg-white/15">
+                      <span key={t.id} className="mt-0.5 hidden truncate rounded bg-black/10 px-1 text-[11px] min-[420px]:block dark:bg-white/15">
                         {sync[t.id] ? "📅 " : ""}{t.title}
                       </span>
                     ))}
                     {(meetByDay[day] ?? []).slice(0, 1).map((m) => (
-                      <span key={m.id} className="mt-0.5 block truncate rounded bg-sky-500/20 px-1 text-[11px]">🎙 {m.slot || m.name}</span>
+                      <span key={m.id} className="mt-0.5 hidden truncate rounded bg-sky-500/20 px-1 text-[11px] min-[420px]:block">🎙 {m.slot || m.name}</span>
                     ))}
-                    {(byDay[day] ?? []).length + (meetByDay[day] ?? []).length > 3 && (
-                      <span className="text-[11px] text-zinc-500">+{(byDay[day] ?? []).length + (meetByDay[day] ?? []).length - 3}</span>
-                    )}
+                    {(() => {
+                      const n = (byDay[day] ?? []).length + (meetByDay[day] ?? []).length;
+                      if (n === 0) return null;
+                      return (
+                        <>
+                          <span className="mt-1 flex items-center justify-center gap-1 min-[420px]:hidden" aria-hidden="true">
+                            {[0, 1, 2].slice(0, Math.min(3, n)).map((i) => (
+                              <i key={i} className="h-1.5 w-1.5 rounded-full bg-brand" />
+                            ))}
+                          </span>
+                          {n > 3 && <span className="block text-center text-[11px] text-zinc-500">+{n - 3}</span>}
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </div>
             ))}
+          </div>
+          <div className="mt-2 min-[420px]:hidden">
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">{cursor} agenda</p>
+            <ul className="mt-1 space-y-1">
+              {(meetByDay[cursor] ?? []).map((m) => (
+                <li key={`m${m.id}`} className="truncate rounded-xl bg-sky-500/15 px-3 py-2 text-sm font-semibold">🎙 {m.slot || m.name} · {m.mode}</li>
+              ))}
+              {(byDay[cursor] ?? []).map((t) => (
+                <li key={t.id} className="flex items-center gap-2 truncate rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
+                  <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                  <span className="shrink-0 text-[11px] text-zinc-500">{t.startAt || t.dueAt || ""}</span>
+                </li>
+              ))}
+              {(byDay[cursor] ?? []).length === 0 && (meetByDay[cursor] ?? []).length === 0 && (
+                <li className="text-sm text-zinc-500">Nothing this day — tap + on any date to plan.</li>
+              )}
+            </ul>
           </div>
         </div>
       )}
@@ -321,7 +350,10 @@ function DayView({ day, setDay, tasks, meetings, sync, colName, taskCols, canPla
             <span className="rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-bold dark:bg-white/15">{colName(taskCols[t.id] ?? 0, t.id)}</span>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${priorityBadge(t.priority)}`}>{t.priority}</span>
             <b>{t.title}</b>
-            <span className="text-xs text-zinc-500">{who(t)}{sync[t.id] ? " · 📅 synced" : ""}</span>
+            <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+              {t.assigneeEmail ? <AvatarInitials name={t.assigneeEmail.split("@")[0]} size="sm" /> : null}
+              {who(t)}{sync[t.id] ? " · 📅 synced" : ""}
+            </span>
           </li>
         ))}
         {tasks.length === 0 && meetings.length === 0 && <li className="text-sm text-zinc-500">Nothing scheduled — plan the day above.</li>}
@@ -379,7 +411,7 @@ function Gantt({ tasks, sync, colName, taskCols }: {
   const from = addDays(days[0].slice(0, 10), -2);
   const to = addDays(days[days.length - 1].slice(0, 10), 4);
   return (
-    <div className="mt-2 overflow-x-auto">
+    <div className="mt-2 overflow-x-auto overscroll-x-contain pb-1">
       <div className="min-w-[560px] space-y-1.5">
         {dated.map((t) => {
           const s = barSpan((t.startAt || t.dueAt).slice(0, 10), (t.dueAt || t.startAt).slice(0, 10), from, to);

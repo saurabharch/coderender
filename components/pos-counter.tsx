@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { AdminCard, Empty } from "@/components/admin-ui";
 import { CustomerPicker, type Cust } from "@/components/customer-picker";
-import { ScanBarcode, Plus } from "lucide-react"
+import { Banknote, CreditCard, Plus, ScanBarcode, Smartphone } from "lucide-react"
 import { Seg } from "@/components/admin-ux";
 import { useLongPress } from "@mantine/hooks";
-import { maskAmount } from "@/lib/mask";
+import { maskAmount, maskInt, maskPercent } from "@/lib/mask";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { modals } from "@mantine/modals";
 
@@ -144,6 +144,7 @@ export function PosCounter() {
   }, []);
 
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
+  const pcs = lines.reduce((s, l) => s + l.qty, 0);
   const tender = Math.round(Number(tendered) * 100) || 0;
   const change = method === "cash" && tender > 0 ? tender - total : 0;
 
@@ -269,6 +270,7 @@ export function PosCounter() {
       </div>
       <div className="grid content-start gap-3 lg:col-span-2">
         <AdminCard className="lg:sticky lg:top-24">
+          {flash ? <p role="status" className="rounded-xl bg-emerald-500/15 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">Added {flash} ✓</p> : null}
           <p className="flex items-center justify-between font-bold">Bill
             {lines.length > 0 && (
               <button onClick={() => void hold()} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Hold</button>
@@ -290,7 +292,8 @@ export function PosCounter() {
               ))}
             </ul>
           )}
-          <p className="mt-2 text-right text-2xl font-extrabold">₹{(total / 100).toFixed(0)}</p>
+          <p className="mt-2 text-right text-xs text-zinc-500">{lines.length} item{lines.length === 1 ? "" : "s"} · {pcs} pc{pcs === 1 ? "" : "s"}</p>
+          <p className="text-right text-2xl font-extrabold">Total ₹{(total / 100).toFixed(0)}</p>
           <div className="mt-2">
             <p className="mb-1 text-xs font-bold uppercase tracking-wider text-zinc-500">Customer (optional)</p>
             <CustomerPicker customer={customer} onPick={setCustomer} />
@@ -302,7 +305,7 @@ export function PosCounter() {
               className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Card →</button>
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <input value={disval} onChange={(e) => setDisval(e.target.value)} placeholder="Override discount" inputMode="decimal"
+            <input value={disval} onChange={(e) => setDisval(disKind === "pct" ? maskPercent(e.target.value) : maskAmount(e.target.value))} placeholder="Override discount" inputMode="decimal"
               className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             <select value={disKind} onChange={(e) => setDisKind(e.target.value as "flat" | "pct")} aria-label="Discount type"
               className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
@@ -313,15 +316,15 @@ export function PosCounter() {
           <p className="mt-1 text-[11px] text-zinc-500">Manual discounts need the override flag (Settings → Service flags).</p>
           <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Payment method">
             {([
-              ["cash", "💵 Cash"], ["upi", "📱 UPI"], ["card", "💳 Card"],
-            ] as const).map(([m, label]) => (
+              ["cash", "Cash", Banknote], ["upi", "UPI", Smartphone], ["card", "Card", CreditCard],
+            ] as const).map(([m, label, Icon]) => (
               <button key={m} onClick={() => setMethod(m)} aria-pressed={method === m}
-                className={`min-h-[52px] rounded-xl border text-sm font-bold ${method === m ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}>{label}</button>
+                className={`flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl border text-sm font-bold ${method === m ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}><Icon size={18} />{label}</button>
             ))}
           </div>
           {method === "cash" && (
             <>
-              <input value={tendered} onChange={(e) => setTendered(e.target.value)} placeholder="Cash tendered ₹" inputMode="decimal"
+              <input value={tendered} onChange={(e) => setTendered(maskAmount(e.target.value))} placeholder="Cash tendered ₹" inputMode="decimal"
                 className="mt-1.5 min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
               {tender > 0 && (
                 <p className={`mt-1 text-right text-sm font-bold ${change >= 0 ? "text-emerald-700" : "text-red-600"}`}>
@@ -390,7 +393,7 @@ function QuickAddForm({ code, onDone }: { code: string; onDone: (id: number, nam
         <input value={price} onChange={(e) => setPrice(maskAmount(e.target.value))} placeholder="₹ price" inputMode="decimal"
           className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         {kind === "physical" && (
-          <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"
+          <input value={stock} onChange={(e) => setStock(maskInt(e.target.value))} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         )}
       </div>
