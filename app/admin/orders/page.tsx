@@ -52,6 +52,9 @@ export default async function OrdersPage() {
     { orderId: number; amount: number; method: string; status: string }[];
   const payments: Record<string, { amount: number; method: string; status: string }[]> = {};
   for (const p of payRows) (payments[String(p.orderId)] ??= []).push(p);
+  // Deep-plain: null-prototype sqlite rows crash client components.
+  const plainOrders = JSON.parse(JSON.stringify(orders));
+  const plainPayments = JSON.parse(JSON.stringify(payments));
   return (
     <>
       <h1 className="text-2xl font-extrabold">Orders & payments</h1>
@@ -62,7 +65,7 @@ export default async function OrdersPage() {
         <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Create order</button>
       </form>
       <div className="mt-4">
-        <OrdersTable rows={orders} payments={payments} onEdit={editOrder} />
+        <OrdersTable rows={plainOrders} payments={plainPayments} onEdit={editOrder} />
       </div>
       <div className="mt-4 grid gap-3">
         {orders.map((o) => (
