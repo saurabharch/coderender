@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
+import { ProductPicker } from "@/components/product-picker";
 
 interface Level { id: number; name: string; sku: string; lowAt: number; qty: number }
 interface PO { id: number; supplier: string; status: string; grand: number }
@@ -115,8 +116,7 @@ export function StockConsole() {
               <option key={v} value={v}>{l}</option>
             ))}
           </select>
-          <input value={pid} onChange={(e) => setPid(e.target.value)} placeholder="Product id" inputMode="numeric"
-            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <ProductPicker value={pid} shortcut="F4" placeholder="Product…" onPick={(x) => setPid(x ? String(x.id) : "")} />
           <input value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Qty (− ok for adjust)" inputMode="decimal"
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void receive()} disabled={!pid || !qty}
@@ -141,8 +141,7 @@ export function StockConsole() {
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={posup} onChange={(e) => setPosup(e.target.value)} placeholder="Supplier id" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={popid} onChange={(e) => setPopid(e.target.value)} placeholder="Product id" inputMode="numeric"
-            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <ProductPicker value={popid} shortcut="F7" placeholder="Product…" onPick={(x) => setPopid(x ? String(x.id) : "")} />
           <input value={poqty} onChange={(e) => setPoqty(e.target.value)} placeholder="Qty" inputMode="decimal"
             className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={pocost} onChange={(e) => setPocost(e.target.value)} placeholder="₹ cost" inputMode="decimal"

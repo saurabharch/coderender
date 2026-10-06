@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
+import { ProductPicker } from "@/components/product-picker";
 
 interface Product { id: number; name: string; sku: string; price: number; stock: number; status: string; category: string; ratingAvg: number; ratingCount: number; vcount: number }
 interface Order { id: number; status: string; grand: number; coupon: string; createdAt: string }
@@ -19,6 +20,7 @@ export function ShopConsole() {
   const [stock, setStock] = useState("");
   const [barcode, setBarcode] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
+  const [imgurls, setImgurls] = useState("");
   const [vpid, setVpid] = useState("");
   const [vname, setVname] = useState("");
   const [vsize, setVsize] = useState("");
@@ -63,10 +65,11 @@ export function ShopConsole() {
   async function addProduct() {
     const res = await fetch("/api/shop/products", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price: Math.round(Number(price) * 100), stock: Math.round(Number(stock) || 0), ...(barcode.trim() ? { barcode: barcode.trim() } : {}) }),
+      body: JSON.stringify({ name, price: Math.round(Number(price) * 100), stock: Math.round(Number(stock) || 0), ...(barcode.trim() ? { barcode: barcode.trim() } : {}),
+      ...(imgurls.trim() ? { images: imgurls.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10) } : {}) }),
     });
     setMsg(res.ok ? "Product added ✓ (auto-barcode when left blank)" : "Add failed");
-    if (res.ok) { setName(""); setPrice(""); setStock(""); setBarcode(""); void load(); }
+    if (res.ok) { setName(""); setPrice(""); setStock(""); setBarcode(""); setImgurls(""); void load(); }
   }
 
   async function addVariant() {
@@ -126,17 +129,19 @@ export function ShopConsole() {
     void load();
   }
 
-  async function loadLots() {
-    if (!lotpid) { setLots([]); return; }
-    const d = await fetch(`/api/shop/lots?productId=${encodeURIComponent(lotpid)}`).then((r) => r.json()).catch(() => null);
+  async function loadLots(forceId?: string) {
+    const pid = forceId ?? lotpid;
+    if (!pid) { setLots([]); return; }
+    const d = await fetch(`/api/shop/lots?productId=${encodeURIComponent(pid)}`).then((r) => r.json()).catch(() => null);
     if (d?.lots) setLots(d.lots);
   }
 
-  async function loadPrices() {
-    if (!pxpid) { setPrices([]); setChannels({}); return; }
+  async function loadPrices(forceId?: string) {
+    const pid = forceId ?? pxpid;
+    if (!pid) { setPrices([]); setChannels({}); return; }
     const [p, c] = await Promise.all([
-      fetch(`/api/shop/pricing?what=prices&productId=${encodeURIComponent(pxpid)}`).then((r) => r.json()).catch(() => null),
-      fetch(`/api/shop/pricing?what=channels&productId=${encodeURIComponent(pxpid)}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/shop/pricing?what=prices&productId=${encodeURIComponent(pid)}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/shop/pricing?what=channels&productId=${encodeURIComponent(pid)}`).then((r) => r.json()).catch(() => null),
     ]);
     if (p?.prices) setPrices(p.prices);
     if (c?.channels) setChannels(c.channels);
@@ -194,6 +199,8 @@ export function ShopConsole() {
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={imgurls} onChange={(e) => setImgurls(e.target.value)} placeholder="Image URLs, comma (optional)" maxLength={2000}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Barcode (blank = auto)" maxLength={40}
             className="min-h-[44px] w-40 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
           <button onClick={() => setScanOpen(true)} aria-label="Scan barcode into this field" title="Scan into barcode field"
@@ -207,8 +214,7 @@ export function ShopConsole() {
       <AdminCard>
         <p className="font-bold">Products ({products.length})</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={eid} onChange={(e) => setEid(e.target.value)} placeholder="Edit id" inputMode="numeric"
-            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <ProductPicker value={eid} shortcut="F7" placeholder="Product to edit…" onPick={(x) => setEid(x ? String(x.id) : "")} />
           <input value={eprice} onChange={(e) => setEprice(e.target.value)} placeholder="₹ new" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={estock} onChange={(e) => setEstock(e.target.value)} placeholder="Stock" inputMode="numeric"
@@ -263,8 +269,8 @@ export function ShopConsole() {
       <AdminCard>
         <p className="font-bold">Batches — mfg / expiry per product</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={lotpid} onChange={(e) => { setLotpid(e.target.value); }} onBlur={() => void loadLots()} placeholder="Product id" inputMode="numeric"
-            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <ProductPicker value={lotpid} shortcut="F6" placeholder="Product for batch…"
+            onPick={(x) => { setLotpid(x ? String(x.id) : ""); if (x) void loadLots(String(x.id)); }} />
           <input value={lotno} onChange={(e) => setLotno(e.target.value)} placeholder="Batch no" maxLength={40}
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={lotmfg} onChange={(e) => setLotmfg(e.target.value)} placeholder="MFG yyyy-mm" maxLength={10}
@@ -287,8 +293,8 @@ export function ShopConsole() {
       <AdminCard>
         <p className="font-bold">Prices & channels <span className="text-xs font-normal text-zinc-500">(tier overrides + where it sells)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={pxpid} onChange={(e) => setPxpid(e.target.value)} onBlur={() => void loadPrices()} placeholder="Product id" inputMode="numeric"
-            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <ProductPicker value={pxpid} shortcut="F5" placeholder="Product for prices…"
+            onPick={(x) => { setPxpid(x ? String(x.id) : ""); if (x) void loadPrices(String(x.id)); else void loadPrices(""); }} />
           <select value={pxtype} onChange={(e) => setPxtype(e.target.value)}
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
             {["sale", "pos", "online", "wholesale", "marketplace", "member", "retail", "promotional"].map((t) => (
@@ -364,9 +370,7 @@ export function ShopConsole() {
       <AdminCard>
         <p className="font-bold">Add variant <span className="text-xs font-normal text-zinc-500">(size / color + own price)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={vpid} onChange={(e) => setVpid(e.target.value)} placeholder="Product id" inputMode="numeric"
-            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={vname} onChange={(e) => setVname(e.target.value)} placeholder="Variant name" maxLength={120}
+          <ProductPicker value={vpid} shortcut="F4" onPick={(x) => setVpid(x ? String(x.id) : "")} placeholder="Product for variant…" />          <input value={vname} onChange={(e) => setVname(e.target.value)} placeholder="Variant name" maxLength={120}
             className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={vsize} onChange={(e) => setVsize(e.target.value)} placeholder="Size" maxLength={20}
             className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />

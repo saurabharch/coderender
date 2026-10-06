@@ -145,7 +145,7 @@ export function listProducts(opts: { q?: string; status?: string; limit?: number
   commerceTables();
   const conds: string[] = [];
   const args: (string | number)[] = [];
-  if (opts.q) { conds.push("(name LIKE ? OR sku LIKE ?)"); args.push(`%${opts.q.slice(0, 60)}%`, `%${opts.q.slice(0, 60)}%`); }
+  if (opts.q) { conds.push("(name LIKE ? OR sku LIKE ? OR barcode LIKE ?)"); args.push(`%${opts.q.slice(0, 60)}%`, `%${opts.q.slice(0, 60)}%`, `%${opts.q.slice(0, 60)}%`); }
   if (opts.status) { conds.push("status=?"); args.push(opts.status); }
   const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
   return getDb().prepare(`SELECT p.*, (SELECT COUNT(*) FROM ProductVariant v WHERE v.productId=p.id) vcount FROM Product p ${where} ORDER BY p.id DESC LIMIT ?`).all(...args, Math.min(100, opts.limit ?? 50));
