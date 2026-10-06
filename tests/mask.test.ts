@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAmount, maskAmount, maskPhone } from "@/lib/mask";
+import { isAmount, maskAmount, maskBarcode, maskEmail, maskGst, maskInt, maskPercent, maskPhone, maskPin, maskSigned, maskUpi, maskYearMonth } from "@/lib/mask";
 
 describe("input masks (mantine use-mask recipe)", () => {
   it("masks phones to last 10 digits, 5+5", () => {
@@ -20,5 +20,22 @@ describe("input masks (mantine use-mask recipe)", () => {
     expect(isAmount("200")).toBe(true);
     expect(isAmount("199.999")).toBe(false);
     expect(isAmount("")).toBe(false);
+  });
+
+  it("masks ints, signed qty, barcodes", () => {
+    expect(maskInt("007a")).toBe("7");
+    expect(maskSigned("-003")).toBe("-3");
+    expect(maskSigned("  +12x")).toBe("12");
+    expect(maskBarcode(" 8901 2345 ", 10)).toBe("89012345");
+  });
+
+  it("masks upi/email/percent/month/gst/pin", () => {
+    expect(maskUpi(" Merchant@UPI ")).toBe("merchant@upi");
+    expect(maskEmail(" Boss@Shop.IN ")).toBe("boss@shop.in");
+    expect(maskPercent("150")).toBe("100");
+    expect(maskPercent("12.345")).toBe("12.34");
+    expect(maskYearMonth("202610")).toBe("2026-10");
+    expect(maskGst("27abc de1234f1z5!")).toBe("27ABCDE1234F1Z5");
+    expect(maskPin("4000012")).toBe("400001");
   });
 });

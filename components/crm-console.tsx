@@ -1,5 +1,7 @@
 "use client";
 
+import { AvatarInitials, StatusBadge } from "@/components/admin-ux";
+
 import { Plus } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -86,7 +88,7 @@ export function CrmConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {reviews.slice(0, 12).map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span className="min-w-0">{"★".repeat(r.rating)} {r.title || r.body.slice(0, 60)} <span className="text-xs text-zinc-500">{r.product || ""} · {r.status}</span></span>
+                <span className="flex min-w-0 items-center gap-2"><AvatarInitials name={r.customer || "?"} size="sm" /><span>{"★".repeat(r.rating)} {r.title || r.body.slice(0, 60)} <span className="text-xs text-zinc-500">{r.product || ""} · </span><StatusBadge status={r.status} /></span></span>
                 {r.status === "pending" && (
                   <span className="flex gap-1">
                     <button onClick={() => void moderate(r.id, "approved")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Approve</button>

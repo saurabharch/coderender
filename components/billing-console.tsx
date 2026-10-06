@@ -1,6 +1,7 @@
 "use client";
 
 import { CopyBtn, StatusBadge } from "@/components/admin-ux";
+import { maskAmount, maskUpi } from "@/lib/mask";
 
 import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
@@ -128,7 +129,7 @@ export function BillingConsole() {
       <AdminCard>
         <p className="font-bold">UPI QR codes ({qrs.length})</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="merchant@upi" maxLength={60}
+          <input value={upiId} onChange={(e) => setUpiId(maskUpi(e.target.value))} placeholder="merchant@upi" maxLength={60}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <CopyBtn value={upiId} label="UPI ID" />
           <button onClick={() => void saveQr()} disabled={!upiId.includes("@")}
@@ -155,7 +156,7 @@ export function BillingConsole() {
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={head} onChange={(e) => setHead(e.target.value)} placeholder="Head (rent, fuel…)" maxLength={80}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="₹" inputMode="decimal"
+          <input value={amt} onChange={(e) => setAmt(maskAmount(e.target.value))} placeholder="₹" inputMode="decimal"
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void addExpense()} disabled={!head.trim() || !amt}
             className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>

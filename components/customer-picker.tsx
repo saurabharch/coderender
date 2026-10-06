@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useClickOutside } from "@/components/admin-ux";
+import { maskEmail, maskPhone } from "@/lib/mask";
 import { modals } from "@mantine/modals";
 
 export interface Cust { id: number; name: string; phone: string }
@@ -105,17 +106,17 @@ function NewCustomerForm({ phone, onDone }: { phone: string; onDone: (c: Cust) =
     <div className="grid gap-2">
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" maxLength={120}
         className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-      <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Contact number" inputMode="tel" maxLength={20}
+      <input value={contact} onChange={(e) => setContact(maskPhone(e.target.value))} placeholder="Contact number" inputMode="tel" maxLength={20}
         className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
       <label className="flex min-h-[44px] items-center gap-2 text-sm">
         <input type="checkbox" checked={sameWa} onChange={(e) => setSameWa(e.target.checked)} className="h-5 w-5" />
         WhatsApp same as contact
       </label>
       {!sameWa && (
-        <input value={wa} onChange={(e) => setWa(e.target.value)} placeholder="WhatsApp number" inputMode="tel" maxLength={20}
+        <input value={wa} onChange={(e) => setWa(maskPhone(e.target.value))} placeholder="WhatsApp number" inputMode="tel" maxLength={20}
           className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
       )}
-      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optional)" inputMode="email" maxLength={120}
+      <input value={email} onChange={(e) => setEmail(maskEmail(e.target.value))} placeholder="Email (optional)" inputMode="email" maxLength={120}
         className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
       <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address" maxLength={300}
         className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />

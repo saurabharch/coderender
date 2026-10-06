@@ -224,11 +224,26 @@ export function biSnapshot() {
   const daily = db.prepare(`SELECT date(createdAt) d, COALESCE(SUM(grand),0) s FROM ShopOrder
     WHERE createdAt >= date('now','-30 days') AND status!='cancelled' GROUP BY d ORDER BY d`).all() as
     { d: string; s: number }[];
+  // Funnel: order counts by status (30d). Expiry: lots bucketed by exp month.
+  // Defensive: commerce tables may not exist on first boot — never throw.
+  const funnel = (() => { try {
+    return db.prepare(`SELECT status, COUNT(*) n, COALESCE(SUM(grand),0) s FROM ShopOrder
+      WHERE createdAt >= date('now','-30 days') GROUP BY status`).all();
+  } catch { return []; } })();
+  const expiry = (() => { try {
+    return db.prepare(`SELECT substr(exp,1,7) m, COUNT(*) n, COALESCE(SUM(qty),0) q FROM ProductLot
+      WHERE qty > 0 AND exp != '' GROUP BY m ORDER BY m LIMIT 6`).all();
+  } catch { return []; } })();
+  const expiredCount = (() => { try {
+    return (db.prepare(`SELECT COUNT(*) c FROM ProductLot
+      WHERE qty > 0 AND exp != '' AND exp < strftime('%Y-%m','now')`).get() as { c: number }).c;
+  } catch { return 0; } })();
   return {
     revenue30: rev30.s, orders30: rev30.n,
     growth: revPrev.s > 0 ? Math.round(((rev30.s - revPrev.s) / revPrev.s) * 100) : 0,
     margin: marginPct(rev30.s, Math.round(cogs.c)),
     top, slow, customers, repeatBuyers: repeat,
     daily: daily.map((x) => ({ date: x.d.slice(5), revenue: Math.round(x.s / 100) })),
+    funnel, expiry, expiredCount,
   };
 }

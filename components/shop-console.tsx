@@ -7,7 +7,8 @@ import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { NoSsr } from "@/components/no-ssr";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { ProductPicker } from "@/components/product-picker";
-import { CollapsibleCard, CopyBtn, StatusBadge } from "@/components/admin-ux";
+import { CollapsibleCard, CopyBtn, JobProgress, StatusBadge } from "@/components/admin-ux";
+import { maskAmount, maskBarcode, maskInt } from "@/lib/mask";
 
 interface Product { id: number; name: string; sku: string; price: number; stock: number; status: string; category: string; ratingAvg: number; ratingCount: number; vcount: number }
 interface Order { id: number; status: string; grand: number; coupon: string; createdAt: string }
@@ -26,6 +27,7 @@ export function ShopConsole() {
   const [scanOpen, setScanOpen] = useState(false);
   const [imgurls, setImgurls] = useState("");
   const [pending, setPending] = useState<{ file: File; url: string } | null>(null);
+  const [jobprog, setJobprog] = useState<{ done: number; total: number; label: string } | null>(null);
   const addPhotoRef = useRef<HTMLInputElement>(null);
   const [vpid, setVpid] = useState("");
   const [vname, setVname] = useState("");
@@ -201,9 +203,10 @@ export function ShopConsole() {
       await new Promise((r) => setTimeout(r, 5000));
       const d = await fetch(`/api/media/bgremove?id=${jobId}`).then((r) => r.json()).catch(() => null);
       if (!d || d.status === "queued" || d.status === "working") {
-        setMsg(`Transparent job #${jobId}: ${d?.status ?? "…"} (${i + 1}/24)`);
+        setJobprog({ done: i + 1, total: 24, label: `Transparent job #${jobId}: ${d?.status ?? "…"}` });
         continue;
       }
+      setJobprog(null);
       if (d.status === "done") {
         chime("success");
         setMsg(`Transparent image live ✓`);
@@ -214,6 +217,7 @@ export function ShopConsole() {
       }
       return;
     }
+    setJobprog(null);
     setMsg("Still working — check back in a bit (Notifications will confirm).");
   }
 
@@ -371,9 +375,9 @@ export function ShopConsole() {
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" maxLength={150}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="₹" inputMode="decimal"
+          <input value={price} onChange={(e) => setPrice(maskAmount(e.target.value))} placeholder="₹" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"
+          <input value={stock} onChange={(e) => setStock(maskInt(e.target.value))} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input ref={addPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" aria-label="Capture product photo"
             onChange={(e) => {
@@ -383,7 +387,7 @@ export function ShopConsole() {
             }} />
           <button onClick={() => addPhotoRef.current?.click()} aria-label="Capture product photo" title="Capture photo"
             className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-brand-deep dark:border-white/20"><Camera size={22} /></button>
-          <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Barcode (blank = auto)" maxLength={40}
+          <input value={barcode} onChange={(e) => setBarcode(maskBarcode(e.target.value))} placeholder="Barcode (blank = auto)" maxLength={40}
             className="min-h-[44px] w-40 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
           <CopyBtn value={barcode} label="barcode" />
           <button onClick={() => setScanOpen(true)} aria-label="Scan barcode into this field" title="Scan into barcode field"
@@ -393,6 +397,7 @@ export function ShopConsole() {
           <button onClick={() => void addProduct()} disabled={!name.trim() || !price} aria-label="Add product"
             className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
         </div>
+        {jobprog && <div className="mt-2"><JobProgress done={jobprog.done} total={jobprog.total} label={jobprog.label} /></div>}
         {pending && (
           <div className="mt-2 flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -409,9 +414,9 @@ export function ShopConsole() {
           <div className="min-w-0 flex-1"><ProductPicker value={eid} shortcut="F7" placeholder="Product to edit…" onPick={(x) => setEid(x ? String(x.id) : "")} /></div>
           <input value={ename} onChange={(e) => setEname(e.target.value)} placeholder="Name (blank = keep)" maxLength={150}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={eprice} onChange={(e) => setEprice(e.target.value)} placeholder="₹ new" inputMode="decimal"
+          <input value={eprice} onChange={(e) => setEprice(maskAmount(e.target.value))} placeholder="₹ new" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={estock} onChange={(e) => setEstock(e.target.value)} placeholder="Stock" inputMode="numeric"
+          <input value={estock} onChange={(e) => setEstock(maskInt(e.target.value))} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void quickEdit()} disabled={!eid}
             className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Update</button>
@@ -477,7 +482,7 @@ export function ShopConsole() {
       <AdminCard>
         <p className="font-bold">Batches — mfg / expiry per product</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={lotq} onChange={(e) => setLotq(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void searchLot(); }}
+          <input value={lotq} onChange={(e) => setLotq(maskBarcode(e.target.value))} onKeyDown={(e) => { if (e.key === "Enter") void searchLot(); }}
             placeholder="Search batch id…" maxLength={40}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
           <button onClick={() => void searchLot()} disabled={lotq.trim().length < 2}
@@ -510,7 +515,7 @@ export function ShopConsole() {
             className="flex min-h-[48px] min-w-[56px] items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black"><ScanBarcode size={24} /></button>
           <WasmScanDialog open={lotscan} onClose={() => setLotscan(false)} title="Scan product for batch"
             onScan={(data) => { void scanLot(data); }} />
-          <input value={lotno} onChange={(e) => setLotno(e.target.value)} placeholder="Batch no" maxLength={40}
+          <input value={lotno} onChange={(e) => setLotno(maskBarcode(e.target.value))} placeholder="Batch no" maxLength={40}
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <NoSsr fallback={<p className="text-sm text-zinc-500">Loading date pickers…</p>}>
           <DatePickerInput value={lotmfg} onChange={(v) => setLotmfg(Array.isArray(v) ? (v[0] as Date ?? null) : (v as Date | null))} label="MFG" valueFormat="YYYY-MM"
@@ -542,7 +547,7 @@ export function ShopConsole() {
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-          <input value={pxamt} onChange={(e) => setPxamt(e.target.value)} placeholder="₹" inputMode="decimal"
+          <input value={pxamt} onChange={(e) => setPxamt(maskAmount(e.target.value))} placeholder="₹" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void addPrice()} disabled={!pxpid || !pxamt} aria-label="Save price"
             className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>

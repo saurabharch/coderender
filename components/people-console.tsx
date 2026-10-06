@@ -1,5 +1,9 @@
 "use client";
 
+import { AvatarInitials } from "@/components/admin-ux";
+
+import { maskYearMonth } from "@/lib/mask";
+
 import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
@@ -99,7 +103,7 @@ export function PeopleConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {emps.map((e) => (
               <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span>#{e.id} {e.name} {e.designation && <span className="text-xs text-zinc-500">{e.designation}</span>}</span>
+                <span className="flex min-w-0 items-center gap-2"><AvatarInitials name={e.name} size="sm" /><span className="truncate">#{e.id} {e.name} {e.designation && <span className="text-xs text-zinc-500">{e.designation}</span>}</span></span>
                 <span className="text-xs text-zinc-500">{e.dept || "—"}</span>
               </li>
             ))}
@@ -137,7 +141,7 @@ export function PeopleConsole() {
       <AdminCard>
         <p className="font-bold">Payroll</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="YYYY-MM" maxLength={7}
+          <input value={month} onChange={(e) => setMonth(maskYearMonth(e.target.value))} placeholder="YYYY-MM" maxLength={7}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void runPayroll()}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Open + Pay</button>

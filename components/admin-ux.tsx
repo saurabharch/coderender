@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Badge, Collapse, SegmentedControl } from "@mantine/core";
+import { Avatar, Badge, Collapse, Progress, SegmentedControl } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Copy } from "lucide-react";
 import { NoSsr } from "@/components/no-ssr";
@@ -19,7 +19,51 @@ export function useClickOutside<T extends HTMLElement>(onOut: () => void) {
   return ref;
 }
 
-// Mantine use-clipboard recipe: copy + Notifications feedback (no silent fail).
+// Mantine use-in-viewport recipe: render heavy charts only when scrolled into
+// view so long dashboards stay smooth on phones.
+export function useInViewport<T extends HTMLElement>(threshold = 0.1) {
+  const ref = useRef<T | null>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (!ref.current || seen) return;
+    const el = ref.current;
+    if (!("IntersectionObserver" in window)) { setSeen(true); return; }
+    const ob = new IntersectionObserver(
+      (es) => { if (es.some((e) => e.isIntersecting)) { setSeen(true); ob.disconnect(); } },
+      { threshold },
+    );
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [seen, threshold]);
+  return { ref, seen };
+}
+
+// Initials avatar for people lists (staff, customers, leads): one consistent
+// face across kanban, CRM, people and POS instead of per-page glyph styles.
+export function AvatarInitials({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
+  const initials = name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+  return (
+    <NoSsr fallback={
+      <span aria-hidden className={`flex shrink-0 items-center justify-center rounded-full bg-brand/10 font-bold text-brand-deep ${size === "sm" ? "h-7 w-7 text-[11px]" : "h-9 w-9 text-sm"}`}>{initials}</span>
+    }>
+      <Avatar name={name} color="brand" size={size === "sm" ? "sm" : "md"} radius="xl">{initials}</Avatar>
+    </NoSsr>
+  );
+}
+
+// Mantine Progress recipe for background jobs: poll text becomes a real bar
+// (queued → working → done/fail) instead of "3/24" strings.
+export function JobProgress({ done, total, label }: { done: number; total: number; label: string }) {
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  return (
+    <NoSsr fallback={<p className="text-xs text-zinc-500">{label} ({done}/{total})</p>}>
+      <div className="grid gap-1">
+        <Progress value={pct} size="sm" radius="xl" color={pct >= 100 ? "teal" : "brand"} aria-label={label} />
+        <p className="text-xs text-zinc-500">{label} ({done}/{total})</p>
+      </div>
+    </NoSsr>
+  );
+}
 export function CopyBtn({ value, label }: { value: string; label: string }) {
   async function copy() {
     try {
