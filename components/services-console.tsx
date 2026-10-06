@@ -1,5 +1,7 @@
 "use client";
 
+import { StatusBadge } from "@/components/admin-ux";
+
 import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
@@ -77,7 +79,7 @@ export function ServicesConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {jobs.map((j) => (
               <li key={j.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span>{j.no} · {j.service} · {j.customer || "walk-in"} · {j.branch} · <b>{j.status}</b>{j.staff ? ` · ${j.staff}` : ""}</span>
+                <span className="flex flex-wrap items-center gap-1.5">{j.no} · {j.service} · {j.customer || "walk-in"} · {j.branch} · <StatusBadge status={j.status} />{j.staff ? ` · ${j.staff}` : ""}</span>
                 <span className="flex gap-1">
                   <a href={`/admin/services/${j.id}/print`} className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Print</a>
                   {(next[j.status] ?? []).map((to) => (

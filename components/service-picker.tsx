@@ -13,8 +13,13 @@ export function ServicePicker({ services, selected = [] }: {
   const cats = [...new Set(shown.map((s) => s.category))];
   return (
     <span className="grid gap-1 text-sm">Services included
-      <input value={q} onChange={(e) => setQ(e.target.value)} type="search" enterKeyHint="search" autoComplete="off" placeholder="Type to suggest… (e.g. seo)"
-        maxLength={60} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+      <div className="flex gap-1.5">
+        <input value={q} onChange={(e) => setQ(e.target.value)} type="search" enterKeyHint="search" autoComplete="off" placeholder="Type to suggest… (e.g. seo)"
+          role="searchbox" aria-label="Filter services"
+        maxLength={60} className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+        {q && <button onClick={() => setQ("")} aria-label="Clear service filter" className="min-h-[44px] min-w-[44px] rounded-xl border border-black/15 dark:border-white/20">✕</button>}
+      </div>
+      <p className="text-xs text-zinc-500" role="status">{shown.length} of {services.length} services</p>
       <span className="grid max-h-[50vh] gap-0.5 overflow-y-auto overscroll-contain rounded-xl border border-black/15 p-2 dark:border-white/20">
         {cats.map((c) => (
           <span key={c}>

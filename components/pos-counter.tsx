@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { AdminCard, Empty } from "@/components/admin-ui";
 import { CustomerPicker, type Cust } from "@/components/customer-picker";
 import { ScanBarcode, Plus } from "lucide-react"
+import { Seg } from "@/components/admin-ux";
+import { maskAmount } from "@/lib/mask";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { modals } from "@mantine/modals";
 
@@ -366,14 +368,10 @@ function QuickAddForm({ code, onDone }: { code: string; onDone: (id: number, nam
       )}
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" maxLength={150}
         className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+      <Seg value={kind} onChange={(v) => setKind(v)} label="Product kind"
+        data={[{ value: "physical", label: "Physical" }, { value: "service", label: "Service" }, { value: "digital", label: "Digital" }]} />
       <div className="flex gap-1.5">
-        {(["physical", "service", "digital"] as const).map((k) => (
-          <button key={k} onClick={() => setKind(k)} aria-pressed={kind === k}
-            className={`min-h-[44px] flex-1 rounded-xl border text-sm font-bold uppercase ${kind === k ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}>{k}</button>
-        ))}
-      </div>
-      <div className="flex gap-1.5">
-        <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="₹ price" inputMode="decimal"
+        <input value={price} onChange={(e) => setPrice(maskAmount(e.target.value))} placeholder="₹ price" inputMode="decimal"
           className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         {kind === "physical" && (
           <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"

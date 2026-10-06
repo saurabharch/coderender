@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useClickOutside } from "@/components/admin-ux";
 import { modals } from "@mantine/modals";
 
 export interface Cust { id: number; name: string; phone: string }
@@ -14,6 +15,7 @@ export function CustomerPicker({ customer, onPick }: {
   const [q, setQ] = useState("");
   const [opts, setOpts] = useState<Cust[]>([]);
   const [open, setOpen] = useState(false);
+  const wrapRef = useClickOutside<HTMLDivElement>(() => setOpen(false));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function search(v: string) {
@@ -40,10 +42,12 @@ export function CustomerPicker({ customer, onPick }: {
   }
 
   return (
-    <div className="relative">
+    <div ref={wrapRef} className="relative">
       <div className="flex gap-1.5">
         <input value={customer ? `${customer.name} · ${customer.phone}` : q}
           onChange={(e) => { onPick(null); search(e.target.value); }}
+          role="combobox" aria-expanded={open && !customer} aria-controls="customer-suggest" aria-autocomplete="list"
+          onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
           type="search" enterKeyHint="search" autoComplete="off" placeholder="Customer phone — 5+ digits to search" inputMode="tel" maxLength={60}
           className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         {customer ? (
@@ -55,7 +59,7 @@ export function CustomerPicker({ customer, onPick }: {
         )}
       </div>
       {open && !customer && (
-        <ul className="absolute inset-x-0 top-full z-30 mt-1 max-h-[50vh] overflow-y-auto overscroll-contain rounded-xl border border-black/15 bg-white shadow-xl dark:border-white/20 dark:bg-zinc-900">
+        <ul id="customer-suggest" role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 max-h-[50vh] overflow-y-auto overscroll-contain rounded-xl border border-black/15 bg-white shadow-xl dark:border-white/20 dark:bg-zinc-900">
           {opts.map((c) => (
             <li key={c.id}>
               <button onClick={() => { onPick(c); setQ(c.name); setOpen(false); }}

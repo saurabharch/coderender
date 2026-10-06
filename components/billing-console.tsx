@@ -1,5 +1,7 @@
 "use client";
 
+import { CopyBtn, StatusBadge } from "@/components/admin-ux";
+
 import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
@@ -106,7 +108,7 @@ export function BillingConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {bills.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span>{b.no} · ₹{(b.grand / 100).toFixed(0)} · {b.status}</span>
+                <span className="flex flex-wrap items-center gap-1.5">{b.no} · ₹{(b.grand / 100).toFixed(0)} · <StatusBadge status={b.status} /></span>
                 <span className="flex gap-1">
                   <a href={`/admin/billing/${b.id}/print`} className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Print</a>
                   {b.status === "draft" && <button onClick={() => void billStatus(b.id, "sent")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Send→ledger</button>}
@@ -128,12 +130,13 @@ export function BillingConsole() {
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="merchant@upi" maxLength={60}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <CopyBtn value={upiId} label="UPI ID" />
           <button onClick={() => void saveQr()} disabled={!upiId.includes("@")}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save</button>
         </div>
         {qrs.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 font-mono text-xs">
-            {qrs.map((q) => <li key={q.id} className="rounded-full border border-black/15 px-3 py-1.5 dark:border-white/20">{q.upiId}{q.label ? ` · ${q.label}` : ""}</li>)}
+            {qrs.map((q) => <li key={q.id} className="flex items-center gap-1 rounded-full border border-black/15 py-1.5 pl-3 pr-1.5 dark:border-white/20">{q.upiId}{q.label ? ` · ${q.label}` : ""} <CopyBtn value={q.upiId} label="UPI ID" /></li>)}
           </ul>
         )}
       </AdminCard>

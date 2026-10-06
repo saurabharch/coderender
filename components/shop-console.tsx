@@ -7,6 +7,7 @@ import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { NoSsr } from "@/components/no-ssr";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { ProductPicker } from "@/components/product-picker";
+import { CollapsibleCard, CopyBtn, StatusBadge } from "@/components/admin-ux";
 
 interface Product { id: number; name: string; sku: string; price: number; stock: number; status: string; category: string; ratingAvg: number; ratingCount: number; vcount: number }
 interface Order { id: number; status: string; grand: number; coupon: string; createdAt: string }
@@ -384,6 +385,7 @@ export function ShopConsole() {
             className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-brand-deep dark:border-white/20"><Camera size={22} /></button>
           <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Barcode (blank = auto)" maxLength={40}
             className="min-h-[44px] w-40 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
+          <CopyBtn value={barcode} label="barcode" />
           <button onClick={() => setScanOpen(true)} aria-label="Scan barcode into this field" title="Scan into barcode field"
             className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-brand-deep dark:border-white/20"><ScanBarcode size={22} /></button>
           <WasmScanDialog open={scanOpen} onClose={() => setScanOpen(false)} title="Scan product barcode"
@@ -445,7 +447,7 @@ export function ShopConsole() {
         Transparent background (background job — photo sells instantly, swap is automatic)
       </label>
       <AdminCard>
-        <p className="font-bold">Hero slider ({slides.length}) <span className="text-xs font-normal text-zinc-500">(shop theme front)</span></p>
+        <CollapsibleCard title={`Hero slider (${slides.length})`} meta="(shop theme front)">
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={stitle} onChange={(e) => setStitle(e.target.value)} placeholder="Title" maxLength={120}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
@@ -470,6 +472,7 @@ export function ShopConsole() {
           </ul>
         )}
         <p className="mt-1 text-xs text-zinc-500">Tip: paste a media-library URL via Edit — set image per slide with the API (image field).</p>
+        </CollapsibleCard>
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Batches — mfg / expiry per product</p>
@@ -568,7 +571,7 @@ export function ShopConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {orders.map((o) => (
               <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span>#{o.id} · ₹{(o.grand / 100).toFixed(0)} · {o.status}{o.coupon ? ` · ${o.coupon}` : ""}</span>
+                <span className="flex flex-wrap items-center gap-1.5">#{o.id} · ₹{(o.grand / 100).toFixed(0)} · <StatusBadge status={o.status} />{o.coupon ? ` · ${o.coupon}` : ""}</span>
                 <span className="flex gap-1">
                   {(o.status === "draft" ? ["confirmed"] : o.status === "confirmed" ? ["fulfilled", "cancelled"] : o.status === "fulfilled" ? ["returned"] : [] as string[]).map((to) => (
                     <button key={to} onClick={() => void move(o.id, to)}
