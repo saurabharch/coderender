@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.42.0] - 2026-10-07
+## [0.42.1] - 2026-10-07
+- Shop front cards## [0.42.0] - 2026-10-07
 - Chimes, icons, UoM variants## [0.41.2] - 2026-10-07
 - Hide URL field## [0.41.1] - 2026-10-06
 - Add-product capture## [0.41.0] - 2026-10-06
