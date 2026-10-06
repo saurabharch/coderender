@@ -23,6 +23,8 @@ export function ShopConsole() {
   const [barcode, setBarcode] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [imgurls, setImgurls] = useState("");
+  const [pending, setPending] = useState<{ file: File; url: string } | null>(null);
+  const addPhotoRef = useRef<HTMLInputElement>(null);
   const [vpid, setVpid] = useState("");
   const [vname, setVname] = useState("");
   const [vsize, setVsize] = useState("");
@@ -83,8 +85,33 @@ export function ShopConsole() {
       body: JSON.stringify({ name, price: Math.round(Number(price) * 100), stock: Math.round(Number(stock) || 0), ...(barcode.trim() ? { barcode: barcode.trim() } : {}),
       ...(imgurls.trim() ? { images: imgurls.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10) } : {}) }),
     });
-    setMsg(res.ok ? "Product added ✓ (auto-barcode when left blank)" : "Add failed");
-    if (res.ok) { setName(""); setPrice(""); setStock(""); setBarcode(""); setImgurls(""); void load(); }
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { setMsg("Add failed"); return; }
+    // Pending capture (camera button below): upload + attach + queue bg job.
+    if (pending) {
+      try {
+        const form = new FormData();
+        form.append("file", pending.file, "photo.png");
+        form.append("productId", String(d.id));
+        const up = await fetch("/api/media/upload", { method: "POST", body: form });
+        const u = await up.json().catch(() => ({}));
+        if (up.ok && transparent) {
+          const q = await fetch("/api/media/bgremove", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assetId: u.id, productId: d.id }),
+          }).then((r) => r.json()).catch(() => null);
+          if (q?.ok) void runClientWorker(u.url, q.id);
+        }
+        setMsg(up.ok ? "Product added ✓ + photo attached" : "Product added ✓ (photo failed)");
+      } catch {
+        setMsg("Product added ✓ (photo failed)");
+      }
+      URL.revokeObjectURL(pending.url);
+      setPending(null);
+    } else {
+      setMsg("Product added ✓ (auto-barcode when left blank)");
+    }
+    setName(""); setPrice(""); setStock(""); setBarcode(""); setImgurls(""); void load();
   }
 
   async function addVariant() {
@@ -313,6 +340,14 @@ export function ShopConsole() {
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={imgurls} onChange={(e) => setImgurls(e.target.value)} placeholder="Image URLs, comma (optional)" maxLength={2000}
             className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input ref={addPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" aria-label="Capture product photo"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setPending({ file: f, url: URL.createObjectURL(f) });
+              e.target.value = "";
+            }} />
+          <button onClick={() => addPhotoRef.current?.click()} aria-label="Capture product photo" title="Capture photo"
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">📷</button>
           <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Barcode (blank = auto)" maxLength={40}
             className="min-h-[44px] w-40 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
           <button onClick={() => setScanOpen(true)} aria-label="Scan barcode into this field" title="Scan into barcode field"
@@ -322,6 +357,15 @@ export function ShopConsole() {
           <button onClick={() => void addProduct()} disabled={!name.trim() || !price}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
         </div>
+        {pending && (
+          <div className="mt-2 flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={pending.url} alt="Pending photo preview" className="h-14 w-14 rounded-xl object-cover" />
+            <p className="text-xs text-zinc-500">Photo attaches on Add{transparent ? " + transparent job queues" : ""}.</p>
+            <button onClick={() => { URL.revokeObjectURL(pending.url); setPending(null); }}
+              className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Remove</button>
+          </div>
+        )}
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Products ({products.length})</p>
