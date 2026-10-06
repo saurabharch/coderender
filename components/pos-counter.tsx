@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AdminCard, Empty } from "@/components/admin-ui";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
+import { modals } from "@mantine/modals";
 
 interface Line { productId: number; name: string; price: number; qty: number }
 interface Found { id: number; name: string; price: number; stock: number }
@@ -32,13 +33,29 @@ export function PosCounter() {
     const c = raw.trim();
     if (!c) return;
     const d = await fetch(`/api/shop/scan?code=${encodeURIComponent(c)}`).then((r) => r.json()).catch(() => null);
-    if (!d?.ok) { setMsg(`No product for ${c}`); return; }
-    addLine(d.productId, d.name, d.price);
-    setMsg(`Added ${d.name} ✓`);
-    setFlash(d.name);
-    try { navigator.vibrate?.(60); } catch { /* ignore */ }
-    setTimeout(() => setFlash((f) => (f === d.name ? "" : f)), 1800);
-    setCode("");
+    if (d?.ok) {
+      addLine(d.productId, d.name, d.price);
+      setMsg(`Added ${d.name} ✓`);
+      setFlash(d.name);
+      try { navigator.vibrate?.(60); } catch { /* ignore */ }
+      setTimeout(() => setFlash((f) => (f === d.name ? "" : f)), 1800);
+      setCode("");
+      return;
+    }
+    // Unknown code → fast-add dialog (name + price + stock, then into cart).
+    quickAdd(c);
+  }
+
+  function quickAdd(code: string) {
+    modals.open({
+      title: `Quick add — ${code.slice(0, 24)}`,
+      children: <QuickAddForm code={code} onDone={(id, n, p) => {
+        modals.closeAll();
+        addLine(id, n, p);
+        setMsg(`Created + added ${n} ✓`);
+        setCode("");
+      }} />,
+    });
   }
 
   function addLine(productId: number, name: string, price: number) {
@@ -85,6 +102,22 @@ export function PosCounter() {
 
   useEffect(() => {
     void loadHeld();
+  }, []);
+
+  // F2 search · F3 scan · ESC closes dialogs. Never hijacks text inputs.
+  const codeRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "F2") { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === "F3") { e.preventDefault(); setScanOpen(true); }
+      if (e.key === "F4") { e.preventDefault(); codeRef.current?.focus(); }
+      if (e.key === "Escape") { modals.closeAll(); setScanOpen(false); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
@@ -141,7 +174,7 @@ export function PosCounter() {
         <AdminCard>
           <p className="font-bold">Add items — scan, code, or search</p>
           <div className="mt-2 flex gap-1.5">
-            <input value={code} onChange={(e) => setCode(e.target.value)}
+            <input ref={codeRef} value={code} onChange={(e) => setCode(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void addCode(code); }}
               placeholder="Scan gun / type code + Enter" maxLength={40}
               inputMode="search" enterKeyHint="go"
@@ -150,9 +183,9 @@ export function PosCounter() {
               className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
           </div>
           <div className="mt-1.5 flex gap-1.5">
-            <input value={q} onChange={(e) => onSearch(e.target.value)} placeholder="Search products by name…" maxLength={60}
+            <input ref={searchRef} value={q} onChange={(e) => onSearch(e.target.value)} placeholder="Search products by name… (F2)" maxLength={60}
               className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-            <button onClick={() => setScanOpen(true)} aria-label="Open barcode scanner"
+            <button onClick={() => setScanOpen(true)} aria-label="Open barcode scanner (F3)" title="Scan (F3)"
               className="min-h-[48px] flex-1 rounded-xl bg-black text-sm font-bold text-white dark:bg-white dark:text-black">⌁ Scan</button>
           </div>
           <div className="mt-1.5">
@@ -241,6 +274,68 @@ export function PosCounter() {
         </AdminCard>
       </div>
       {msg && <p className="text-sm text-zinc-500 lg:col-span-5">{msg}</p>}
+    </div>
+  );
+}
+
+// Quick-add: unknown scan → minimal product, type-adaptive fields, straight to cart.
+function QuickAddForm({ code, onDone }: { code: string; onDone: (id: number, name: string, price: number) => void }) {
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState("physical");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("1");
+  const [msg, setMsg] = useState("");
+  const [valid, setValid] = useState<{ valid: boolean; type: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/shop/barcode", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "validate", code }),
+    }).then((r) => r.json()).then((d) => {
+      if (d && typeof d.valid === "boolean") setValid(d);
+    }).catch(() => {});
+  }, [code]);
+
+  async function save() {
+    const res = await fetch("/api/shop/barcode", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "quick-create", barcode: code, name,
+        kind, price: Math.round(Number(price) * 100), stock: kind === "physical" ? Math.round(Number(stock) || 0) : 0,
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) onDone(d.id, name, Math.round(Number(price) * 100));
+    else setMsg(d.error ?? d.code ?? "create failed");
+  }
+
+  return (
+    <div className="grid gap-2">
+      <p className="font-mono text-sm">Code: <b>{code}</b></p>
+      {valid && (
+        <p className={`text-sm font-semibold ${valid.valid ? "text-emerald-700" : "text-red-600"}`}>
+          {valid.valid ? `✓ Valid ${valid.type}` : "✗ Invalid — will save as custom code"}
+        </p>
+      )}
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" maxLength={150}
+        className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+      <div className="flex gap-1.5">
+        {(["physical", "service", "digital"] as const).map((k) => (
+          <button key={k} onClick={() => setKind(k)} aria-pressed={kind === k}
+            className={`min-h-[44px] flex-1 rounded-xl border text-sm font-bold uppercase ${kind === k ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}>{k}</button>
+        ))}
+      </div>
+      <div className="flex gap-1.5">
+        <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="₹ price" inputMode="decimal"
+          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+        {kind === "physical" && (
+          <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+        )}
+      </div>
+      <button onClick={() => void save()} disabled={!name.trim() || !price}
+        className="min-h-[44px] rounded-xl bg-brand text-sm font-bold text-white disabled:opacity-40">Save &amp; add to cart</button>
+      {msg && <p className="text-sm text-red-600">{msg}</p>}
     </div>
   );
 }

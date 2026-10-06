@@ -2,10 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductFull, listLots } from "@/lib/commerce";
 import { PrintButton } from "@/components/print-button";
+import { BarcodeGenerator } from "@/components/barcode-generator";
 import { EanBars, QrImg } from "@/components/labels";
 import { sessionUser } from "@/lib/auth";
 
 const SIZES: Record<string, { label: string; w: number; h: number }> = {
+  "30x20": { label: "30 × 20 mm", w: 113, h: 76 },
+  "40x25": { label: "40 × 25 mm", w: 151, h: 94 },
+  "50x30": { label: "50 × 30 mm", w: 189, h: 113 },
   "50x25": { label: "50 × 25 mm", w: 189, h: 94 },
   "38x21": { label: "38 × 21 mm", w: 144, h: 79 },
   "70x35": { label: "70 × 35 mm", w: 265, h: 132 },
@@ -62,6 +66,7 @@ export default async function Labels({ params, searchParams }: {
         )}
         <span className="flex gap-2"><PrintButton /><Link href="/admin/shop" className="flex min-h-[44px] items-center rounded-xl border px-4 text-sm font-semibold">Back</Link></span>
       </div>
+      <div className="mb-4 print:hidden"><BarcodeGenerator productId={Number(id)} /></div>
       <div className="grid grid-cols-2 gap-3">
         {Array.from({ length: copies }).map((_, i) => (
           <div key={i} className="break-inside-avoid rounded-lg border border-black/25 p-2 text-center" style={{ width: W, minHeight: H }}>

@@ -655,6 +655,7 @@ model Product {
   barcode String @default("")
   barcodeType String @default("")
   bin String @default("")
+  behavior String @default("stocked")
   ratingAvg Float @default(0)
   ratingCount Int @default(0)
   media   String @default("[]")
@@ -1175,6 +1176,39 @@ model ProductLot {
   exp       String @default("")
   qty       Float  @default(0)
   notes     String @default("")
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model Barcode {
+  id        Int     @id @default(autoincrement())
+  code      String
+  normalized String @unique
+  type      String  @default("UNKNOWN")
+  productId Int     @default(0)
+  variantId Int     @default(0)
+  isPrimary Boolean @default(false)
+  active    Boolean @default(true)
+  checkOk   Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([variantId])
+}
+
+model BarcodeSeq {
+  ns     String @id
+  prefix String @default("200")
+  next   Int    @default(1)
+}
+
+model ProductSerial {
+  id        Int    @id @default(autoincrement())
+  productId Int
+  variantId Int    @default(0)
+  serial    String @unique
+  status    String @default("IN_STOCK")
   createdAt DateTime @default(now())
 
   @@index([productId])

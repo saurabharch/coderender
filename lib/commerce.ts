@@ -23,6 +23,13 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS BinLoc (id INTEGER PRIMARY KEY AUTOINCREMENT, warehouseId INTEGER NOT NULL DEFAULT 1, floor TEXT NOT NULL DEFAULT '', rack TEXT NOT NULL DEFAULT '', shelf TEXT NOT NULL DEFAULT '', code TEXT NOT NULL DEFAULT '')`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductLot (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, lot TEXT NOT NULL DEFAULT '', mfg TEXT NOT NULL DEFAULT '', exp TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_lot_product ON ProductLot(productId)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_product_barcode ON Product(barcode)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_product_sku ON Product(sku)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_product_name ON Product(name)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_move_product ON StockMove(productId)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_level_product ON StockLevel(productId)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS LotAlert (lotId INTEGER PRIMARY KEY, at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try { db.exec("ALTER TABLE Product ADD COLUMN behavior TEXT NOT NULL DEFAULT 'stocked'"); } catch { /* exists */ }
   for (const [t, c] of [
     ["Product", "category TEXT NOT NULL DEFAULT ''"], ["Product", "subcategory TEXT NOT NULL DEFAULT ''"],
     ["Product", "shortDesc TEXT NOT NULL DEFAULT ''"], ["Product", "description TEXT NOT NULL DEFAULT ''"],
@@ -147,7 +154,7 @@ export function saveProduct(input: {
   media?: string[]; seo?: Record<string, string>; attrs?: Record<string, string>;
   category?: string; subcategory?: string; shortDesc?: string; description?: string;
   specs?: Record<string, string>; images?: string[]; videos?: string[];
-  barcode?: string; barcodeType?: string; bin?: string;
+  barcode?: string; barcodeType?: string; bin?: string; behavior?: string;
 }): number {
   commerceTables();
   const db = getDb();
@@ -158,6 +165,10 @@ export function saveProduct(input: {
   if (input.id && !prev) throw new Error("no product");
   const keep = <T,>(v: T | undefined, k: string, fb: T): T => (v !== undefined ? v : ((prev?.[k] ?? fb) as T));
   const keepStr = (v: string | undefined, k: string, fb = ""): string => (v !== undefined ? v : String(prev?.[k] ?? fb));
+  const BEHAVIORS = ["stocked", "serialized", "batch_tracked", "weighted", "service", "digital", "made_to_order"];
+  const behavior = input.behavior !== undefined
+    ? (BEHAVIORS.includes(input.behavior) ? input.behavior : "stocked")
+    : keepStr(undefined, "behavior", "stocked");
   const media = JSON.stringify(input.media ?? JSON.parse(String(prev?.media ?? "[]"))).slice(0, 2000);
   const seo = JSON.stringify(input.seo ?? JSON.parse(String(prev?.seo ?? "{}"))).slice(0, 1000);
   const attrs = JSON.stringify(input.attrs ?? JSON.parse(String(prev?.attrs ?? "{}"))).slice(0, 2000);
@@ -171,11 +182,11 @@ export function saveProduct(input: {
     keepStr(input.status, "status", "active"), media, seo, attrs,
     keepStr(input.category, "category"), keepStr(input.subcategory, "subcategory"),
     keepStr(input.shortDesc, "shortDesc"), keepStr(input.description, "description"), specs, images, videos,
-    keepStr(input.barcode, "barcode"), input.barcodeType !== undefined ? bt : keepStr(input.barcodeType, "barcodeType"), keepStr(input.bin, "bin")];
+    keepStr(input.barcode, "barcode"), input.barcodeType !== undefined ? bt : keepStr(input.barcodeType, "barcodeType"), keepStr(input.bin, "bin"), behavior];
   const cols = `name=?, sku=?, kind=?, price=?, mrp=?, unit=?, perPack=?, taxPct=?, stock=?, status=?, media=?, seo=?, attrs=?,
-    category=?, subcategory=?, shortDesc=?, description=?, specs=?, images=?, videos=?, barcode=?, barcodeType=?, bin=?`;
+    category=?, subcategory=?, shortDesc=?, description=?, specs=?, images=?, videos=?, barcode=?, barcodeType=?, bin=?, behavior=?`;
   const names = `name, sku, kind, price, mrp, unit, perPack, taxPct, stock, status, media, seo, attrs,
-    category, subcategory, shortDesc, description, specs, images, videos, barcode, barcodeType, bin`;
+    category, subcategory, shortDesc, description, specs, images, videos, barcode, barcodeType, bin, behavior`;
   if (input.id) {
     db.prepare(`UPDATE Product SET ${cols} WHERE id=?`).run(...vals, input.id);
     return input.id;
@@ -190,18 +201,18 @@ export function saveProduct(input: {
 }
 
 // Scan lookup: exact barcode (product or variant), then SKU fallback.
-export function productByCode(code: string): { productId: number; variantId: number; name: string; price: number; stock: number } | null {
+export function productByCode(code: string): { productId: number; variantId: number; name: string; price: number; stock: number; type: string } | null {
   commerceTables();
   const db = getDb();
   const c = code.trim().slice(0, 40);
   if (!c) return null;
   const v = db.prepare(`SELECT v.productId, v.id variantId, p.name || ' / ' || v.name name,
-    CASE WHEN v.price > 0 THEN v.price ELSE p.price END price, v.stock FROM ProductVariant v
+    CASE WHEN v.price > 0 THEN v.price ELSE p.price END price, v.stock, COALESCE(v.barcodeType,'') type FROM ProductVariant v
     JOIN Product p ON p.id=v.productId WHERE v.barcode=? LIMIT 1`).get(c) as
-    { productId: number; variantId: number; name: string; price: number; stock: number } | undefined;
+    { productId: number; variantId: number; name: string; price: number; stock: number; type: string } | undefined;
   if (v) return v;
-  const p = db.prepare("SELECT id productId, 0 variantId, name, price, stock FROM Product WHERE (barcode=? OR sku=?) AND status='active' LIMIT 1").get(c, c) as
-    { productId: number; variantId: number; name: string; price: number; stock: number } | undefined;
+  const p = db.prepare("SELECT id productId, 0 variantId, name, price, stock, COALESCE(barcodeType,'SKU') type FROM Product WHERE (barcode=? OR sku=?) AND status='active' LIMIT 1").get(c, c) as
+    { productId: number; variantId: number; name: string; price: number; stock: number; type: string } | undefined;
   return p ?? null;
 }
 

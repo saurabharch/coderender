@@ -24,6 +24,14 @@ export async function POST(req: Request) {
   const g = await scaleGate(req, "settings");
   if (g instanceof NextResponse) return g;
   const body = await req.json().catch(() => null);
+  if (body?.preview) {
+    const { previewImport } = await import("@/lib/scale");
+    if (body?.import !== "products" && body?.import !== "customers")
+      return NextResponse.json({ error: "import products|customers" }, { status: 422 });
+    if (typeof body?.csv !== "string" || !body.csv.trim())
+      return NextResponse.json({ error: "csv required" }, { status: 422 });
+    return NextResponse.json({ ok: true, ...(await previewImport(body.import, body.csv)) });
+  }
   if (body?.import !== "products" && body?.import !== "customers")
     return NextResponse.json({ error: "import products|customers" }, { status: 422 });
   if (typeof body?.csv !== "string" || !body.csv.trim())

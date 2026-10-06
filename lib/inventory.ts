@@ -7,6 +7,7 @@ import { avgCost, needsReorder, poCan, type MoveKind } from "./inventory-core";
 export function inventoryTables(): void {
   const db = getDb();
   db.exec(`CREATE TABLE IF NOT EXISTS Warehouse (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, location TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS LotAlert (lotId INTEGER PRIMARY KEY, at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS StockLevel (productId INTEGER NOT NULL, warehouseId INTEGER NOT NULL DEFAULT 1, qty REAL NOT NULL DEFAULT 0, avgCost INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (productId, warehouseId))`);
   db.exec(`CREATE TABLE IF NOT EXISTS StockMove (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, warehouseId INTEGER NOT NULL DEFAULT 1, kind TEXT NOT NULL, qty REAL NOT NULL DEFAULT 0, ref TEXT NOT NULL DEFAULT '', cost INTEGER NOT NULL DEFAULT 0, at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Supplier (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', gstin TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', rating INTEGER NOT NULL DEFAULT 0, createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
@@ -62,14 +63,27 @@ export function levelOf(productId: number, warehouseId = 1): number {
 export function receiveStock(productId: number, qty: number, warehouseId = 1, cost = 0, ref = "receive"): void {
   inventoryTables();
   if (qty <= 0) throw new Error("qty must be positive");
+  if (!stockTracked(productId)) throw new Error("service/digital products take no stock — book them, don't receive them");
   move(productId, warehouseId, "in", qty, ref, cost);
 }
 
 export function issueStock(productId: number, qty: number, ref: string, warehouseId = 1): void {
   inventoryTables();
   if (qty <= 0) throw new Error("qty must be positive");
+  if (!stockTracked(productId)) throw new Error("service/digital products take no stock");
   if (levelOf(productId, warehouseId) < qty) throw new Error("insufficient stock");
   move(productId, warehouseId, "out", qty, ref);
+}
+
+// Behavior-driven gate: stocked | serialized | batch_tracked | weighted take
+// ledger moves; service | digital | made_to_order do not.
+export function stockTracked(productId: number): boolean {
+  inventoryTables();
+  const p = getDb().prepare("SELECT kind, behavior FROM Product WHERE id=?").get(productId) as
+    { kind: string; behavior: string } | undefined;
+  if (!p) return true;
+  if (["service", "digital"].includes(p.kind)) return false;
+  return !["service", "digital", "made_to_order"].includes(p.behavior ?? "stocked");
 }
 
 export function adjustStock(productId: number, delta: number, reason: string, warehouseId = 1): void {
@@ -112,8 +126,7 @@ export function lowStockList() {
 }
 
 // Alert once per product until restocked; returns newly alerted rows.
-export function stockAlertTick(): { id: number; name: string; qty: number }[] {
-  inventoryTables();
+export function stockAlertTick(): { id: number; name: string; qty: number }[] {  inventoryTables();
   const db = getDb();
   const fresh = lowStockList().filter((r) =>
     !(db.prepare("SELECT productId FROM StockAlert WHERE productId=?").get(r.id)));
@@ -261,4 +274,38 @@ export function payBill(billId: number): void {
   if (b.status !== "unpaid") throw new Error("bill not payable");
   db.prepare("UPDATE SupplierBill SET status='paid', paidAt=datetime('now') WHERE id=?").run(billId);
   db.prepare("UPDATE PurchaseOrder SET status='paid' WHERE id=?").run(b.poId);
+}
+
+// Expiring lots (<days) notify once per lot; cleared when the lot is gone.
+export function lotExpiryTick(days = 30): { productId: number; lot: string; exp: string }[] {
+  inventoryTables();
+  const db = getDb();
+  const rows = db.prepare(`SELECT l.id, l.productId, l.lot, l.exp, p.name FROM ProductLot l
+    JOIN Product p ON p.id=l.productId
+    WHERE l.exp != '' AND date(l.exp) <= date('now', ?) AND date(l.exp) >= date('now','-180 days')
+    AND l.id NOT IN (SELECT lotId FROM LotAlert)`).all(`+${Math.max(1, days)} days`) as
+    { id: number; productId: number; lot: string; exp: string; name: string }[];
+  for (const r of rows) {
+    db.prepare("INSERT INTO LotAlert (lotId) VALUES (?)").run(r.id);
+    db.prepare("INSERT INTO Notification (title, body, audience, kind, target) VALUES (?,?,?,?,?)")
+      .run(`Expiring: ${r.name}`, `Batch ${r.lot || `#${r.id}`} expires ${r.exp}. Sell or mark down first (FEFO).`, "team", "warning", "team");
+  }
+  return rows;
+}
+
+// Mirror repair: Main-warehouse levels back onto Product.stock. Returns fixes.
+export function reconcileMirrors(): { fixed: number } {
+  inventoryTables();
+  const db = getDb();
+  let fixed = 0;
+  for (const p of db.prepare("SELECT id, stock FROM Product WHERE kind='physical'").all() as
+    { id: number; stock: number }[]) {
+    const lvl = db.prepare("SELECT qty FROM StockLevel WHERE productId=? AND warehouseId=1").get(p.id) as
+      { qty: number } | undefined;
+    if (lvl && Math.round(lvl.qty) !== Math.round(p.stock)) {
+      db.prepare("UPDATE Product SET stock=? WHERE id=?").run(Math.max(0, Math.round(lvl.qty)), p.id);
+      fixed++;
+    }
+  }
+  return { fixed };
 }
