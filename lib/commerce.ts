@@ -22,6 +22,8 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS ProductView (id INTEGER PRIMARY KEY AUTOINCREMENT, fp TEXT NOT NULL DEFAULT '', customerId INTEGER NOT NULL DEFAULT 0, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS BinLoc (id INTEGER PRIMARY KEY AUTOINCREMENT, warehouseId INTEGER NOT NULL DEFAULT 1, floor TEXT NOT NULL DEFAULT '', rack TEXT NOT NULL DEFAULT '', shelf TEXT NOT NULL DEFAULT '', code TEXT NOT NULL DEFAULT '')`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductLot (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, lot TEXT NOT NULL DEFAULT '', mfg TEXT NOT NULL DEFAULT '', exp TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ProductExt (productId INTEGER PRIMARY KEY, kind TEXT NOT NULL DEFAULT '', payload TEXT NOT NULL DEFAULT '{}', updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try { db.exec("ALTER TABLE Product ADD COLUMN avail TEXT NOT NULL DEFAULT 'in_stock'"); } catch { /* exists */ }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_lot_product ON ProductLot(productId)`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductChannel (productId INTEGER NOT NULL, channel TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, onlinePrice INTEGER NOT NULL DEFAULT 0, minQty REAL NOT NULL DEFAULT 0, maxQty REAL NOT NULL DEFAULT 0, PRIMARY KEY (productId, channel))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductPrice (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, variantId INTEGER NOT NULL DEFAULT 0, priceType TEXT NOT NULL DEFAULT 'retail', amount INTEGER NOT NULL DEFAULT 0, minQty REAL NOT NULL DEFAULT 0, startsAt TEXT NOT NULL DEFAULT '', endsAt TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
@@ -219,7 +221,45 @@ export function productByCode(code: string): { productId: number; variantId: num
   return p ?? null;
 }
 
-// Full detail: product + variants + similar (same category) + rating.
+// ---- extensions (rental / digital / subscription / event stubs) ----
+export const EXT_KINDS = ["rental", "digital", "subscription", "event"];
+
+export function getExt(productId: number) {
+  commerceTables();
+  return getDb().prepare("SELECT kind, payload FROM ProductExt WHERE productId=?").get(productId) ?? null;
+}
+
+export function saveExt(productId: number, kind: string, payload: Record<string, string>): void {
+  commerceTables();
+  if (!EXT_KINDS.includes(kind)) throw new Error("bad kind");
+  const clean: Record<string, string> = {};
+  for (const [k, v] of Object.entries(payload).slice(0, 12)) clean[k.slice(0, 40)] = String(v).slice(0, 300);
+  getDb().prepare("INSERT INTO ProductExt (productId, kind, payload) VALUES (?,?,?) ON CONFLICT(productId) DO UPDATE SET kind=excluded.kind, payload=excluded.payload, updatedAt=datetime('now')")
+    .run(productId, kind, JSON.stringify(clean));
+}
+
+export function setAvail(productId: number, avail: string): void {
+  commerceTables();
+  const ok = ["in_stock", "out_of_stock", "preorder", "backorder", "coming_soon", "discontinued"];
+  if (!ok.includes(avail)) throw new Error("bad availability");
+  getDb().prepare("UPDATE Product SET avail=? WHERE id=?").run(avail, productId);
+}
+
+// Heuristic categorizer (local keyword rules — honest hook where a model plugs in).
+const CATEGORY_HINTS: [RegExp, string, string][] = [
+  [/milk|rice|atta|dal|oil|snack|biscuit|tea|coffee|frozen|canned|food/i, "Packaged Food", "Grocery"],
+  [/shirt|tshirt|jean|kurta|saree|dress|shoe|garment|apparel/i, "Apparel", "Clothing"],
+  [/phone|mobile|laptop|charger|cable|electronic|gadget|appliance/i, "Electronics", "Devices"],
+  [/soap|shampoo|cream|lotion|cosmetic|pharma|tablet|syrup/i, "Personal Care", "Health"],
+  [/cement|paint|pipe|wire|tool|hardware/i, "Hardware", "Tools"],
+];
+
+export function suggestCategory(name: string): { category: string; subcategory: string; confidence: "rule" } {
+  for (const [re, category, subcategory] of CATEGORY_HINTS) {
+    if (re.test(name)) return { category, subcategory, confidence: "rule" };
+  }
+  return { category: "General", subcategory: "Misc", confidence: "rule" };
+}
 export function getProductFull(id: number) {
   commerceTables();
   const db = getDb();
@@ -230,7 +270,7 @@ export function getProductFull(id: number) {
   const similar = p.category
     ? db.prepare("SELECT id, name, price, mrp, images FROM Product WHERE category=? AND id!=? AND status='active' ORDER BY id DESC LIMIT 4").all(p.category, id)
     : [];
-  return { product: p, variants, similar };
+  return { product: p, variants, similar, ext: getExt(id) };
 }
 
 export function saveVariant(input: { id?: number; productId: number; name?: string; sku?: string; attrs?: Record<string, string>; price?: number; mrp?: number; stock?: number; barcode?: string; barcodeType?: string }): number {

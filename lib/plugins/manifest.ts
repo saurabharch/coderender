@@ -123,6 +123,8 @@ export const ROUTES: RouteDoc[] = [
   { method: "GET", path: "/api/shop/orders", auth: "team", desc: "List orders (?status=) or one (?id=). Key: shop:read." },
   { method: "GET", path: "/api/stock/levels", auth: "team", desc: "Stock levels/moves/low/FEFO (?view=). Key: shop:read." },
   { method: "GET", path: "/api/shop/barcode", auth: "team", desc: "Indexed barcode lookup. Key: shop:read." },
+  { method: "GET", path: "/api/shop/extend", auth: "team", desc: "Product extension + availability. Key: shop:read." },
+  { method: "POST", path: "/api/shop/extend", auth: "team", desc: "Extension, availability, AI categorize. Key: shop:write." },
   { method: "POST", path: "/api/shop/barcode", auth: "team", desc: "Validate/generate/assign/backfill/quick-create/serials. Key: shop:write." },
   { method: "POST", path: "/api/stock/levels", auth: "team", desc: "Receive/adjust/transfer/alerts/reconcile. Key: shop:write." },
   { method: "GET", path: "/api/stock/places", auth: "team", desc: "Warehouses or suppliers (?what=). Key: shop:read." },

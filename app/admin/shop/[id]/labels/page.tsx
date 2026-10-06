@@ -19,7 +19,7 @@ const SIZES: Record<string, { label: string; w: number; h: number }> = {
 // Label studio: both / QR-only / barcode-only, sticker sizes (preset + custom
 // ?w=&h= in mm), product ID + name, batch mfg/exp (?lot=).
 export default async function Labels({ params, searchParams }: {
-  params: Promise<{ id: string }>; searchParams: Promise<{ copies?: string; mode?: string; size?: string; w?: string; h?: string; lot?: string }>;
+  params: Promise<{ id: string }>; searchParams: Promise<{ copies?: string; mode?: string; size?: string; w?: string; h?: string; lot?: string; sheet?: string }>;
 }) {
   const user = await sessionUser();
   if (!user) return notFound();
@@ -31,6 +31,7 @@ export default async function Labels({ params, searchParams }: {
   if (!full) return notFound();
   const copies = Math.min(24, Math.max(1, Number(sp.copies || 4) || 4));
   const mode = ["both", "qr", "barcode"].includes(sp.mode ?? "") ? sp.mode! : "both";
+  const sheet = sp.sheet === "a4";
   const preset = SIZES[sp.size ?? ""];
   const W = preset ? preset.w : Math.min(600, Math.max(100, Math.round(Number(sp.w || 50) * 3.7795)));
   const H = preset ? preset.h : Math.min(400, Math.max(60, Math.round(Number(sp.h || 25) * 3.7795)));
@@ -65,9 +66,12 @@ export default async function Labels({ params, searchParams }: {
           </form>
         )}
         <span className="flex gap-2"><PrintButton /><Link href="/admin/shop" className="flex min-h-[44px] items-center rounded-xl border px-4 text-sm font-semibold">Back</Link></span>
+        <Link href={link({ sheet: sheet ? "" : "a4" })}
+          className="flex min-h-[44px] items-center rounded-xl border px-3 text-xs font-semibold">{sheet ? "Single view" : "A4 sheet"}</Link>
       </div>
       <div className="mb-4 print:hidden"><BarcodeGenerator productId={Number(id)} /></div>
-      <div className="grid grid-cols-2 gap-3">
+      {sheet && <style>{`@media print { @page { size: A4; margin: 8mm } }`}</style>}
+      <div className={`grid gap-3 ${sheet ? "grid-cols-3 print:gap-2" : "grid-cols-2"}`}>
         {Array.from({ length: copies }).map((_, i) => (
           <div key={i} className="break-inside-avoid rounded-lg border border-black/25 p-2 text-center" style={{ width: W, minHeight: H }}>
             <p className="truncate text-[11px] font-bold">#{p.id} {p.name}</p>

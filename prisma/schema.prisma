@@ -656,6 +656,7 @@ model Product {
   barcodeType String @default("")
   bin String @default("")
   behavior String @default("stocked")
+  avail    String @default("in_stock")
   ratingAvg Float @default(0)
   ratingCount Int @default(0)
   media   String @default("[]")
@@ -1237,4 +1238,11 @@ model ProductPrice {
   active    Boolean @default(true)
 
   @@index([productId, priceType])
+}
+
+model ProductExt {
+  productId Int    @id
+  kind      String @default("")
+  payload   String @default("{}")
+  updatedAt DateTime @updatedAt
 }

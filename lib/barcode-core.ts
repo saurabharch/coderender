@@ -3,7 +3,7 @@
 
 export type BarcodeType =
   | "UPC_A" | "UPC_E" | "EAN_13" | "EAN_8" | "CODE_128" | "CODE_39"
-  | "ITF_14" | "INTERNAL" | "WEIGHTED" | "COUPON" | "UNKNOWN";
+  | "ITF_14" | "GS1_128" | "GS1_DATAMATRIX" | "INTERNAL" | "WEIGHTED" | "COUPON" | "UNKNOWN";
 
 // Scanner input: trim, strip whitespace/CR/LF/terminators, keep leading zeros
 // (never coerce to a number).
@@ -64,7 +64,7 @@ export function validateBarcode(raw: string): BarcodeValidation {
     errors.push({ code, message });
     return { valid: false, normalized, type, checksumValid: checksum, errors };
   };
-  if (/[^0-9A-Za-z\-.$/+% ]/.test(normalized) && !/^\d+$/.test(normalized)) {
+  if (/[^0-9A-Za-z\-.$/+% ()]/.test(normalized) && !/^\d+$/.test(normalized)) {
     return fail("UNKNOWN", "INVALID_CHARACTERS", "Barcode has unsupported characters.");
   }
   const digits = normalized.replace(/\D/g, "");
@@ -89,6 +89,14 @@ export function validateBarcode(raw: string): BarcodeValidation {
   }
   if (isDigits && normalized.length === 14) {
     return { valid: true, normalized, type: "ITF_14", checksumValid: null, errors };
+  }
+  // GS1-128: Code128 with FNC1 + Application Identifiers in parentheses.
+  if (/\(\d{2,4}\)/.test(normalized) && normalized.length <= 100) {
+    return { valid: true, normalized, type: "GS1_128", checksumValid: null, errors };
+  }
+  // GS1 DataMatrix: ECC200 square payload — structure only, no local decode.
+  if (/^\[\)>\x1E\d{2}/.test(normalized) || (/^[A-Za-z0-9+/=]{32,}$/.test(normalized) && normalized.length % 4 === 0)) {
+    return { valid: true, normalized, type: "GS1_DATAMATRIX", checksumValid: null, errors };
   }
   if (/^[0-9A-Z\-.$/+% ]{4,48}$/i.test(normalized)) {
     const t = /^[0-9A-Z]+$/i.test(normalized.replace(/[-.$/+% ]/g, "")) ? "CODE_128" : "CODE_39";

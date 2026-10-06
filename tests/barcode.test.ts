@@ -53,3 +53,10 @@ describe("barcode-core", () => {
     expect(good.valid && good.type === "EAN_13" && good.checksumValid).toBe(true);
   });
 });
+
+describe("gs1 + availability", () => {
+  it("spots GS1-128 application identifiers", async () => {
+    const { validateBarcode } = await import("@/lib/barcode-core");
+    expect(validateBarcode("(01)8901234567890(17)251231").type).toBe("GS1_128");
+  });
+});
