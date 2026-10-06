@@ -42,8 +42,13 @@ export async function POST(req: Request) {
     if (name === "media") {
       const { r2Config } = await import("@/lib/r2");
       const cfg = r2Config();
-      if (!cfg) return NextResponse.json({ ok: false, detail: "save R2 keys first (dashboard Providers → media)" });
-      return NextResponse.json({ ok: true, detail: `R2 ready (${cfg.source}) — uploads go to ${cfg.bucket}` });
+      const { getProvider } = await import("@/lib/providers");
+      const clip = !!getProvider("media").CLIPDROP_API_KEY;
+      if (!cfg && !clip) return NextResponse.json({ ok: false, detail: "save R2 and/or ClipDrop keys first (dashboard Providers → media)" });
+      return NextResponse.json({
+        ok: true,
+        detail: [`R2 ${cfg ? `ready (${cfg.source}, ${cfg.bucket})` : "unset"}`, `bg-removal ${clip ? "keyed" : "local-engine"}`].join(" · "),
+      });
     }
     if (name === "razorpay") {
       const { getProvider } = await import("@/lib/providers");

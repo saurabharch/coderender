@@ -129,7 +129,7 @@ export function ShopConsole() {
 
   async function capturePhoto(productId: number, file: File | undefined) {
     if (!file) return;
-    setMsg("Processing photo…");
+    setMsg("Uploading original…");
     try {
       // Downscale monster camera files first (upload cap is 2MB).
       const bmp = await createImageBitmap(file);
@@ -144,18 +144,28 @@ export function ShopConsole() {
           canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode"))), "image/jpeg", 0.85)) ?? blob;
       }
       bmp.close();
-      if (transparent) {
-        const { removeBackground } = await import("@imgly/background-removal");
-        setMsg("Removing background… (first use downloads the AI model)");
-        blob = await removeBackground(blob);
-      }
+      // Upload the ORIGINAL immediately — fast, selling never waits.
       const form = new FormData();
       form.append("file", blob, "photo.png");
       form.append("productId", String(productId));
       const res = await fetch("/api/media/upload", { method: "POST", body: form });
       const d = await res.json().catch(() => ({}));
-      setMsg(res.ok ? `Photo attached ✓ (${d.via})` : (d.error ?? "upload failed"));
-      if (res.ok) void load();
+      if (!res.ok) {
+        setMsg(d.error ?? "upload failed");
+        return;
+      }
+      // Background removal runs as a job; the transparent copy swaps in
+      // automatically and the DB updates itself — zero counter load.
+      if (transparent) {
+        const q = await fetch("/api/media/bgremove", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assetId: d.id, productId }),
+        }).then((r) => r.json()).catch(() => null);
+        setMsg(q?.ok ? `Photo live ✓ — transparent version swaps in automatically (job #${q.id})` : `Photo attached ✓ (${d.via})`);
+      } else {
+        setMsg(`Photo attached ✓ (${d.via})`);
+      }
+      void load();
     } catch {
       setMsg("Photo failed — try again or use an image URL.");
     }
@@ -322,7 +332,7 @@ export function ShopConsole() {
         onChange={(e) => { const f = e.target.files?.[0]; if (photoid && f) void capturePhoto(photoid, f); e.target.value = ""; }} />
       <label className="mt-1.5 flex min-h-[44px] items-center gap-2 text-sm">
         <input type="checkbox" checked={transparent} onChange={(e) => setTransparent(e.target.checked)} className="h-5 w-5" />
-        Transparent background (on-device AI — first use downloads the model)
+        Transparent background (background job — photo sells instantly, swap is automatic)
       </label>
       <AdminCard>
         <p className="font-bold">Hero slider ({slides.length}) <span className="text-xs font-normal text-zinc-500">(shop theme front)</span></p>

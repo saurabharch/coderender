@@ -1253,3 +1253,12 @@ model LoyaltyCard {
   active     Boolean @default(true)
   issuedAt   DateTime @default(now())
 }
+
+model BgJob {
+  id        Int    @id @default(autoincrement())
+  assetId   Int
+  productId Int    @default(0)
+  status    String @default("queued")
+  note      String @default("")
+  createdAt DateTime @default(now())
+}

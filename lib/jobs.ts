@@ -192,11 +192,27 @@ export const scanTicketFileFn = inngest.createFunction(
   }
 );
 
-export const functions = [dailyReportFn, leadCreatedFn, broadcastFn, supportTriageFn, nightlyDistillFn, agentCallFn, scanTicketFileFn];
 
 // Local runner: executes bodies in-process (scheduler, emit fallback, manual).
-export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" | "supportTriage" | "nightlyDistill" | "agentCall" | "scanTicketFile", data?: { leadId?: number; message?: string; threadId?: number; op?: string; params?: Record<string, unknown>; keyName?: string; attachmentId?: number }) {
+export const bgRemoveFn = inngest.createFunction(
+  { id: "media-bgremove", triggers: { event: "app/media.bgremove" }, retries: 1 },
+  async ({ event, step }) => {
+    const { jobId } = event.data as { jobId: number };
+    await step.run("remove", async () => {
+      const { runBgRemove } = await import("./bgremove");
+      const r = await runBgRemove(jobId);
+      if (!r.ok) throw new NonRetriableError("bgremove failed (original kept)");
+    });
+    return { ok: true };
+  }
+);
+
+export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" | "supportTriage" | "nightlyDistill" | "agentCall" | "scanTicketFile" | "bgRemove", data?: { leadId?: number; message?: string; threadId?: number; op?: string; params?: Record<string, unknown>; keyName?: string; attachmentId?: number; jobId?: number }) {
   if (name === "agentCall") return doAgentCall({ op: data?.op ?? "", params: data?.params, keyName: data?.keyName });
+  if (name === "bgRemove") {
+    const { runBgRemove } = await import("./bgremove");
+    return runBgRemove(data?.jobId ?? 0);
+  }
   if (name === "scanTicketFile") return doScanTicketFile({ attachmentId: data?.attachmentId ?? 0 });
   if (name === "dailyReport") return doDailyReport();
   if (name === "nightlyDistill") {
@@ -207,3 +223,5 @@ export async function runLocal(name: "dailyReport" | "leadCreated" | "nurture" |
   if (name === "nurture") return doNurture({ leadId: data?.leadId ?? 0 });
   return doSupportTriage({ message: data?.message ?? "", threadId: data?.threadId });
 }
+
+export const functions = [dailyReportFn, leadCreatedFn, broadcastFn, supportTriageFn, nightlyDistillFn, agentCallFn, scanTicketFileFn, bgRemoveFn];
