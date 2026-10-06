@@ -43,6 +43,7 @@ export function ShopConsole() {
   const [lotmfg, setLotmfg] = useState<Date | null>(null);
   const [lotexp, setLotexp] = useState<Date | null>(null);
   const [lotq, setLotq] = useState("");
+  const [lotscan, setLotscan] = useState(false);
   const [lotfound, setLotfound] = useState<{ id: number; lot: string; mfg: string; exp: string; pname: string; pid: number; barcode: string; images: string; stock: number; sold: number }[]>([]);
   const [pxpid, setPxpid] = useState("");
   const [pxtype, setPxtype] = useState("sale");
@@ -189,6 +190,18 @@ export function ShopConsole() {
     if (d?.lots) setLotfound(d.lots);
   }
 
+  // Scan a barcode → resolve the product → select it for mfg/exp update.
+  async function scanLot(code: string) {
+    setLotscan(false);
+    const d = await fetch(`/api/shop/scan?code=${encodeURIComponent(code.trim())}`).then((r) => r.json()).catch(() => null);
+    if (d?.ok) {
+      setLotpid(String(d.productId));
+      setMsg(`Selected ${d.name} ✓ — set dates below`);
+      const l = await fetch(`/api/shop/lots?productId=${d.productId}`).then((r) => r.json()).catch(() => null);
+      if (l?.lots) setLots(l.lots);
+    } else setMsg(`No product for ${code}`);
+  }
+
   async function move(id: number, to: string) {
     const res = await fetch("/api/shop/orders", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -308,8 +321,12 @@ export function ShopConsole() {
           </ul>
         )}
         <div className="mt-2 flex flex-wrap items-end gap-1.5">
-          <div className="min-w-0 flex-1"><ProductPicker value={lotpid} shortcut="F6" placeholder="Product for batch…"
+          <div className="min-w-0 flex-1"><ProductPicker value={lotpid} shortcut="F6" placeholder="Product for batch… (or scan →)"
             onPick={(x) => { setLotpid(x ? String(x.id) : ""); if (x) void loadLots(String(x.id)); }} /></div>
+          <button onClick={() => setLotscan(true)} aria-label="Scan product barcode"
+            className="min-h-[48px] min-w-[52px] rounded-xl bg-black text-lg font-bold text-white dark:bg-white dark:text-black">⌁</button>
+          <WasmScanDialog open={lotscan} onClose={() => setLotscan(false)} title="Scan product for batch"
+            onScan={(data) => { void scanLot(data); }} />
           <input value={lotno} onChange={(e) => setLotno(e.target.value)} placeholder="Batch no" maxLength={40}
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <NoSsr fallback={<p className="text-sm text-zinc-500">Loading date pickers…</p>}>
