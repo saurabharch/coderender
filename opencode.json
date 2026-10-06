@@ -15,5 +15,17 @@
       "effect": "allow"
     }
   ],
-  "default_agent": "build"
+  "default_agent": "build",
+  "mcp": {
+    "servers": {
+      "mantine": {
+        "type": "local",
+        "command": [
+          "npx",
+          "-y",
+          "@mantine/mcp-server"
+        ]
+      }
+    }
+  }
 }

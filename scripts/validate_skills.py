@@ -20,10 +20,16 @@ for skill_md in sorted((ROOT / "skills").glob("*/SKILL.md")):
     else:
         fm = m.group(1)
         name = re.search(r"^name:\s*(.+)$", fm, re.M)
-        desc = re.search(r"^description:\s*(.+)$", fm, re.M)
+        # description may be a folded (>) or literal (|) block scalar
+        desc_m = re.search(r"^description:\s*(>?\|?)\s*\n((?:[ \t]+.*\n?)+)", fm, re.M)
+        if desc_m and desc_m.group(1) in (">", "|"):
+            desc_text = re.sub(r"\n[ \t]+", " ", desc_m.group(2)).strip()
+        else:
+            inline = re.search(r"^description:\s*(.+)$", fm, re.M)
+            desc_text = inline.group(1).strip() if inline else ""
         if not name or name.group(1).strip() != folder.name:
             problems.append("name missing or does not match folder")
-        if not desc or len(desc.group(1).strip()) < 40:
+        if len(desc_text) < 40:
             problems.append("description missing or too short")
 
     if len(text.splitlines()) > 500:
