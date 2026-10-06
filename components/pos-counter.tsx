@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AdminCard, Empty } from "@/components/admin-ui";
+import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 
 interface Line { productId: number; name: string; price: number; qty: number }
 interface Found { id: number; name: string; price: number; stock: number }
@@ -20,17 +21,11 @@ export function PosCounter() {
   const [found, setFound] = useState<Found[]>([]);
   const [held, setHeld] = useState<{ id: number; items: number; createdAt: string }[]>([]);
   const [msg, setMsg] = useState("");
-  const [cam, setCam] = useState<"on" | "off" | "unsupported">("off");
-  const [camErr, setCamErr] = useState("");
-  const [torch, setTorch] = useState(false);
-  const [torchOn, setTorchOn] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [flash, setFlash] = useState("");
   const [method, setMethod] = useState<"cash" | "upi" | "card">("cash");
   const [tendered, setTendered] = useState("");
-  const videoRef = useRef<HTMLVideoElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const stopRef = useRef(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function addCode(raw: string) {
@@ -64,48 +59,12 @@ export function PosCounter() {
     }, 300);
   }
 
-  async function startCam() {
-    setCamErr("");
-    if (!window.isSecureContext) {
-      setCam("unsupported");
-      setCamErr("Camera needs HTTPS — open this page via https:// (tunnel URL), not http:// or an IP.");
-      return;
-    }
-    if (!("BarcodeDetector" in window) || !window.BarcodeDetector) {
-      setCam("unsupported");
-      setCamErr("This browser has no barcode camera API (needs Chrome/Edge on Android). Type the code or use a scan gun.");
-      return;
-    }
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCam("unsupported");
-      setCamErr("No camera API in this browser. Type the code or use a scan gun.");
-      return;
-    }
-    let stream: MediaStream | null = null;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-    } catch (e) {
-      // Some devices reject constraints — retry plain before giving up.
-      if (e instanceof DOMException && (e.name === "OverconstrainedError" || e.name === "NotFoundError")) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        } catch { /* fall through to message */ }
-      }
-      if (!stream) throw e;
-    }
-    try {
-      streamRef.current = stream;
-      setCam("on"); // renders <video>; the effect below attaches + loops
-    } catch (e) {
-      setCam("unsupported");
-      setCamErr(e instanceof DOMException && e.name === "NotAllowedError"
-        ? "Camera permission denied — allow it in the browser site settings and retry, or use Take photo below (separate permission)."
-        : `Camera failed (${e instanceof Error ? e.message : "unknown"}). Type the code instead.`);
-    }
+  async function loadHeld() {
+    const d = await fetch("/api/retail/pos?held=1").then((r) => r.json()).catch(() => null);
+    if (d?.held) setHeld(d.held);
   }
 
-  // Photo fallback: opens the native camera app (separate permission from the
-  // browser live-camera gate), then decodes the still locally — no network.
+  // Photo fallback: native camera app (separate permission), decoded locally.
   async function photoScan(file: File | undefined) {
     if (!file) return;
     setMsg("Reading photo…");
@@ -124,72 +83,8 @@ export function PosCounter() {
     if (photoRef.current) photoRef.current.value = "";
   }
 
-  // Attach stream once the <video> exists, then detection-loop until stopped.
-  useEffect(() => {
-    if (cam !== "on") return;
-    let dead = false;
-    const video = videoRef.current;
-    const stream = streamRef.current;
-    if (!video || !stream) return;
-    video.srcObject = stream;
-    video.play().catch(() => {});
-    try {
-      const caps = stream.getVideoTracks()[0]?.getCapabilities() as { torch?: boolean } | undefined;
-      setTorch(!!caps?.torch);
-    } catch { setTorch(false); }
-    stopRef.current = false;
-    const det = new window.BarcodeDetector!({ formats: FORMATS });
-    let lastAt = 0;
-    const loop = async () => {
-      while (!stopRef.current && !dead) {
-        try {
-          const f = await det.detect(video);
-          const v = f[0]?.rawValue || "";
-          if (v && Date.now() - lastAt > 1500) {
-            lastAt = Date.now();
-            await addCode(v);
-          }
-        } catch { /* keep scanning */ }
-        await new Promise((r) => setTimeout(r, 400));
-      }
-    };
-    void loop();
-    return () => { dead = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cam]);
-
-  function stopCam() {
-    stopRef.current = true;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    const v = videoRef.current;
-    if (v) v.srcObject = null;
-    setCam("off");
-    setTorch(false);
-    setTorchOn(false);
-  }
-
-  async function flipTorch() {
-    const track = streamRef.current?.getVideoTracks()[0];
-    if (!track) return;
-    const caps = track.getCapabilities() as { torch?: boolean };
-    if (!caps.torch) { setTorch(false); setMsg("This camera has no torch."); return; }
-    try {
-      await track.applyConstraints({ advanced: [{ torch: !torchOn } as MediaTrackConstraintSet] });
-      setTorchOn(!torchOn);
-    } catch {
-      setMsg("Torch not available.");
-    }
-  }
-
-  async function loadHeld() {
-    const d = await fetch("/api/retail/pos?held=1").then((r) => r.json()).catch(() => null);
-    if (d?.held) setHeld(d.held);
-  }
-
   useEffect(() => {
     void loadHeld();
-    return () => { stopRef.current = true; };
   }, []);
 
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
@@ -257,58 +152,17 @@ export function PosCounter() {
           <div className="mt-1.5 flex gap-1.5">
             <input value={q} onChange={(e) => onSearch(e.target.value)} placeholder="Search products by name…" maxLength={60}
               className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-            {cam !== "unsupported" && (
-              <button onClick={() => void startCam()} aria-label="Open barcode scanner"
-                className="min-h-[48px] flex-1 rounded-xl bg-black text-sm font-bold text-white dark:bg-white dark:text-black">⌁ Scan</button>
-            )}
+            <button onClick={() => setScanOpen(true)} aria-label="Open barcode scanner"
+              className="min-h-[48px] flex-1 rounded-xl bg-black text-sm font-bold text-white dark:bg-white dark:text-black">⌁ Scan</button>
           </div>
-          {cam === "unsupported" && <p className="mt-1 text-xs text-zinc-500">{camErr || "No camera barcode API here — type the code or use a scan gun."}</p>}
-          {cam !== "on" && (
-            <div className="mt-1.5">
+          <div className="mt-1.5">
               <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
                 aria-label="Take a barcode photo"
                 onChange={(e) => void photoScan(e.target.files?.[0])} />
               <button onClick={() => photoRef.current?.click()}
                 className="min-h-[44px] w-full rounded-xl border border-black/15 text-sm font-semibold dark:border-white/20">📸 Take barcode photo</button>
             </div>
-          )}
-          {cam === "on" && (
-            <div role="dialog" aria-modal="true" aria-label="Barcode scanner"
-              className="fixed inset-0 z-[90] flex flex-col bg-black">
-              <div className="flex min-h-[56px] items-center justify-between px-4 text-white">
-                <button onClick={stopCam} aria-label="Close scanner"
-                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-white/15 text-xl">✕</button>
-                <p className="text-sm font-bold tracking-wide">Scan barcode</p>
-                {torch ? (
-                  <button onClick={() => void flipTorch()} aria-pressed={torchOn}
-                    className={`min-h-[44px] rounded-full px-4 text-sm font-semibold ${torchOn ? "bg-amber-300 text-black" : "bg-white/15 text-white"}`}>
-                    {torchOn ? "🔦 on" : "🔦 off"}
-                  </button>
-                ) : <span className="w-[52px]" />}
-              </div>
-              <div className="relative flex-1 overflow-hidden">
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <video ref={videoRef} playsInline muted className="absolute inset-0 h-full w-full object-cover" />
-                <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <div className="h-56 w-4/5 max-w-sm rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]" />
-                </div>
-                <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <div className="relative h-56 w-4/5 max-w-sm">
-                    {[["left-0 top-0", "border-l-4 border-t-4 rounded-tl-2xl"], ["right-0 top-0", "border-r-4 border-t-4 rounded-tr-2xl"], ["bottom-0 left-0", "border-b-4 border-l-4 rounded-bl-2xl"], ["bottom-0 right-0", "border-b-4 border-r-4 rounded-br-2xl"]].map(([pos, cls]) => (
-                      <span key={pos} className={`absolute ${pos} h-9 w-9 border-white ${cls}`} />
-                    ))}
-                    <span className="scan-laser absolute inset-x-4 top-1/2 h-0.5 rounded bg-red-500 shadow-[0_0_10px_3px_rgba(239,68,68,0.9)]" />
-                  </div>
-                </div>
-                <p className="pointer-events-none absolute inset-x-0 top-3 text-center text-sm font-medium text-white/90">Align the barcode inside the frame</p>
-                {flash && <p role="status" className="absolute inset-x-0 bottom-24 mx-auto w-fit rounded-full bg-emerald-500 px-5 py-1.5 text-sm font-bold text-white">✓ {flash}</p>}
-              </div>
-              <div className="bg-black px-4 pb-6 pt-2">
-                <button onClick={stopCam} className="min-h-[48px] w-full rounded-xl bg-white/15 text-sm font-semibold text-white">Enter code manually instead</button>
-              </div>
-              <style>{`@keyframes scanline{0%,100%{transform:translateY(-100px)}50%{transform:translateY(100px)}}.scan-laser{animation:scanline 2.2s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.scan-laser{animation:none}}`}</style>
-            </div>
-          )}
+          <WasmScanDialog open={scanOpen} onClose={() => setScanOpen(false)} onScan={(data) => { void addCode(data); }} />
           {found.length > 0 && (
             <ul className="mt-1.5 space-y-1">
               {found.map((f) => (

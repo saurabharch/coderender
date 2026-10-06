@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
+import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 
 interface Product { id: number; name: string; sku: string; price: number; stock: number; status: string; category: string; ratingAvg: number; ratingCount: number; vcount: number }
 interface Order { id: number; status: string; grand: number; coupon: string; createdAt: string }
@@ -17,6 +18,7 @@ export function ShopConsole() {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [scanOpen, setScanOpen] = useState(false);
   const [vpid, setVpid] = useState("");
   const [vname, setVname] = useState("");
   const [vsize, setVsize] = useState("");
@@ -138,6 +140,10 @@ export function ShopConsole() {
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Barcode (blank = auto)" maxLength={40}
             className="min-h-[44px] w-40 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
+          <button onClick={() => setScanOpen(true)} aria-label="Scan barcode into this field" title="Scan into barcode field"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">⌁</button>
+          <WasmScanDialog open={scanOpen} onClose={() => setScanOpen(false)} title="Scan product barcode"
+            onScan={(data) => { setBarcode(data.slice(0, 40)); setScanOpen(false); setMsg(`Scanned ${data} — edit or save the product`); }} />
           <button onClick={() => void addProduct()} disabled={!name.trim() || !price}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
         </div>
