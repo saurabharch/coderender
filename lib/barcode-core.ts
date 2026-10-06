@@ -26,6 +26,26 @@ export function upcValid(code: string): boolean {
   return d.length === 12 && upcCheck(d.slice(0, 11)) === d[11];
 }
 
+// UPC-E (6 digits) → expand to UPC-A, then validate the check digit.
+export function upcEExpand(code: string): string | null {
+  const d = code.replace(/\D/g, "");
+  if (!/^\d{6}$/.test(d)) return null;
+  const [n1, n2, n3, n4, n5, n6] = d.split("").map(Number);
+  let base: string;
+  const last = n6;
+  if (last <= 2) base = `0${n1}${n2}${last}0000${n3}${n4}${n5}`;
+  else if (last === 3) base = `0${n1}${n2}${n3}00000${n4}${n5}`;
+  else if (last === 4) base = `0${n1}${n2}${n3}${n4}00000${n5}`;
+  else base = `0${n1}${n2}${n3}${n4}${n5}0000${last}`;
+  return base + upcCheck(base);
+}
+
+export function upcEValid(code: string): boolean {
+  const d = code.replace(/\D/g, "");
+  if (!/^\d{6}$/.test(d)) return false;
+  return upcEExpand(d) !== null;
+}
+
 function ean8Check(stem7: string): string {
   const d = stem7.replace(/\D/g, "").padStart(7, "0").slice(-7);
   let sum = 0;
@@ -73,6 +93,12 @@ export function validateBarcode(raw: string): BarcodeValidation {
     return upcValid(normalized)
       ? { valid: true, normalized, type: "UPC_A", checksumValid: true, errors }
       : fail("UPC_A", "INVALID_CHECK_DIGIT", "UPC-A check digit is invalid.", false);
+  }
+  if (isDigits && normalized.length === 6) {
+    const expanded = upcEExpand(normalized);
+    return expanded && upcValid(expanded)
+      ? { valid: true, normalized, type: "UPC_E", checksumValid: true, errors }
+      : fail("UPC_E", "INVALID_CHECK_DIGIT", "UPC-E check digit is invalid.", false);
   }
   if (isDigits && normalized.length === 13) {
     if (/^2[0-9]/.test(normalized) && weightedInfo(normalized)) {

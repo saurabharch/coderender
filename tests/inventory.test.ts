@@ -28,3 +28,23 @@ describe("inventory-core", () => {
     expect(poCan("billed", "paid")).toBe(true);
   });
 });
+
+describe("loss moves + upc-e", () => {
+  it("nets damage/expiry/returns in the ledger", async () => {
+    const { ledgerLevel } = await import("@/lib/inventory-core");
+    expect(ledgerLevel([
+      { kind: "in", qty: 10 }, { kind: "damage", qty: 2 },
+      { kind: "expiry", qty: 1 }, { kind: "purchase-return", qty: 1 },
+      { kind: "sale-return", qty: 3 }, { kind: "count", qty: -1 },
+    ])).toBe(8);
+  });
+  it("expands UPC-E and validates", async () => {
+    const { upcEExpand, upcEValid } = await import("@/lib/barcode-core");
+    const exp = upcEExpand("042100");
+    expect(exp).toHaveLength(12);
+    expect(upcEValid("042100")).toBe(true);
+    // 6-digit UPC-E carries no check digit — structural validity only.
+    expect(upcEValid("042101")).toBe(true);
+    expect(upcEValid("04210")).toBe(false);
+  });
+});

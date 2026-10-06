@@ -17,6 +17,7 @@ export function StockConsole() {
   const [msg, setMsg] = useState("");
   const [pid, setPid] = useState("");
   const [qty, setQty] = useState("");
+  const [mvop, setMvop] = useState("receive");
   const [sname, setSname] = useState("");
   const [posup, setPosup] = useState("");
   const [popid, setPopid] = useState("");
@@ -41,12 +42,15 @@ export function StockConsole() {
   useEffect(() => { void load(); }, []);
 
   async function receive() {
+    const n = Number(qty);
     const res = await fetch("/api/stock/levels", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "receive", productId: Number(pid), qty: Number(qty), ref: "admin console" }),
+      body: JSON.stringify(mvop === "adjust"
+        ? { op: mvop, productId: Number(pid), delta: n, ref: "admin console" }
+        : { op: mvop, productId: Number(pid), qty: Math.abs(n), ref: "admin console" }),
     });
     const d = await res.json().catch(() => ({}));
-    setMsg(res.ok ? `Received ✓ level now ${d.level}` : (d.error ?? "receive failed"));
+    setMsg(res.ok ? `${mvop} ✓ level now ${d.level}` : (d.error ?? "move failed"));
     if (res.ok) { setPid(""); setQty(""); void load(); }
   }
 
@@ -103,14 +107,20 @@ export function StockConsole() {
         </AdminCard>
       )}
       <AdminCard>
-        <p className="font-bold">Receive stock <span className="text-xs font-normal text-zinc-500">(product id + qty)</span></p>
+        <p className="font-bold">Stock move <span className="text-xs font-normal text-zinc-500">(product id + qty)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
+          <select value={mvop} onChange={(e) => setMvop(e.target.value)} aria-label="Move type"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            {[["receive", "Receive"], ["adjust", "Adjust ±"], ["damage", "Damage"], ["expiry", "Expiry"], ["purchase-return", "Purchase return"], ["sale-return", "Sale return"]].map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
           <input value={pid} onChange={(e) => setPid(e.target.value)} placeholder="Product id" inputMode="numeric"
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Qty" inputMode="decimal"
+          <input value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Qty (− ok for adjust)" inputMode="decimal"
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void receive()} disabled={!pid || !qty}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Receive</button>
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Apply</button>
         </div>
       </AdminCard>
       <AdminCard>

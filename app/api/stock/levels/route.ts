@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
-  adjustStock, levelOf, lowStockList, receiveStock, reconcileMirrors, stockAlertTick,
+  adjustStock, levelOf, lossMove, lowStockList, receiveStock, reconcileMirrors, stockAlertTick,
   stockLevels, stockMoves, transferStock,
 } from "@/lib/inventory";
 import { shopGate } from "@/lib/shop-auth";
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const deny = await shopGate(req, true);
   if (deny) return deny;
   const parsed = z.object({
-    op: z.enum(["receive", "adjust", "transfer", "alerts", "reconcile"]),
+    op: z.enum(["receive", "adjust", "transfer", "alerts", "reconcile", "damage", "expiry", "purchase-return", "sale-return", "count"]),
     productId: z.number().int().optional(),
     qty: z.number().min(0).max(1000000).optional(),
     delta: z.number().min(-1000000).max(1000000).optional(),
@@ -41,6 +41,12 @@ export async function POST(req: Request) {
   try {
     if (d.op === "alerts") return NextResponse.json({ ok: true, alerted: stockAlertTick() });
     if (d.op === "reconcile") return NextResponse.json({ ok: true, ...reconcileMirrors() });
+    if (["damage", "expiry", "purchase-return", "sale-return", "count"].includes(d.op)) {
+      if (!d.productId) return NextResponse.json({ error: "productId required" }, { status: 422 });
+      const kind = d.op as "damage" | "expiry" | "purchase-return" | "sale-return" | "count";
+      lossMove(d.productId, d.qty ?? d.delta ?? 0, kind, d.ref || d.op, wh);
+      return NextResponse.json({ ok: true, level: levelOf(d.productId, wh) });
+    }
     if (!d.productId) return NextResponse.json({ error: "productId required" }, { status: 422 });
     if (d.op === "receive") receiveStock(d.productId, d.qty ?? 0, wh, d.cost ?? 0, d.ref || "receive");
     else if (d.op === "adjust") adjustStock(d.productId, d.delta ?? 0, d.ref || "adjust", wh);

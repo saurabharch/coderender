@@ -31,7 +31,9 @@ function move(productId: number, warehouseId: number, kind: MoveKind, qty: numbe
     { avgCost: number } | undefined;
   db.prepare("INSERT INTO StockMove (productId, warehouseId, kind, qty, ref, cost) VALUES (?,?,?,?,?,?)")
     .run(productId, warehouseId, kind, qty, ref.slice(0, 120), Math.round(cost));
-  const delta = kind === "in" || kind === "release" ? qty : kind === "out" || kind === "reserve" ? -qty : kind === "adjust" ? qty : 0;
+  const delta = kind === "in" || kind === "release" || kind === "sale-return" ? qty
+    : kind === "out" || kind === "reserve" || kind === "damage" || kind === "expiry" || kind === "purchase-return" ? -qty
+    : kind === "adjust" || kind === "count" ? qty : 0;
   const next = cur + delta;
   const avg = kind === "in" && qty > 0 ? avgCost(cur, row?.avgCost ?? 0, qty, cost) : (row?.avgCost ?? 0);
   db.prepare("INSERT INTO StockLevel (productId, warehouseId, qty, avgCost) VALUES (?,?,?,?) ON CONFLICT(productId, warehouseId) DO UPDATE SET qty=excluded.qty, avgCost=excluded.avgCost")
@@ -84,6 +86,16 @@ export function stockTracked(productId: number): boolean {
   if (!p) return true;
   if (["service", "digital"].includes(p.kind)) return false;
   return !["service", "digital", "made_to_order"].includes(p.behavior ?? "stocked");
+}
+
+// Loss/return moves (damage, expiry, purchase-return drain; sale-return restores).
+export function lossMove(productId: number, qty: number, kind: "damage" | "expiry" | "purchase-return" | "sale-return" | "count", reason: string, warehouseId = 1): void {
+  inventoryTables();
+  if (qty === 0) throw new Error("qty must be non-zero");
+  if ((kind === "damage" || kind === "expiry" || kind === "purchase-return") && levelOf(productId, warehouseId) < Math.abs(qty)) {
+    throw new Error("insufficient stock");
+  }
+  move(productId, warehouseId, kind, Math.abs(qty), reason || kind);
 }
 
 export function adjustStock(productId: number, delta: number, reason: string, warehouseId = 1): void {
