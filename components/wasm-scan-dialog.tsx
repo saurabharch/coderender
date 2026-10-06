@@ -9,18 +9,54 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
   open: boolean; onClose: () => void; onScan: (data: string, symbol: string) => void; title?: string;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<{ stop: () => void; toggleTorch: () => Promise<boolean> } | null>(null);
   const coolRef = useRef(false);
   const [err, setErr] = useState("");
   const [torch, setTorch] = useState(false);
-
-  const onScanRef = useRef(onScan);
-  onScanRef.current = onScan;
+  // Preflight: diagnose camera blockers BEFORE getUserMedia so the user gets
+  // the exact fix instead of a generic denial.
+  const [phase, setPhase] = useState<"checking" | "guide" | "scan">("checking");
+  const [guide, setGuide] = useState("");
 
   useEffect(() => {
     if (!open) return;
     let dead = false;
     setErr("");
+    setGuide("");
+    setPhase("checking");
+    (async () => {
+      if (!window.isSecureContext) {
+        if (!dead) {
+          setGuide("Camera needs a secure page (HTTPS). You are on plain http:// or an IP address — open the https:// tunnel URL instead, then scan again.");
+          setPhase("guide");
+        }
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        if (!dead) {
+          setGuide("This browser (or in-app webview like WhatsApp/Instagram) blocks camera access entirely. Open this page in Chrome on Android or Safari on iPhone — or use Take photo below.");
+          setPhase("guide");
+        }
+        return;
+      }
+      try {
+        const perm = await navigator.permissions?.query({ name: "camera" as PermissionName }).catch(() => null);
+        if (!dead && perm?.state === "denied") {
+          setGuide("Camera is BLOCKED for this site (you tapped Deny before — Chrome will not ask again). Fix: tap the 🔒/ⓘ icon left of the address bar → Permissions → Camera → Allow → come back and tap Scan again. Or use Take photo below right now.");
+          setPhase("guide");
+          return;
+        }
+      } catch { /* Permissions API missing — try the camera directly */ }
+      if (!dead) setPhase("scan");
+    })();
+    return () => { dead = true; };
+  }, [open ]);
+
+  // Start the WASM scanner once preflight passes.
+  useEffect(() => {
+    if (!open || phase !== "scan") return;
+    let dead = false;
     (async () => {
       try {
         const { BarcodeScanner } = await import("web-wasm-barcode-reader");
@@ -37,13 +73,21 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
             onScanRef.current(r.data, r.symbol);
           },
           onError: (e) => {
-            if (!dead) setErr(e.message || "Scanner failed — check camera permission and HTTPS.");
+            if (dead) return;
+            const m = e.message || "";
+            if (/denied|not allowed|permission/i.test(m)) {
+              setGuide("Camera permission was denied just now. Allow it in the browser prompt — or tap the 🔒 icon → Permissions → Camera → Allow. Meanwhile Take photo below works without it.");
+              setPhase("guide");
+            } else setErr(m || "Scanner failed.");
           },
         });
         scannerRef.current = scanner;
         await scanner.start();
       } catch (e) {
-        if (!dead) setErr(e instanceof Error ? e.message : "Could not start the scanner.");
+        if (!dead) {
+          setGuide(e instanceof Error ? e.message : "Could not start the scanner. Use Take photo below.");
+          setPhase("guide");
+        }
       }
     })();
     return () => {
@@ -51,7 +95,31 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
       try { scannerRef.current?.stop(); } catch { /* ignore */ }
       scannerRef.current = null;
     };
-  }, [open ]);
+  }, [open, phase ]);
+
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
+
+  // Photo fallback: native camera app (separate permission), decoded locally.
+  async function photoScan(file: File | undefined, viaDetector = true) {
+    if (!file) return;
+    setErr("Reading photo…");
+    try {
+      let v = "";
+      if (viaDetector && "BarcodeDetector" in window && window.BarcodeDetector) {
+        const bmp = await createImageBitmap(file);
+        const det = new window.BarcodeDetector({ formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"] });
+        const found = await det.detect(bmp);
+        bmp.close();
+        v = found[0]?.rawValue || "";
+      }
+      if (!v) throw new Error("empty");
+      onScanRef.current(v, "photo");
+    } catch {
+      setErr("No barcode found in that photo — try closer, steadier, better light.");
+    }
+    if (photoRef.current) photoRef.current.value = "";
+  }
 
   if (!open) return null;
   return (
@@ -71,15 +139,44 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
         </button>
       </div>
       <div className="relative flex-1 overflow-hidden">
-        <div ref={mountRef} className="absolute inset-0 [&>canvas]:absolute [&>canvas]:inset-0 [&>canvas]:h-full [&>canvas]:w-full [&>video]:absolute [&>video]:inset-0 [&>video]:h-full [&>video]:w-full [&>video]:object-cover" />
-        {err ? (
-          <p role="alert" className="absolute inset-x-4 top-1/3 rounded-2xl bg-red-600/90 p-4 text-center text-sm font-semibold text-white">{err}</p>
-        ) : (
+        {phase === "checking" && (
+          <p className="absolute inset-0 flex items-center justify-center text-sm text-white/80">Checking camera…</p>
+        )}
+        {phase === "guide" && (
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center text-black">
+              <p className="text-lg font-extrabold">📷 Camera blocked</p>
+              <p className="mt-2 text-sm">{guide}</p>
+              <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
+                aria-label="Take a barcode photo"
+                onChange={(e) => void photoScan(e.target.files?.[0])} />
+              <button onClick={() => photoRef.current?.click()}
+                className="mt-4 min-h-[48px] w-full rounded-xl bg-brand text-sm font-bold text-white">📸 Take barcode photo instead</button>
+              <button onClick={onClose} className="mt-2 min-h-[44px] w-full rounded-xl border border-black/15 text-sm font-semibold">Close</button>
+            </div>
+          </div>
+        )}
+        {phase === "scan" && (
+          <div ref={mountRef} className="absolute inset-0 [&>canvas]:absolute [&>canvas]:inset-0 [&>canvas]:h-full [&>canvas]:w-full [&>video]:absolute [&>video]:inset-0 [&>video]:h-full [&>video]:w-full [&>video]:object-cover" />
+        )}
+        {phase === "scan" && !err && (
           <p className="pointer-events-none absolute inset-x-0 top-3 text-center text-sm font-medium text-white/90">Align the barcode inside the frame</p>
+        )}
+        {err && phase === "scan" && (
+          <p role="alert" className="absolute inset-x-4 top-1/3 rounded-2xl bg-red-600/90 p-4 text-center text-sm font-semibold text-white">{err}</p>
         )}
       </div>
       <div className="bg-black px-4 pb-6 pt-2">
-        <p className="text-center text-xs text-white/60">WASM scan · EAN / UPC / Code128 / QR · beeps on read</p>
+        {phase === "scan" && (
+          <>
+            <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
+              aria-label="Take a barcode photo"
+              onChange={(e) => void photoScan(e.target.files?.[0])} />
+            <button onClick={() => photoRef.current?.click()}
+              className="min-h-[44px] w-full rounded-xl border border-white/25 text-sm font-semibold text-white">📸 Or take a photo</button>
+          </>
+        )}
+        <p className="mt-2 text-center text-xs text-white/60">WASM scan · EAN / UPC / Code128 / QR · beeps on read</p>
       </div>
     </div>
   );
