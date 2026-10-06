@@ -463,8 +463,7 @@ export function ShopConsole() {
             <option value="fade">fade</option>
             <option value="zoom">zoom</option>
           </select>
-          <button onClick={() => void addSlide()} disabled={!stitle.trim()}
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
+          <IconBtn label="Add" onClick={() => void addSlide()} disabled={!stitle.trim()} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         {slides.length > 0 && (
           <ul className="mt-2 space-y-1 text-sm">
@@ -512,8 +511,7 @@ export function ShopConsole() {
         <div className="mt-2 flex flex-wrap items-end gap-1.5">
           <div className="min-w-[140px] flex-1 basis-full sm:basis-0"><ProductPicker value={lotpid} shortcut="F6" placeholder="Product for batch… (or scan →)"
             onPick={(x) => { setLotpid(x ? String(x.id) : ""); if (x) void loadLots(String(x.id)); }} /></div>
-          <button onClick={() => setLotscan(true)} aria-label="Scan product barcode"
-            className="flex min-h-[48px] min-w-[56px] items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black"><ScanBarcode size={24} /></button>
+          <IconBtn label="Scan product barcode" onClick={() => setLotscan(true)} tone="dark" large><ScanBarcode size={24} /></IconBtn>
           <WasmScanDialog open={lotscan} onClose={() => setLotscan(false)} title="Scan product for batch"
             onScan={(data) => { void scanLot(data); }} />
         </div>
@@ -526,8 +524,7 @@ export function ShopConsole() {
           <DatePickerInput value={lotexp} onChange={(v) => setLotexp(Array.isArray(v) ? (v[0] as Date ?? null) : (v as Date | null))} label="EXP" valueFormat="YYYY-MM"
             className="w-28 sm:w-32" styles={{ input: { minHeight: 44, borderRadius: 12 } }} />
           </NoSsr>
-          <button onClick={() => void addLot()} disabled={!lotpid} aria-label="Save batch"
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
+          <IconBtn label="Save batch" onClick={() => void addLot()} disabled={!lotpid} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         {lots.length > 0 && (
           <ul className="mt-2 space-y-1 text-sm">
@@ -554,8 +551,7 @@ export function ShopConsole() {
           </select>
           <input value={pxamt} onChange={(e) => setPxamt(maskAmount(e.target.value))} placeholder="₹" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addPrice()} disabled={!pxpid || !pxamt} aria-label="Save price"
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
+          <IconBtn label="Save price" onClick={() => void addPrice()} disabled={!pxpid || !pxamt} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         {prices.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
@@ -605,8 +601,7 @@ export function ShopConsole() {
           </select>
           <input value={cval} onChange={(e) => setCval(ckind === "pct" ? maskPercent(e.target.value) : maskAmount(e.target.value))} placeholder={ckind === "pct" ? "%" : "₹"} inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addCoupon()} disabled={!ccode.trim() || !cval} aria-label="Save coupon"
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
+          <IconBtn label="Save coupon" onClick={() => void addCoupon()} disabled={!ccode.trim() || !cval} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         {coupons.length === 0 ? <div className="mt-2"><Empty>No coupons yet.</Empty></div> : (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
@@ -645,8 +640,7 @@ export function ShopConsole() {
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
-          <button onClick={() => void addVariant()} disabled={!vpid || !vprice} aria-label="Add variant"
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
+          <IconBtn label="Add variant" onClick={() => void addVariant()} disabled={!vpid || !vprice} tone="brand"><Plus size={20} /></IconBtn>
         </div>
       </AdminCard>
       {msg && <p className="text-sm text-zinc-500">{msg}</p>}

@@ -1,5 +1,7 @@
 "use client";
 
+import { IconBtn } from "@/components/admin-ux";
+
 import { maskInt } from "@/lib/mask";
 
 import { Plus } from "lucide-react"
@@ -158,8 +160,7 @@ export function StockConsole() {
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={binloc} onChange={(e) => setBinloc(e.target.value)} placeholder="G/A/3" maxLength={40}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addBin()} disabled={!binloc.trim()}
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
+          <IconBtn label="Add" onClick={() => void addBin()} disabled={!binloc.trim()} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         {bins.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
@@ -191,8 +192,7 @@ export function StockConsole() {
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={sname} onChange={(e) => setSname(e.target.value)} placeholder="Supplier name" maxLength={120}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addSupplier()} disabled={!sname.trim()}
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
+          <IconBtn label="Add" onClick={() => void addSupplier()} disabled={!sname.trim()} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         {sups.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">

@@ -1,6 +1,6 @@
 "use client";
 
-import { StatusBadge } from "@/components/admin-ux";
+import { StatusBadge, IconBtn } from "@/components/admin-ux";
 
 import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
@@ -98,8 +98,7 @@ export function ServicesConsole() {
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={bname} onChange={(e) => setBname(e.target.value)} placeholder="Branch name" maxLength={80}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addBranch()} disabled={!bname.trim()}
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
+          <IconBtn label="Add" onClick={() => void addBranch()} disabled={!bname.trim()} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         {branches.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">

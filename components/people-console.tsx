@@ -1,6 +1,6 @@
 "use client";
 
-import { AvatarInitials } from "@/components/admin-ux";
+import { AvatarInitials, IconBtn } from "@/components/admin-ux";
 import { maskInt } from "@/lib/mask";
 
 import { maskYearMonth } from "@/lib/mask";
@@ -94,8 +94,7 @@ export function PeopleConsole() {
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="Monthly ₹" inputMode="decimal"
             className="min-h-[44px] w-32 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void add()} disabled={!name.trim() || !base}
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
+          <IconBtn label="Add" onClick={() => void add()} disabled={!name.trim() || !base} tone="brand"><Plus size={20} /></IconBtn>
         </div>
       </AdminCard>
       <AdminCard>

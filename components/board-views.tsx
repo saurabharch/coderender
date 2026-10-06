@@ -4,7 +4,7 @@ import { Plus } from "lucide-react"
 import { useEffect, useMemo, useState } from "react";
 import { MultiSelect } from "@mantine/core";
 import { NoSsr } from "@/components/no-ssr";
-import { AvatarInitials } from "@/components/admin-ux";
+import { AvatarInitials, IconBtn } from "@/components/admin-ux";
 import { addDays, barSpan, dayKey, groupByDay, monthGrid, parseSlotDay, type CalTask } from "@/lib/calendar-core";
 import { priorityBadge } from "@/lib/kanban-core";
 import type { BoardTask } from "@/lib/kanban";
@@ -183,8 +183,7 @@ export function BoardViews({ boardId, initialTasks, columns, designations, board
             onKeyDown={(e) => { if (e.key === "Enter") void quickAdd(); }}
             placeholder={`New task for ${quickDay}…`} maxLength={160} autoFocus
             className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void quickAdd()} disabled={!quickTitle.trim()}
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
+          <IconBtn label="Add" onClick={() => void quickAdd()} disabled={!quickTitle.trim()} tone="brand"><Plus size={20} /></IconBtn>
           <button onClick={() => { setQuickDay(null); setQuickTitle(""); }} aria-label="Cancel"
             className="min-h-[44px] shrink-0 rounded-xl border border-black/15 px-3 text-sm dark:border-white/20">✕</button>
         </div>

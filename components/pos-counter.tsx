@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AdminCard, Empty } from "@/components/admin-ui";
 import { CustomerPicker, type Cust } from "@/components/customer-picker";
 import { Banknote, CreditCard, Plus, ScanBarcode, Smartphone } from "lucide-react"
-import { Seg } from "@/components/admin-ux";
+import { Seg, IconBtn } from "@/components/admin-ux";
 import { useLongPress } from "@mantine/hooks";
 import { maskAmount, maskInt, maskPercent } from "@/lib/mask";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
@@ -218,14 +218,12 @@ export function PosCounter() {
               placeholder="Scan gun / type code + Enter" maxLength={40}
               inputMode="search" enterKeyHint="go"
               className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
-            <button onClick={() => void addCode(code)} disabled={!code.trim()}
-              className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
+            <IconBtn label="Add" onClick={() => void addCode(code)} disabled={!code.trim()} tone="brand"><Plus size={20} /></IconBtn>
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             <input ref={searchRef} value={q} onChange={(e) => onSearch(e.target.value)} placeholder="Search products by name… (F2)" maxLength={60}
               className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-            <button onClick={() => setScanOpen(true)} aria-label="Open barcode scanner (F3)" title="Scan (F3)"
-              className="flex min-h-[48px] min-w-[56px] items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black"><ScanBarcode size={24} /></button>
+            <IconBtn label="Open barcode scanner (F3)" hint="Scan (F3)" onClick={() => setScanOpen(true)} tone="dark" large><ScanBarcode size={24} /></IconBtn>
           </div>
           <div className="mt-1.5">
               <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
@@ -240,15 +238,15 @@ export function PosCounter() {
               {found.map((f) => (
                 <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
                   <span className="min-w-0 flex-1 truncate">{f.name} · ₹{(f.price / 100).toFixed(0)} · {f.stock} in stock</span>
-                  <button
-                    onMouseDown={(e) => { holdTarget.current = { id: f.id, name: f.name, price: f.price }; holdPress.onMouseDown?.(e); }}
-                    onMouseUp={(e) => holdPress.onMouseUp?.(e)}
-                    onMouseLeave={(e) => holdPress.onMouseLeave?.(e)}
-                    onTouchStart={(e) => { holdTarget.current = { id: f.id, name: f.name, price: f.price }; holdPress.onTouchStart?.(e); }}
-                    onTouchEnd={(e) => holdPress.onTouchEnd?.(e)}
+                  <IconBtn label="Add to bill" hint="Add to bill (hold for 5)" tone="brand"
                     onClick={() => { if (swallowed.current) { swallowed.current = false; return; } addLine(f.id, f.name, f.price); setFound([]); setQ(""); }}
-                    title="Add to bill (hold for 5)"
-                    className="flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-brand px-4 text-white" aria-label="Add to bill"><Plus size={20} /></button>
+                    extra={{
+                      onMouseDown: (e) => { holdTarget.current = { id: f.id, name: f.name, price: f.price }; holdPress.onMouseDown?.(e); },
+                      onMouseUp: (e) => holdPress.onMouseUp?.(e),
+                      onMouseLeave: (e) => holdPress.onMouseLeave?.(e),
+                      onTouchStart: (e) => { holdTarget.current = { id: f.id, name: f.name, price: f.price }; holdPress.onTouchStart?.(e); },
+                      onTouchEnd: (e) => holdPress.onTouchEnd?.(e),
+                    }}><Plus size={20} /></IconBtn>
                 </li>
               ))}
             </ul>

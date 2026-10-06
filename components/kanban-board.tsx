@@ -1,5 +1,7 @@
 "use client";
 
+import { IconBtn } from "@/components/admin-ux";
+
 import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { priorityBadge, type BoardAnalytics } from "@/lib/kanban-core";
@@ -165,8 +167,7 @@ function TaskExtras({ taskId }: { taskId: number }) {
           placeholder="+ Add checklist item" maxLength={160}
           className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-dashed border-black/20 bg-transparent px-3 text-sm dark:border-white/20" />
         <EmojiButton onPick={(em) => setLabel((s) => `${s}${em}`)} />
-        <button onClick={() => void addItem()} disabled={!label.trim()}
-          className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
+        <IconBtn label="Add" onClick={() => void addItem()} disabled={!label.trim()} tone="brand"><Plus size={20} /></IconBtn>
       </div>
       <div>
         <p className="text-sm font-bold">Discussion</p>

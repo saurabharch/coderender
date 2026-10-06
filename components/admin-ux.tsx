@@ -67,18 +67,21 @@ export function JobProgress({ done, total, label }: { done: number; total: numbe
 // Shared icon button (mantine-custom-components recipe: compose Mantine
 // Tooltip over a native button with project tokens). One 44px target, one
 // accessible name, hover hint on desktop, silent on touch.
-export function IconBtn({ label, hint, onClick, disabled, tone = "border", children }: {
+export function IconBtn({ label, hint, onClick, disabled, tone = "border", large, extra, children }: {
   label: string; hint?: string; onClick: () => void; disabled?: boolean;
-  tone?: "border" | "brand" | "dark"; children: ReactNode;
+  tone?: "border" | "brand" | "dark"; large?: boolean;
+  extra?: React.ButtonHTMLAttributes<HTMLButtonElement>;
+  children: ReactNode;
 }) {
   const toneCls = tone === "brand"
     ? "bg-brand px-4 text-white"
     : tone === "dark"
       ? "bg-black text-white dark:bg-white dark:text-black"
       : "border border-black/15 text-brand-deep dark:border-white/20";
-  const cls = `flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl disabled:opacity-40 ${toneCls}`;
+  const sizeCls = large ? "min-h-[48px] min-w-[56px]" : "min-h-[44px] min-w-[52px]";
+  const cls = `flex ${sizeCls} items-center justify-center rounded-xl disabled:opacity-40 ${toneCls}`;
   const btn = (
-    <button onClick={onClick} disabled={disabled} aria-label={label} title={hint ?? label} className={cls}>
+    <button onClick={onClick} disabled={disabled} aria-label={label} title={hint ?? label} className={cls} {...extra}>
       {children}
     </button>
   );
