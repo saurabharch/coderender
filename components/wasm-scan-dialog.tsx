@@ -18,6 +18,7 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
   // the exact fix instead of a generic denial.
   const [phase, setPhase] = useState<"checking" | "guide" | "scan">("checking");
   const [guide, setGuide] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -51,12 +52,11 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
       if (!dead) setPhase("scan");
     })();
     return () => { dead = true; };
-  }, [open ]);
+  }, [open, attempt ]);
 
   // Start the WASM scanner once preflight passes.
   useEffect(() => {
-    if (!open || phase !== "scan") return;
-    let dead = false;
+    if (!open || phase !== "scan") return;    let dead = false;
     (async () => {
       try {
         const { BarcodeScanner } = await import("web-wasm-barcode-reader");
@@ -95,7 +95,7 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
       try { scannerRef.current?.stop(); } catch { /* ignore */ }
       scannerRef.current = null;
     };
-  }, [open, phase ]);
+  }, [open, phase, attempt ]);
 
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
@@ -147,12 +147,19 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
             <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center text-black">
               <p className="text-lg font-extrabold">📷 Camera blocked</p>
               <p className="mt-2 text-sm">{guide}</p>
+              <ol className="mx-auto mt-3 max-w-xs space-y-1 text-left text-xs text-zinc-700">
+                <li><b>1.</b> Tap <b>⋮ → Settings → Site settings → Camera</b> <i>or</i> the <b>🔒 icon</b> by the address bar → Permissions → Camera.</li>
+                <li><b>2.</b> Set this site&apos;s Camera to <b>Allow</b>.</li>
+                <li><b>3.</b> This billing page stays open — come back and tap <b>Retry camera</b>.</li>
+              </ol>
+              <button onClick={() => { setAttempt((a) => a + 1); }}
+                className="mt-4 min-h-[48px] w-full rounded-xl bg-brand text-sm font-bold text-white">🔄 Retry camera</button>
               <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
                 aria-label="Take a barcode photo"
                 onChange={(e) => void photoScan(e.target.files?.[0])} />
               <button onClick={() => photoRef.current?.click()}
-                className="mt-4 min-h-[48px] w-full rounded-xl bg-brand text-sm font-bold text-white">📸 Take barcode photo instead</button>
-              <button onClick={onClose} className="mt-2 min-h-[44px] w-full rounded-xl border border-black/15 text-sm font-semibold">Close</button>
+                className="mt-2 min-h-[44px] w-full rounded-xl border border-black/15 text-sm font-semibold">📸 Take barcode photo instead</button>
+              <button onClick={onClose} className="mt-2 min-h-[44px] w-full rounded-xl text-sm font-semibold text-zinc-500">Back to billing</button>
             </div>
           </div>
         )}
