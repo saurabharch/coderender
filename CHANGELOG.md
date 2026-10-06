@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.48.1] - 2026-10-07
+## [0.48.2] - 2026-10-07
+- Orders crash fix## [0.48.1] - 2026-10-07
 - IconBtn everywhere## [0.48.0] - 2026-10-07
 - Category sweep## [0.47.0] - 2026-10-07
 - Schedule calendar POS## [0.46.0] - 2026-10-07
