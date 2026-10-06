@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AdminCard, Empty } from "@/components/admin-ui";
 import { CustomerPicker, type Cust } from "@/components/customer-picker";
+import { ScanBarcode } from "lucide-react";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { modals } from "@mantine/modals";
 
@@ -212,7 +213,7 @@ export function PosCounter() {
             <input ref={searchRef} value={q} onChange={(e) => onSearch(e.target.value)} placeholder="Search products by name… (F2)" maxLength={60}
               className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             <button onClick={() => setScanOpen(true)} aria-label="Open barcode scanner (F3)" title="Scan (F3)"
-              className="min-h-[48px] flex-1 rounded-xl bg-black text-sm font-bold text-white dark:bg-white dark:text-black">⌁ Scan</button>
+              className="flex min-h-[48px] min-w-[56px] items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black"><ScanBarcode size={24} /></button>
           </div>
           <div className="mt-1.5">
               <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"

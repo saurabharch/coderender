@@ -3,12 +3,15 @@
 // team notice arrives while the tab is open.)
 let ctx: AudioContext | null = null;
 
-export function chime(kind: "reply" | "notice" = "reply") {
+export function chime(kind: "reply" | "notice" | "success" | "warn" = "reply") {
   try {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     ctx = ctx || new AC();
     if (ctx.state === "suspended") void ctx.resume();
-    const notes = kind === "reply" ? [660, 880] : [523, 659, 784];
+    const notes = kind === "reply" ? [660, 880]
+      : kind === "success" ? [523, 659, 784, 1047]
+      : kind === "warn" ? [220, 175]
+      : [523, 659, 784];
     notes.forEach((f, i) => {
       const o = ctx!.createOscillator();
       const g = ctx!.createGain();

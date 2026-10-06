@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DatePickerInput } from "@mantine/dates";
+import { Plus, ScanBarcode } from "lucide-react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { NoSsr } from "@/components/no-ssr";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
@@ -30,6 +31,7 @@ export function ShopConsole() {
   const [vsize, setVsize] = useState("");
   const [vcolor, setVcolor] = useState("");
   const [vprice, setVprice] = useState("");
+  const [vunit, setVunit] = useState("pc");
   const [ccode, setCcode] = useState("");
   const [ckind, setCkind] = useState("pct");
   const [cval, setCval] = useState("");
@@ -80,9 +82,12 @@ export function ShopConsole() {
   useEffect(() => { void load(); }, []);
 
   async function addProduct() {
+    const paise = toPaise(price);
+    if (paise === null) { setMsg("Price: numbers with up to 2 decimals."); return; }
+    if (!stock || Number(stock) < 1 || !Number.isInteger(Number(stock))) { setMsg("Stock: whole numbers from 1."); return; }
     const res = await fetch("/api/shop/products", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price: Math.round(Number(price) * 100), stock: Math.round(Number(stock) || 0), ...(barcode.trim() ? { barcode: barcode.trim() } : {}),
+      body: JSON.stringify({ name, price: paise, stock: Math.round(Number(stock)), ...(barcode.trim() ? { barcode: barcode.trim() } : {}),
       ...(imgurls.trim() ? { images: imgurls.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10) } : {}) }),
     });
     const d = await res.json().catch(() => ({}));
@@ -100,7 +105,7 @@ export function ShopConsole() {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ assetId: u.id, productId: d.id }),
           }).then((r) => r.json()).catch(() => null);
-          if (q?.ok) void runClientWorker(u.url, q.id);
+          if (q?.ok) { void runClientWorker(u.url, q.id); void pollJob(q.id); }
         }
         setMsg(up.ok ? "Product added ✓ + photo attached" : "Product added ✓ (photo failed)");
       } catch {
@@ -114,18 +119,26 @@ export function ShopConsole() {
     setName(""); setPrice(""); setStock(""); setBarcode(""); setImgurls(""); void load();
   }
 
+  // Paise conversion that rejects >2 decimals (amounts are float ≤ 2dp).
+  function toPaise(v: string): number | null {
+    if (!/^\d+(\.\d{1,2})?$/.test(v.trim())) return null;
+    return Math.round(Number(v) * 100);
+  }
+
   async function addVariant() {
+    const paise = toPaise(vprice);
+    if (paise === null) { setMsg("Price: numbers with up to 2 decimals."); return; }
     const res = await fetch("/api/shop/products", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         productId: Number(vpid), name: vname,
-        attrs: { ...(vsize ? { size: vsize } : {}), ...(vcolor ? { color: vcolor } : {}) },
-        price: Math.round(Number(vprice) * 100),
+        attrs: { ...(vsize ? { size: vsize } : {}), ...(vcolor ? { color: vcolor } : {}), unit: vunit },
+        price: paise,
       }),
     });
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? "Variant added ✓" : (d.error ?? "failed"));
-    if (res.ok) { setVpid(""); setVname(""); setVsize(""); setVcolor(""); setVprice(""); }
+    if (res.ok) { setVpid(""); setVname(""); setVsize(""); setVcolor(""); setVprice(""); setVunit("pc"); }
   }
 
   async function addCoupon() {
@@ -178,6 +191,29 @@ export function ShopConsole() {
       worker.postMessage({ imageUrl, jobId });
       await done;
     } catch { /* server job covers it */ }
+  }
+
+  // Job progress: poll until the worker/swap settles, then chime + notify.
+  async function pollJob(jobId: number) {
+    const { chime } = await import("@/lib/chime");
+    for (let i = 0; i < 24; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const d = await fetch(`/api/media/bgremove?id=${jobId}`).then((r) => r.json()).catch(() => null);
+      if (!d || d.status === "queued" || d.status === "working") {
+        setMsg(`Transparent job #${jobId}: ${d?.status ?? "…"} (${i + 1}/24)`);
+        continue;
+      }
+      if (d.status === "done") {
+        chime("success");
+        setMsg(`Transparent image live ✓`);
+        void load();
+      } else {
+        chime("warn");
+        setMsg(`Background job ${d.status}: ${d.note ?? ""} — original kept`.slice(0, 160));
+      }
+      return;
+    }
+    setMsg("Still working — check back in a bit (Notifications will confirm).");
   }
 
   async function capturePhoto(productId: number, file: File | undefined) {    if (!file) return;
@@ -352,8 +388,8 @@ export function ShopConsole() {
             className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">⌁</button>
           <WasmScanDialog open={scanOpen} onClose={() => setScanOpen(false)} title="Scan product barcode"
             onScan={(data) => { setBarcode(data.slice(0, 40)); setScanOpen(false); setMsg(`Scanned ${data} — edit or save the product`); }} />
-          <button onClick={() => void addProduct()} disabled={!name.trim() || !price}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+          <button onClick={() => void addProduct()} disabled={!name.trim() || !price} aria-label="Add product"
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
         </div>
         {pending && (
           <div className="mt-2 flex items-center gap-2">
@@ -382,7 +418,7 @@ export function ShopConsole() {
           <ul className="mt-2 space-y-2 text-sm">
             {products.map((p) => (
               <li key={p.id} className="rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <p className="min-w-0 truncate font-bold">#{p.id} {p.name}</p>
+                <p className="min-w-0 truncate text-base font-extrabold tracking-tight">#{p.id} {p.name}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500">
                   {p.sku && <span className="font-mono">{p.sku}</span>}
                   {p.category && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{p.category}</span>}
@@ -505,8 +541,8 @@ export function ShopConsole() {
           </select>
           <input value={pxamt} onChange={(e) => setPxamt(e.target.value)} placeholder="₹" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addPrice()} disabled={!pxpid || !pxamt}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save</button>
+          <button onClick={() => void addPrice()} disabled={!pxpid || !pxamt} aria-label="Save price"
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
         </div>
         {prices.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
@@ -556,8 +592,8 @@ export function ShopConsole() {
           </select>
           <input value={cval} onChange={(e) => setCval(e.target.value)} placeholder={ckind === "pct" ? "%" : "₹"} inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addCoupon()} disabled={!ccode.trim() || !cval}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save</button>
+          <button onClick={() => void addCoupon()} disabled={!ccode.trim() || !cval} aria-label="Save coupon"
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
         </div>
         {coupons.length === 0 ? <div className="mt-2"><Empty>No coupons yet.</Empty></div> : (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
@@ -578,10 +614,16 @@ export function ShopConsole() {
             className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={vcolor} onChange={(e) => setVcolor(e.target.value)} placeholder="Color" maxLength={20}
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={vprice} onChange={(e) => setVprice(e.target.value)} placeholder="₹" inputMode="decimal"
+          <input value={vprice} onChange={(e) => setVprice(e.target.value)} placeholder="₹ (2 decimals)" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addVariant()} disabled={!vpid || !vprice}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+          <select value={vunit} onChange={(e) => setVunit(e.target.value)} aria-label="Variant unit"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            {["pc", "kg", "g", "l", "ml", "m", "cm", "box", "dozen", "pack"].map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
+          <button onClick={() => void addVariant()} disabled={!vpid || !vprice} aria-label="Add variant"
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
         </div>
       </AdminCard>
       {msg && <p className="text-sm text-zinc-500">{msg}</p>}
