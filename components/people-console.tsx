@@ -97,7 +97,7 @@ export function PeopleConsole() {
         {emps.length === 0 ? <div className="mt-2"><Empty>Nobody here yet.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {emps.map((e) => (
-              <li key={e.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
                 <span>#{e.id} {e.name} {e.designation && <span className="text-xs text-zinc-500">{e.designation}</span>}</span>
                 <span className="text-xs text-zinc-500">{e.dept || "—"}</span>
               </li>

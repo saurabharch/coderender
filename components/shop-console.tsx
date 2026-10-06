@@ -250,8 +250,8 @@ export function ShopConsole() {
         {products.length === 0 ? <div className="mt-2"><Empty>No products yet — add the first above.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {products.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span className="min-w-0 truncate">#{p.id} {p.name} {p.sku && <span className="text-xs text-zinc-500">{p.sku}</span>}
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span className="min-w-0 flex-1 truncate">#{p.id} {p.name} {p.sku && <span className="text-xs text-zinc-500">{p.sku}</span>}
                   {p.category && <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[11px] dark:bg-white/10">{p.category}</span>}
                   {p.ratingCount > 0 && <span className="ml-1 text-xs text-amber-600">★{p.ratingAvg}({p.ratingCount})</span>}
                   {p.vcount > 0 && <span className="ml-1 text-xs text-zinc-500">{p.vcount} variants</span>}</span>
@@ -281,7 +281,7 @@ export function ShopConsole() {
         {slides.length > 0 && (
           <ul className="mt-2 space-y-1 text-sm">
             {slides.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
                 <span>#{s.id} {s.title || "(no title)"} · {s.anim} · {s.active ? "on" : "off"}</span>
                 <button onClick={() => void delSlide(s.id)}
                   className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Del</button>
@@ -312,7 +312,7 @@ export function ShopConsole() {
                   ) : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-black/5 text-xs dark:bg-white/10">no img</span>}
                   <div className="min-w-0">
                     <p className="font-bold">#{l.pid} {l.pname}</p>
-                    <p className="font-mono text-xs">Batch {l.lot || `#${l.id}`} · {l.barcode || "no barcode"}</p>
+                    <p className="font-mono text-xs break-all">Batch {l.lot || `#${l.id}`} · {l.barcode || "no barcode"}</p>
                     <p className="text-xs text-zinc-500">MFG {l.mfg || "—"} · EXP {l.exp || "—"} · stock {l.stock} · sold {l.sold}</p>
                   </div>
                 </li>
@@ -341,7 +341,7 @@ export function ShopConsole() {
         {lots.length > 0 && (
           <ul className="mt-2 space-y-1 text-sm">
             {lots.map((l) => (
-              <li key={l.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
                 <span>{l.lot || `#${l.id}`} · MFG {l.mfg || "—"} · EXP {l.exp || "—"}</span>
               </li>
             ))}

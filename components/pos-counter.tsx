@@ -225,8 +225,8 @@ export function PosCounter() {
           {found.length > 0 && (
             <ul className="mt-1.5 space-y-1">
               {found.map((f) => (
-                <li key={f.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
-                  <span className="min-w-0 truncate">{f.name} · ₹{(f.price / 100).toFixed(0)} · {f.stock} in stock</span>
+                <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
+                  <span className="min-w-0 flex-1 truncate">{f.name} · ₹{(f.price / 100).toFixed(0)} · {f.stock} in stock</span>
                   <button onClick={() => { addLine(f.id, f.name, f.price); setFound([]); setQ(""); }}
                     className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white">+ Add</button>
                 </li>
@@ -258,8 +258,8 @@ export function PosCounter() {
           {lines.length === 0 ? <p className="mt-2 text-sm text-zinc-500">Empty — scan or search to add.</p> : (
             <ul className="mt-2 space-y-1 text-sm">
               {lines.map((l) => (
-                <li key={l.productId} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                  <span className="min-w-0 truncate">{l.name}</span>
+                <li key={l.productId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                  <span className="min-w-0 flex-1 truncate">{l.name}</span>
                   <span className="flex shrink-0 items-center gap-1">
                     <button aria-label={`Less ${l.name}`} onClick={() => setLines((ls) => ls.map((x) => (x.productId === l.productId ? { ...x, qty: x.qty - 1 } : x)).filter((x) => x.qty > 0))}
                       className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">−</button>

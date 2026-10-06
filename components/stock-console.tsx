@@ -128,8 +128,8 @@ export function StockConsole() {
         {levels.length === 0 ? <div className="mt-2"><Empty>No physical products yet — add them in Shop.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {levels.map((l) => (
-              <li key={l.id} className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 ${l.qty <= l.lowAt ? "border-amber-500/50" : "border-black/10 dark:border-white/10"}`}>
-                <span className="min-w-0 truncate">#{l.id} {l.name}</span>
+              <li key={l.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 ${l.qty <= l.lowAt ? "border-amber-500/50" : "border-black/10 dark:border-white/10"}`}>
+                <span className="min-w-0 flex-1 truncate">#{l.id} {l.name}</span>
                 <span className="shrink-0 font-semibold">{l.qty}{l.qty <= l.lowAt ? " ⚠" : ""}</span>
               </li>
             ))}

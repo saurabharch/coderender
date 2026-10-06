@@ -49,8 +49,8 @@ export default function CheckoutPage() {
       <h1 className="display-1 mt-1">Your cart</h1>
       <ul className="mt-4 space-y-2">
         {products.map((p) => (
-          <li key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-black/10 px-3 py-2 dark:border-white/10">
-            <span className="min-w-0 truncate text-sm font-semibold">{p.name} · ₹{(p.price / 100).toFixed(0)}</span>
+          <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-black/10 px-3 py-2 dark:border-white/10">
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{p.name} · ₹{(p.price / 100).toFixed(0)}</span>
             <span className="flex shrink-0 items-center gap-1">
               <button aria-label={`Less ${p.name}`} onClick={() => setQty((q) => ({ ...q, [p.id]: Math.max(0, (q[p.id] ?? 0) - 1) }))}
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">−</button>

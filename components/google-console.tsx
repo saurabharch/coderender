@@ -83,8 +83,8 @@ export function GoogleConsole({ gcal }: { gcal: string | null }) {
         </div>
         <ul className="mt-2 space-y-1">
           {files.map((f) => (
-            <li key={f.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-              <span className="min-w-0 truncate">{f.name} <span className="text-xs text-zinc-500">{f.modifiedTime.slice(0, 10)}</span></span>
+            <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <span className="min-w-0 flex-1 truncate">{f.name} <span className="text-xs text-zinc-500">{f.modifiedTime.slice(0, 10)}</span></span>
               <a href={f.webViewLink} target="_blank" rel="noreferrer" className="shrink-0 text-sm font-semibold text-brand-deep underline">Open</a>
             </li>
           ))}
@@ -102,8 +102,8 @@ export function GoogleConsole({ gcal }: { gcal: string | null }) {
         {st && st.recent.length > 0 && (
           <ul className="mt-2 space-y-1">
             {st.recent.map((r) => (
-              <li key={r.docId} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span className="min-w-0 truncate">{r.title}</span>
+              <li key={r.docId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span className="min-w-0 flex-1 truncate">{r.title}</span>
                 <button onClick={() => void readDoc(r.docId, r.title)} className="shrink-0 text-sm font-semibold text-brand-deep underline">Preview</button>
               </li>
             ))}

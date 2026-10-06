@@ -159,7 +159,7 @@ export function BillingConsole() {
         {exps.length > 0 && (
           <ul className="mt-2 space-y-1 text-sm">
             {exps.slice(0, 8).map((x) => (
-              <li key={x.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
                 <span>{x.head} · ₹{(x.amount / 100).toFixed(0)} · {x.status}</span>
                 {x.status !== "paid" && (
                   <button onClick={() => void payExpense(x.id)} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Pay</button>
