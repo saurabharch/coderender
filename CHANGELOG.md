@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.31.5] - 2026-10-06
+## [0.32.0] - 2026-10-06
+- WASM scanner + inventory scan-fill## [0.31.5] - 2026-10-06
 - Paytm-style scan modal## [0.31.4] - 2026-10-06
 - Scanner window UI (frame, laser, torch, feedback)## [0.31.3] - 2026-10-06
 - Client crash recovery + faster builds## [0.31.2] - 2026-10-05
