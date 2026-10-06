@@ -1,6 +1,7 @@
 "use client";
 
 import { AvatarInitials } from "@/components/admin-ux";
+import { maskInt } from "@/lib/mask";
 
 import { maskYearMonth } from "@/lib/mask";
 
@@ -113,7 +114,7 @@ export function PeopleConsole() {
       <AdminCard>
         <p className="font-bold">Leave requests ({leaves.length} pending)</p>
         <div className="mt-2 flex flex-wrap items-end gap-1.5">
-          <input value={lvid} onChange={(e) => setLvid(e.target.value)} placeholder="Emp id" inputMode="numeric"
+          <input value={lvid} onChange={(e) => setLvid(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
             className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <NoSsr fallback={<p className="text-sm text-zinc-500">Loading date pickers…</p>}>
           <DatePickerInput value={lfrom} onChange={(v) => setLfrom(asDate(v))} label="From" valueFormat="YYYY-MM-DD"

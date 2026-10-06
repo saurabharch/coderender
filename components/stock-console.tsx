@@ -1,5 +1,7 @@
 "use client";
 
+import { maskInt } from "@/lib/mask";
+
 import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
@@ -140,7 +142,7 @@ export function StockConsole() {
       <AdminCard>
         <p className="font-bold">New purchase order <span className="text-xs font-normal text-zinc-500">(supplier + one line; pipeline continues via API)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={posup} onChange={(e) => setPosup(e.target.value)} placeholder="Supplier id" inputMode="numeric"
+          <input value={posup} onChange={(e) => setPosup(maskInt(e.target.value))} placeholder="Supplier id" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <ProductPicker value={popid} shortcut="F7" placeholder="Product…" onPick={(x) => setPopid(x ? String(x.id) : "")} />
           <input value={poqty} onChange={(e) => setPoqty(e.target.value)} placeholder="Qty" inputMode="decimal"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Avatar, Badge, Collapse, Progress, SegmentedControl } from "@mantine/core";
+import { Avatar, Badge, Collapse, Progress, SegmentedControl, Tooltip } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Copy } from "lucide-react";
 import { NoSsr } from "@/components/no-ssr";
@@ -64,6 +64,31 @@ export function JobProgress({ done, total, label }: { done: number; total: numbe
     </NoSsr>
   );
 }
+// Shared icon button (mantine-custom-components recipe: compose Mantine
+// Tooltip over a native button with project tokens). One 44px target, one
+// accessible name, hover hint on desktop, silent on touch.
+export function IconBtn({ label, hint, onClick, disabled, tone = "border", children }: {
+  label: string; hint?: string; onClick: () => void; disabled?: boolean;
+  tone?: "border" | "brand" | "dark"; children: ReactNode;
+}) {
+  const toneCls = tone === "brand"
+    ? "bg-brand px-4 text-white"
+    : tone === "dark"
+      ? "bg-black text-white dark:bg-white dark:text-black"
+      : "border border-black/15 text-brand-deep dark:border-white/20";
+  const cls = `flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl disabled:opacity-40 ${toneCls}`;
+  const btn = (
+    <button onClick={onClick} disabled={disabled} aria-label={label} title={hint ?? label} className={cls}>
+      {children}
+    </button>
+  );
+  return (
+    <NoSsr fallback={btn}>
+      <Tooltip label={hint ?? label} openDelay={400}>{btn}</Tooltip>
+    </NoSsr>
+  );
+}
+
 export function CopyBtn({ value, label }: { value: string; label: string }) {
   async function copy() {
     try {
@@ -86,6 +111,8 @@ const TONE: Record<string, string> = {
   booked: "yellow", assigned: "blue", "in-progress": "orange", failed: "red",
   expired: "red", low: "orange", off: "gray", on: "teal",
   proposed: "yellow", confirmed: "blue", cancelled: "gray",
+  created: "gray", packed: "blue", shipped: "orange", delivered: "green", rto: "red",
+  open: "green", closed: "gray", launched: "teal",
 };
 
 export function StatusBadge({ status }: { status: string }) {

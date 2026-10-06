@@ -1,5 +1,8 @@
 "use client";
 
+import { CopyBtn, StatusBadge } from "@/components/admin-ux";
+import { maskInt } from "@/lib/mask";
+
 import { useEffect, useState } from "react";
 import { Phone, Plus } from "lucide-react"
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
@@ -128,7 +131,7 @@ export function RetailConsole() {
   return (
     <div className="grid gap-3">
       <AdminCard>
-        <p className="font-bold">Counter drawer {drawer ? <span className="text-xs font-normal text-zinc-500">({drawer.status} · opening ₹{(drawer.opening / 100).toFixed(0)})</span> : <span className="text-xs font-normal text-zinc-500">(closed)</span>}</p>
+        <p className="flex flex-wrap items-center gap-1.5 font-bold">Counter drawer {drawer ? <span className="flex items-center gap-1.5 text-xs font-normal text-zinc-500"><StatusBadge status={drawer.status} /> opening ₹{(drawer.opening / 100).toFixed(0)}</span> : <StatusBadge status="closed" />}</p>
         {!drawer || drawer.status !== "open" ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             <input value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="Opening ₹" inputMode="decimal"
@@ -144,7 +147,7 @@ export function RetailConsole() {
       <AdminCard>
         <p className="font-bold">Quick sale <span className="text-xs font-normal text-zinc-500">(counter checkout)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={spid} onChange={(e) => setSpid(e.target.value)} placeholder="Product id" inputMode="numeric"
+          <input value={spid} onChange={(e) => setSpid(maskInt(e.target.value))} placeholder="Product id" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={sqty} onChange={(e) => setSqty(e.target.value)} placeholder="Qty" inputMode="decimal"
             className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
@@ -199,7 +202,7 @@ export function RetailConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {camps.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span>#{c.id} {c.name} · {c.channel} → {c.segment} · {c.status}</span>
+                <span className="flex flex-wrap items-center gap-1.5">#{c.id} {c.name} · {c.channel} → {c.segment} · <StatusBadge status={c.status} /></span>
                 {c.status === "draft" && (
                   <button onClick={() => void launch(c.id)} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Launch</button>
                 )}
@@ -211,7 +214,7 @@ export function RetailConsole() {
       <AdminCard>
         <p className="font-bold">Shipments ({ships.length})</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={shoid} onChange={(e) => setShoid(e.target.value)} placeholder="Order id" inputMode="numeric"
+          <input value={shoid} onChange={(e) => setShoid(maskInt(e.target.value))} placeholder="Order id" inputMode="numeric"
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={shcourier} onChange={(e) => setShcourier(e.target.value)} placeholder="Courier" maxLength={60}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
@@ -222,9 +225,9 @@ export function RetailConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {ships.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span>#{s.id} · order #{s.orderId} · {s.courier || "—"} {s.tracking || ""}</span>
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">#{s.id} · order #{s.orderId} · {s.courier || "—"} {s.tracking || ""} {s.tracking ? <CopyBtn value={s.tracking} label="tracking id" /> : null}</span>
                 <span className="flex items-center gap-1">
-                  <b className="text-xs">{s.status}</b>
+                  <StatusBadge status={s.status} />
                   {(s.status === "created" ? ["packed"] : s.status === "packed" ? ["shipped"] : s.status === "shipped" ? ["delivered", "rto"] : [] as string[]).map((to) => (
                     <button key={to} onClick={() => void moveShip(s.id, to)}
                       className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">{to}</button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { CopyBtn, StatusBadge } from "@/components/admin-ux";
+import { maskInt } from "@/lib/mask";
 import { maskAmount, maskUpi } from "@/lib/mask";
 
 import { Plus } from "lucide-react"
@@ -97,7 +98,7 @@ export function BillingConsole() {
       <AdminCard>
         <p className="font-bold">Bill an order <span className="text-xs font-normal text-zinc-500">(order id → numbered invoice)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={oid} onChange={(e) => setOid(e.target.value)} placeholder="Order id" inputMode="numeric"
+          <input value={oid} onChange={(e) => setOid(maskInt(e.target.value))} placeholder="Order id" inputMode="numeric"
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void fromOrder()} disabled={!oid}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Invoice</button>

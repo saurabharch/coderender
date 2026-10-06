@@ -16,6 +16,7 @@ export function CustomerPicker({ customer, onPick }: {
   const [q, setQ] = useState("");
   const [opts, setOpts] = useState<Cust[]>([]);
   const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(-1);
   const wrapRef = useClickOutside<HTMLDivElement>(() => setOpen(false));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -29,6 +30,7 @@ export function CustomerPicker({ customer, onPick }: {
       const list = (d?.customers ?? []).slice(0, 6);
       setOpts(list);
       setOpen(list.length > 0);
+      setHi(-1);
     }, 300);
   }
 
@@ -48,7 +50,20 @@ export function CustomerPicker({ customer, onPick }: {
         <input value={customer ? `${customer.name} · ${customer.phone}` : q}
           onChange={(e) => { onPick(null); search(e.target.value); }}
           role="combobox" aria-expanded={open && !customer} aria-controls="customer-suggest" aria-autocomplete="list"
-          onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") { setOpen(false); return; }
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              if ((!open || customer) && opts.length > 0) { setOpen(true); setHi(0); return; }
+              if (opts.length > 0) setHi((h) => (e.key === "ArrowDown" ? (h + 1) % opts.length : (h - 1 + opts.length) % opts.length));
+              return;
+            }
+            if (e.key === "Enter" && open && !customer && hi >= 0 && opts[hi]) {
+              e.preventDefault();
+              onPick(opts[hi]); setQ(opts[hi].name); setOpen(false); setHi(-1);
+            }
+          }}
+          aria-activedescendant={hi >= 0 ? `customer-opt-${opts[hi]?.id ?? hi}` : undefined}
           type="search" enterKeyHint="search" autoComplete="off" placeholder="Customer phone — 5+ digits to search" inputMode="tel" maxLength={60}
           className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         {customer ? (
@@ -61,10 +76,11 @@ export function CustomerPicker({ customer, onPick }: {
       </div>
       {open && !customer && (
         <ul id="customer-suggest" role="listbox" className="absolute inset-x-0 top-full z-30 mt-1 max-h-[50vh] overflow-y-auto overscroll-contain rounded-xl border border-black/15 bg-white shadow-xl dark:border-white/20 dark:bg-zinc-900">
-          {opts.map((c) => (
-            <li key={c.id}>
+          {opts.map((c, i) => (
+            <li key={c.id} role="option" id={`customer-opt-${c.id}`} aria-selected={i === hi}>
               <button onClick={() => { onPick(c); setQ(c.name); setOpen(false); }}
-                className="flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10">
+                onMouseEnter={() => setHi(i)}
+                className={`flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${i === hi ? "bg-black/5 dark:bg-white/10" : "hover:bg-black/5 dark:hover:bg-white/10"}`}>
                 <span className="min-w-0 truncate">#{c.id} {c.name}</span>
                 <span className="shrink-0 font-mono text-xs text-zinc-500">{c.phone}</span>
               </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { AvatarInitials, StatusBadge } from "@/components/admin-ux";
+import { maskInt } from "@/lib/mask";
 
 import { Plus } from "lucide-react";
 
@@ -74,7 +75,7 @@ export function CrmConsole() {
       <AdminCard>
         <p className="font-bold">Customer lookup <span className="text-xs font-normal text-zinc-500">(id → segment, CLV, loyalty, timeline)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={cid} onChange={(e) => setCid(e.target.value)} placeholder="Customer id" inputMode="numeric"
+          <input value={cid} onChange={(e) => setCid(maskInt(e.target.value))} placeholder="Customer id" inputMode="numeric"
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void profile()} disabled={!cid}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Lookup</button>

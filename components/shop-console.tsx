@@ -8,7 +8,7 @@ import { NoSsr } from "@/components/no-ssr";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { notifications } from "@mantine/notifications";
 import { ProductPicker } from "@/components/product-picker";
-import { CollapsibleCard, CopyBtn, JobProgress, StatusBadge } from "@/components/admin-ux";
+import { CollapsibleCard, CopyBtn, IconBtn, JobProgress, StatusBadge } from "@/components/admin-ux";
 import { maskAmount, maskBarcode, maskInt, maskPercent, maskUpper } from "@/lib/mask";
 
 interface Product { id: number; name: string; sku: string; price: number; stock: number; status: string; category: string; ratingAvg: number; ratingCount: number; vcount: number }
@@ -380,8 +380,7 @@ export function ShopConsole() {
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={stock} onChange={(e) => setStock(maskInt(e.target.value))} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addProduct()} disabled={!name.trim() || !price} aria-label="Add product"
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
+          <IconBtn label="Add product" onClick={() => void addProduct()} disabled={!name.trim() || !price} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <input ref={addPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" aria-label="Capture product photo"
@@ -390,12 +389,10 @@ export function ShopConsole() {
               if (f) setPending({ file: f, url: URL.createObjectURL(f) });
               e.target.value = "";
             }} />
-          <button onClick={() => addPhotoRef.current?.click()} aria-label="Capture product photo" title="Capture photo"
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-brand-deep dark:border-white/20"><Camera size={22} /></button>
+          <IconBtn label="Capture product photo" hint="Capture photo with camera" onClick={() => addPhotoRef.current?.click()}><Camera size={22} /></IconBtn>
           <input value={barcode} onChange={(e) => setBarcode(maskBarcode(e.target.value))} placeholder="Barcode (blank = auto)" maxLength={40}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
-          <button onClick={() => setScanOpen(true)} aria-label="Scan barcode into this field" title="Scan into barcode field"
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-brand-deep dark:border-white/20"><ScanBarcode size={22} /></button>
+          <IconBtn label="Scan barcode into this field" hint="Scan with camera" onClick={() => setScanOpen(true)}><ScanBarcode size={22} /></IconBtn>
           {barcode.trim() ? <CopyBtn value={barcode} label="barcode" /> : null}
           <WasmScanDialog open={scanOpen} onClose={() => setScanOpen(false)} title="Scan product barcode"
             onScan={(data) => { setBarcode(data.slice(0, 40)); setScanOpen(false); setMsg(`Scanned ${data} — edit or save the product`); }} />
