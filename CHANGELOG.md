@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.43.0] - 2026-10-07
+## [0.44.0] - 2026-10-07
+- Mantine UX pass 1## [0.43.0] - 2026-10-07
 - Unified mobile UI## [0.42.1] - 2026-10-07
 - Shop front cards## [0.42.0] - 2026-10-07
 - Chimes, icons, UoM variants## [0.41.2] - 2026-10-07
