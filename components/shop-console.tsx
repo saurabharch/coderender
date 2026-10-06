@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DatePickerInput } from "@mantine/dates";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { NoSsr } from "@/components/no-ssr";
@@ -32,8 +32,18 @@ export function ShopConsole() {
   const [ckind, setCkind] = useState("pct");
   const [cval, setCval] = useState("");
   const [eid, setEid] = useState("");
+  const [ename, setEname] = useState("");
   const [eprice, setEprice] = useState("");
   const [estock, setEstock] = useState("");
+  const [photoid, setPhotoid] = useState<number | null>(null);
+  const [transparent, setTransparent] = useState(true);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  function snap(pid: number) {
+    setPhotoid(pid);
+    // Let state settle, then open the camera picker.
+    setTimeout(() => photoInputRef.current?.click(), 50);
+  }
   const [slides, setSlides] = useState<{ id: number; title: string; anim: string; active: number }[]>([]);
   const [stitle, setStitle] = useState("");
   const [sanim, setSanim] = useState("slide");
@@ -106,7 +116,7 @@ export function ShopConsole() {
     // Name is required by the schema; fetch the real one first (merge keeps the rest).
     const cur = products.find((p) => p.id === Number(eid));
     if (!cur) { setMsg("unknown product id"); return; }
-    Object.assign(body, { name: cur.name });
+    Object.assign(body, { name: ename.trim() || cur.name });
     if (eprice) body.price = Math.round(Number(eprice) * 100);
     if (estock) body.stock = Math.round(Number(estock));
     const res = await fetch("/api/shop/products", {
@@ -114,7 +124,42 @@ export function ShopConsole() {
     });
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? "Updated ✓ (other fields kept)" : (d.error ?? "failed"));
-    if (res.ok) { setEid(""); setEprice(""); setEstock(""); void load(); }
+    if (res.ok) { setEid(""); setEname(""); setEprice(""); setEstock(""); void load(); }
+  }
+
+  async function capturePhoto(productId: number, file: File | undefined) {
+    if (!file) return;
+    setMsg("Processing photo…");
+    try {
+      // Downscale monster camera files first (upload cap is 2MB).
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      let blob: Blob = file;
+      if (scale < 1) {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(bmp.width * scale);
+        canvas.height = Math.round(bmp.height * scale);
+        canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+        blob = await new Promise<Blob>((res, rej) =>
+          canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode"))), "image/jpeg", 0.85)) ?? blob;
+      }
+      bmp.close();
+      if (transparent) {
+        const { removeBackground } = await import("@imgly/background-removal");
+        setMsg("Removing background… (first use downloads the AI model)");
+        blob = await removeBackground(blob);
+      }
+      const form = new FormData();
+      form.append("file", blob, "photo.png");
+      form.append("productId", String(productId));
+      const res = await fetch("/api/media/upload", { method: "POST", body: form });
+      const d = await res.json().catch(() => ({}));
+      setMsg(res.ok ? `Photo attached ✓ (${d.via})` : (d.error ?? "upload failed"));
+      if (res.ok) void load();
+    } catch {
+      setMsg("Photo failed — try again or use an image URL.");
+    }
+    setPhotoid(null);
   }
 
   async function addSlide() {
@@ -238,8 +283,10 @@ export function ShopConsole() {
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Products ({products.length})</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <ProductPicker value={eid} shortcut="F7" placeholder="Product to edit…" onPick={(x) => setEid(x ? String(x.id) : "")} />
+        <div className="mt-2 flex flex-wrap items-end gap-1.5">
+          <div className="min-w-0 flex-1"><ProductPicker value={eid} shortcut="F7" placeholder="Product to edit…" onPick={(x) => setEid(x ? String(x.id) : "")} /></div>
+          <input value={ename} onChange={(e) => setEname(e.target.value)} placeholder="Name (blank = keep)" maxLength={150}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={eprice} onChange={(e) => setEprice(e.target.value)} placeholder="₹ new" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={estock} onChange={(e) => setEstock(e.target.value)} placeholder="Stock" inputMode="numeric"
@@ -248,22 +295,35 @@ export function ShopConsole() {
             className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Update</button>
         </div>
         {products.length === 0 ? <div className="mt-2"><Empty>No products yet — add the first above.</Empty></div> : (
-          <ul className="mt-2 space-y-1 text-sm">
+          <ul className="mt-2 space-y-2 text-sm">
             {products.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span className="min-w-0 flex-1 truncate">#{p.id} {p.name} {p.sku && <span className="text-xs text-zinc-500">{p.sku}</span>}
-                  {p.category && <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[11px] dark:bg-white/10">{p.category}</span>}
-                  {p.ratingCount > 0 && <span className="ml-1 text-xs text-amber-600">★{p.ratingAvg}({p.ratingCount})</span>}
-                  {p.vcount > 0 && <span className="ml-1 text-xs text-zinc-500">{p.vcount} variants</span>}</span>
-                <span className="flex shrink-0 items-center gap-1">₹{(p.price / 100).toFixed(0)} · {p.stock}
+              <li key={p.id} className="rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <p className="min-w-0 truncate font-bold">#{p.id} {p.name}</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500">
+                  {p.sku && <span className="font-mono">{p.sku}</span>}
+                  {p.category && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{p.category}</span>}
+                  {p.ratingCount > 0 && <span className="text-amber-600">★{p.ratingAvg}({p.ratingCount})</span>}
+                  {p.vcount > 0 && <span>{p.vcount} variants</span>}
+                  <span className="ml-auto text-sm font-extrabold text-zinc-800 dark:text-zinc-100">₹{(p.price / 100).toFixed(0)} · {p.stock} in stock</span>
+                </p>
+                <p className="mt-1.5 flex gap-1.5">
                   <a href={`/admin/shop/${p.id}/labels`} aria-label={`Print labels for ${p.name}`}
-                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-xs dark:border-white/20">🏷</a>
-                </span>
+                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl border border-black/15 text-xs font-semibold dark:border-white/20">🏷 Labels</a>
+                  <button onClick={() => snap(p.id)} aria-label={`Photograph ${p.name}`}
+                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl border border-black/15 text-xs font-semibold dark:border-white/20">📷 Photo</button>
+                </p>
               </li>
             ))}
           </ul>
         )}
       </AdminCard>
+      <input id="product-photo-input" ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+        aria-label="Photograph product"
+        onChange={(e) => { const f = e.target.files?.[0]; if (photoid && f) void capturePhoto(photoid, f); e.target.value = ""; }} />
+      <label className="mt-1.5 flex min-h-[44px] items-center gap-2 text-sm">
+        <input type="checkbox" checked={transparent} onChange={(e) => setTransparent(e.target.checked)} className="h-5 w-5" />
+        Transparent background (on-device AI — first use downloads the model)
+      </label>
       <AdminCard>
         <p className="font-bold">Hero slider ({slides.length}) <span className="text-xs font-normal text-zinc-500">(shop theme front)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">

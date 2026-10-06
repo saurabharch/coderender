@@ -21,6 +21,7 @@
   "dependencies": {
     "@ckeditor/ckeditor5-react": "^11.2.0",
     "@fingerprintjs/fingerprintjs": "^5.2.0",
+    "@imgly/background-removal": "^1.7.0",
     "@mantine/carousel": "^9.7.0",
     "@mantine/charts": "^9.7.0",
     "@mantine/code-highlight": "^9.7.0",
