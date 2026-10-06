@@ -9,6 +9,7 @@ export const SERVICE_FLAGS: Record<string, { label: string; def: boolean }> = {
   loyalty: { label: "Loyalty earn/redeem", def: true },
   cod: { label: "Cash on delivery", def: true },
   udhari: { label: "Credit sales (udhari)", def: true },
+  discount_override: { label: "Cashier discount override (bill)", def: false },
   catalog_wa: { label: "WhatsApp catalogue sends", def: true },
 };
 

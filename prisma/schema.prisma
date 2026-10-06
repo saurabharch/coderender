@@ -1246,3 +1246,10 @@ model ProductExt {
   payload   String @default("{}")
   updatedAt DateTime @updatedAt
 }
+
+model LoyaltyCard {
+  cardNo     String @id
+  customerId Int
+  active     Boolean @default(true)
+  issuedAt   DateTime @default(now())
+}

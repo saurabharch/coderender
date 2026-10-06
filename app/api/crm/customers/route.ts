@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { logCustomer, loyaltyOf, redeemPoints, segment, segmentList, setStage, timeline } from "@/lib/crm";
+import { logCustomer, cardCustomer, issueCard, loyaltyOf, redeemPoints, segment, segmentList, setStage, timeline } from "@/lib/crm";
 import { CRM_STAGES } from "@/lib/crm-core";
 import { shopGate } from "@/lib/shop-auth";
 
@@ -12,6 +12,10 @@ export async function GET(req: Request) {
   const seg = url.searchParams.get("segment");
   if (seg) return NextResponse.json({ customers: segmentList(seg as never) });
   const id = Number(url.searchParams.get("id") || 0);
+  if (url.searchParams.get("card")) {
+    const c = cardCustomer(url.searchParams.get("card") || "");
+    return c ? NextResponse.json({ ok: true, ...c }) : NextResponse.json({ error: "unknown card" }, { status: 404 });
+  }
   if (!id) return NextResponse.json({ error: "id or segment required" }, { status: 422 });
   return NextResponse.json({ ...segment(id), loyalty: loyaltyOf(id), timeline: timeline(id) });
 }
@@ -22,6 +26,11 @@ export async function POST(req: Request) {
   if (deny) return deny;
   const body = await req.json().catch(() => null);
   try {
+    if (body?.issueCard) {
+      const parsed = z.object({ issueCard: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad issue" }, { status: 422 });
+      return NextResponse.json({ ok: true, ...issueCard(parsed.data.issueCard) });
+    }
     if (body?.stage) {
       const parsed = z.object({ id: z.number().int(), stage: z.enum(CRM_STAGES as unknown as [string, ...string[]]) }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad stage" }, { status: 422 });

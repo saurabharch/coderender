@@ -12,6 +12,7 @@ export function crmTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS LoyaltyAcct (customerId INTEGER PRIMARY KEY, points INTEGER NOT NULL DEFAULT 0, lifetime INTEGER NOT NULL DEFAULT 0, tier TEXT NOT NULL DEFAULT 'silver')`);
   db.exec(`CREATE TABLE IF NOT EXISTS LoyaltyTx (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL, delta INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Review (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL DEFAULT 0, customerId INTEGER NOT NULL DEFAULT 0, rating INTEGER NOT NULL DEFAULT 5, title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS LoyaltyCard (cardNo TEXT PRIMARY KEY, customerId INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, issuedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   for (const c of ["ratingAvg REAL NOT NULL DEFAULT 0", "ratingCount INTEGER NOT NULL DEFAULT 0"]) {
     try { db.exec(`ALTER TABLE Product ADD COLUMN ${c}`); } catch { /* exists */ }
   }
@@ -128,6 +129,33 @@ export function revokeForOrder(orderId: number): void {
     applyPoints(o.customerId, -pts, `revoked order #${orderId}`);
     logCustomer(o.customerId, "loyalty", `-${pts} pts revoked order #${orderId}`);
   } catch { /* loyalty never breaks orders */ }
+}
+
+// ---- loyalty cards (card-no → customer → manual discount) ----
+export function issueCard(customerId: number): { cardNo: string } {
+  crmTables();
+  const db = getDb();
+  if (!db.prepare("SELECT id FROM Customer WHERE id=?").get(customerId)) throw new Error("no customer");
+  const ex = db.prepare("SELECT cardNo FROM LoyaltyCard WHERE customerId=? AND active=1").get(customerId) as
+    { cardNo: string } | undefined;
+  if (ex) return { cardNo: ex.cardNo };
+  for (let i = 0; i < 5; i++) {
+    const cardNo = `LC${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 36).toString(36).toUpperCase()}`;
+    try {
+      db.prepare("INSERT INTO LoyaltyCard (cardNo, customerId) VALUES (?,?)").run(cardNo, customerId);
+      return { cardNo };
+    } catch { /* collision — retry */ }
+  }
+  throw new Error("issue failed, retry");
+}
+
+export function cardCustomer(cardNo: string) {
+  crmTables();
+  const db = getDb();
+  const c = db.prepare(`SELECT cu.id, cu.name, cu.phone FROM LoyaltyCard lc JOIN Customer cu ON cu.id=lc.customerId
+    WHERE lc.cardNo=? AND lc.active=1`).get(cardNo.trim().toUpperCase()) as
+    { id: number; name: string; phone: string } | undefined;
+  return c ?? null;
 }
 
 // ---- reviews ----

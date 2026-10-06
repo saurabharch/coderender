@@ -150,11 +150,20 @@ export function openDrawer(opening: number, by: string): void {
 
 export async function posSale(input: {
   lines: { productId: number; qty: number }[]; customerId?: number; method?: string; cashIn?: number; by?: string;
+  discountPaise?: number; discountPct?: number;
 }): Promise<{ orderId: number; change: number }> {
   retailTables();
-  const { createOrder, setOrderStatus } = await import("./commerce");
+  const { createOrder, setOrderStatus, quote } = await import("./commerce");
   const { recordPayment } = await import("./finance");
-  const id = createOrder({ customerId: input.customerId, lines: input.lines, channel: "pos", notes: `pos by ${input.by ?? "counter"}` });
+  let manualDiscount = Math.max(0, Math.round(input.discountPaise ?? 0));
+  if (!manualDiscount && (input.discountPct ?? 0) > 0) {
+    const q = quote({ lines: input.lines, customerId: input.customerId, channel: "pos" });
+    manualDiscount = Math.round((q.subtotal * Math.min(100, input.discountPct!)) / 100);
+  }
+  const id = await createOrder({
+    customerId: input.customerId, lines: input.lines, channel: "pos",
+    notes: `pos by ${input.by ?? "counter"}`, ...(manualDiscount > 0 ? { manualDiscount } : {}),
+  });
   await setOrderStatus(id, "confirmed");
   const got = (await import("./commerce")).getOrder(id) as { order: { grand: number } } | null;
   if (!got) throw new Error("sale lost");

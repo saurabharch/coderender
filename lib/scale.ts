@@ -61,7 +61,7 @@ export async function ingestChannelOrder(channelId: number, extRef: string, line
     { name: string; active: number } | undefined;
   if (!ch || !ch.active) throw new Error("unknown channel");
   const { createOrder } = await import("./commerce");
-  return createOrder({ customerId, lines, channel: `market:${ch.name}`.slice(0, 20), notes: `ext ${extRef.slice(0, 60)}` });
+  return await createOrder({ customerId, lines, channel: `market:${ch.name}`.slice(0, 20), notes: `ext ${extRef.slice(0, 60)}` });
 }
 
 // ---- franchise ----

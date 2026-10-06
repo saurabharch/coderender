@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AdminCard, Empty } from "@/components/admin-ui";
+import { CustomerPicker, type Cust } from "@/components/customer-picker";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { modals } from "@mantine/modals";
 
@@ -26,6 +27,10 @@ export function PosCounter() {
   const [flash, setFlash] = useState("");
   const [method, setMethod] = useState<"cash" | "upi" | "card">("cash");
   const [tendered, setTendered] = useState("");
+  const [customer, setCustomer] = useState<Cust | null>(null);
+  const [cardno, setCardno] = useState("");
+  const [disval, setDisval] = useState("");
+  const [disKind, setDisKind] = useState<"flat" | "pct">("flat");
   const photoRef = useRef<HTMLInputElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -132,18 +137,33 @@ export function PosCounter() {
 
   async function complete() {
     if (!lines.length) return;
+    const dis = disval
+      ? disKind === "pct"
+        ? { discountPct: Math.min(100, Number(disval) || 0) }
+        : { discountPaise: Math.round(Number(disval) * 100) }
+      : {};
     const res = await fetch("/api/retail/pos", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         op: "sale", lines: lines.map((l) => ({ productId: l.productId, qty: l.qty })),
-        method, cashIn: method === "cash" && tender > 0 ? tender : 0,
+        customerId: customer?.id,
+        method, cashIn: method === "cash" && tender > 0 ? tender : 0, ...dis,
       }),
     });
     const d = await res.json().catch(() => ({}));
     if (res.ok) {
       setMsg(`Sold ✓ order #${d.orderId}${d.change ? ` · change ₹${(d.change / 100).toFixed(0)}` : method === "upi" ? " · collect on UPI" : method === "card" ? " · charged on terminal" : ""}`);
-      setLines([]); setTendered("");
+      setLines([]); setTendered(""); setDisval("");
     } else setMsg(d.error ?? "sale failed");
+  }
+
+  async function lookupCard() {
+    if (cardno.trim().length < 3) return;
+    const d = await fetch(`/api/crm/customers?card=${encodeURIComponent(cardno.trim())}`).then((r) => r.json()).catch(() => null);
+    if (d?.ok) {
+      setCustomer({ id: d.id, name: d.name, phone: d.phone });
+      setMsg(`Card ${cardno.trim().toUpperCase()} → ${d.name} ✓ (member pricing where set)`);
+    } else setMsg("Unknown card.");
   }
 
   async function hold() {
@@ -252,6 +272,26 @@ export function PosCounter() {
             </ul>
           )}
           <p className="mt-2 text-right text-2xl font-extrabold">₹{(total / 100).toFixed(0)}</p>
+          <div className="mt-2">
+            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-zinc-500">Customer (optional)</p>
+            <CustomerPicker customer={customer} onPick={setCustomer} />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <input value={cardno} onChange={(e) => setCardno(e.target.value)} placeholder="Loyalty card no" maxLength={24}
+              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm uppercase dark:border-white/20" />
+            <button onClick={() => void lookupCard()} disabled={cardno.trim().length < 3}
+              className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Card →</button>
+          </div>
+          <div className="mt-1.5 flex gap-1.5">
+            <input value={disval} onChange={(e) => setDisval(e.target.value)} placeholder="Override discount" inputMode="decimal"
+              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            <select value={disKind} onChange={(e) => setDisKind(e.target.value as "flat" | "pct")} aria-label="Discount type"
+              className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+              <option value="flat">₹ flat</option>
+              <option value="pct">%</option>
+            </select>
+          </div>
+          <p className="mt-1 text-[11px] text-zinc-500">Manual discounts need the override flag (Settings → Service flags).</p>
           <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Payment method">
             {([
               ["cash", "💵 Cash"], ["upi", "📱 UPI"], ["card", "💳 Card"],

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DatePickerInput } from "@mantine/dates";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
+import { NoSsr } from "@/components/no-ssr";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { ProductPicker } from "@/components/product-picker";
 
@@ -38,8 +40,10 @@ export function ShopConsole() {
   const [lots, setLots] = useState<{ id: number; lot: string; mfg: string; exp: string }[]>([]);
   const [lotpid, setLotpid] = useState("");
   const [lotno, setLotno] = useState("");
-  const [lotmfg, setLotmfg] = useState("");
-  const [lotexp, setLotexp] = useState("");
+  const [lotmfg, setLotmfg] = useState<Date | null>(null);
+  const [lotexp, setLotexp] = useState<Date | null>(null);
+  const [lotq, setLotq] = useState("");
+  const [lotfound, setLotfound] = useState<{ id: number; lot: string; mfg: string; exp: string; pname: string; pid: number; barcode: string; images: string; stock: number; sold: number }[]>([]);
   const [pxpid, setPxpid] = useState("");
   const [pxtype, setPxtype] = useState("sale");
   const [pxamt, setPxamt] = useState("");
@@ -167,14 +171,22 @@ export function ShopConsole() {
     else setMsg("channel failed");
   }
 
+  const day = (d: Date | null) => (d ? d.toISOString().slice(0, 7) : "");
+
   async function addLot() {
     const res = await fetch("/api/shop/lots", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId: Number(lotpid), lot: lotno, mfg: lotmfg, exp: lotexp }),
+      body: JSON.stringify({ productId: Number(lotpid), lot: lotno, mfg: day(lotmfg), exp: day(lotexp) }),
     });
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? "Batch saved ✓" : (d.error ?? "failed"));
-    if (res.ok) { setLotno(""); setLotmfg(""); setLotexp(""); void loadLots(); }
+    if (res.ok) { setLotno(""); setLotmfg(null); setLotexp(null); void loadLots(); }
+  }
+
+  async function searchLot() {
+    if (lotq.trim().length < 2) { setLotfound([]); return; }
+    const d = await fetch(`/api/shop/lots?lot=${encodeURIComponent(lotq.trim())}`).then((r) => r.json()).catch(() => null);
+    if (d?.lots) setLotfound(d.lots);
   }
 
   async function move(id: number, to: string) {
@@ -269,14 +281,43 @@ export function ShopConsole() {
       <AdminCard>
         <p className="font-bold">Batches — mfg / expiry per product</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <ProductPicker value={lotpid} shortcut="F6" placeholder="Product for batch…"
-            onPick={(x) => { setLotpid(x ? String(x.id) : ""); if (x) void loadLots(String(x.id)); }} />
+          <input value={lotq} onChange={(e) => setLotq(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void searchLot(); }}
+            placeholder="Search batch id…" maxLength={40}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
+          <button onClick={() => void searchLot()} disabled={lotq.trim().length < 2}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Find</button>
+        </div>
+        {lotfound.length > 0 && (
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {lotfound.map((l) => {
+              const img = (JSON.parse(l.images || "[]") as string[])[0];
+              return (
+                <li key={l.id} className="flex gap-2 rounded-xl border border-black/10 p-2 dark:border-white/10">
+                  {img ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={img} alt={l.pname} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                  ) : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-black/5 text-xs dark:bg-white/10">no img</span>}
+                  <div className="min-w-0">
+                    <p className="font-bold">#{l.pid} {l.pname}</p>
+                    <p className="font-mono text-xs">Batch {l.lot || `#${l.id}`} · {l.barcode || "no barcode"}</p>
+                    <p className="text-xs text-zinc-500">MFG {l.mfg || "—"} · EXP {l.exp || "—"} · stock {l.stock} · sold {l.sold}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="mt-2 flex flex-wrap items-end gap-1.5">
+          <div className="min-w-0 flex-1"><ProductPicker value={lotpid} shortcut="F6" placeholder="Product for batch…"
+            onPick={(x) => { setLotpid(x ? String(x.id) : ""); if (x) void loadLots(String(x.id)); }} /></div>
           <input value={lotno} onChange={(e) => setLotno(e.target.value)} placeholder="Batch no" maxLength={40}
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={lotmfg} onChange={(e) => setLotmfg(e.target.value)} placeholder="MFG yyyy-mm" maxLength={10}
-            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={lotexp} onChange={(e) => setLotexp(e.target.value)} placeholder="EXP yyyy-mm" maxLength={10}
-            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <NoSsr fallback={<p className="text-sm text-zinc-500">Loading date pickers…</p>}>
+          <DatePickerInput value={lotmfg} onChange={(v) => setLotmfg(Array.isArray(v) ? (v[0] as Date ?? null) : (v as Date | null))} label="MFG" valueFormat="YYYY-MM"
+            className="w-32" styles={{ input: { minHeight: 44, borderRadius: 12 } }} />
+          <DatePickerInput value={lotexp} onChange={(v) => setLotexp(Array.isArray(v) ? (v[0] as Date ?? null) : (v as Date | null))} label="EXP" valueFormat="YYYY-MM"
+            className="w-32" styles={{ input: { minHeight: 44, borderRadius: 12 } }} />
+          </NoSsr>
           <button onClick={() => void addLot()} disabled={!lotpid}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save</button>
         </div>

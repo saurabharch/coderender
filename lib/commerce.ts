@@ -381,6 +381,23 @@ export function listLots(productId: number) {
   return getDb().prepare("SELECT * FROM ProductLot WHERE productId=? ORDER BY id DESC").all(productId);
 }
 
+export function findLot(lot: string) {
+  commerceTables();
+  const lots = getDb().prepare(`SELECT l.*, p.name pname, p.id pid, p.barcode, p.barcodeType, p.images, p.stock,
+    COALESCE((SELECT SUM(ol.qty) FROM OrderLine ol JOIN ShopOrder o ON o.id=ol.orderId
+      WHERE ol.productId=l.productId AND o.status!='cancelled'), 0) sold
+    FROM ProductLot l JOIN Product p ON p.id=l.productId
+    WHERE l.lot LIKE ? ORDER BY l.id DESC LIMIT 10`).all(`%${lot.slice(0, 40)}%`);
+  return lots;
+}
+
+// Lifetime sold qty (confirmed pipeline) — powers batch/product sold counters.
+export function soldQty(productId: number): number {
+  commerceTables();
+  return (getDb().prepare(`SELECT COALESCE(SUM(ol.qty),0) s FROM OrderLine ol JOIN ShopOrder o ON o.id=ol.orderId
+    WHERE ol.productId=? AND o.status!='cancelled'`).get(productId) as { s: number }).s;
+}
+
 export function saveLot(input: { id?: number; productId: number; lot?: string; mfg?: string; exp?: string; qty?: number; notes?: string }): number {
   commerceTables();
   const db = getDb();
@@ -475,7 +492,7 @@ export function orderChannel(channel: string): string {
   return "retail";
 }
 
-export function quote(input: { lines: { productId: number; qty: number }[]; coupon?: string; inter?: boolean; channel?: string; customerId?: number }): Quote {
+export function quote(input: { lines: { productId: number; qty: number }[]; coupon?: string; inter?: boolean; channel?: string; customerId?: number; manualDiscount?: number }): Quote {
   commerceTables();
   const db = getDb();
   const ch = orderChannel(input.channel ?? "");
@@ -494,15 +511,26 @@ export function quote(input: { lines: { productId: number; qty: number }[]; coup
     return { productId: p.id, qty, price, taxPct: p.taxPct };
   });
   const coupon = input.coupon ? getCoupon(input.coupon) ?? undefined : undefined;
-  return quoteCart(lines, { inter: !!input.inter, inclusive: true, coupon });
+  const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
+  // Cashier override (flag-gated upstream): flat top-up on top of any coupon,
+  // spread proportionally so tax stays consistent. Capped — never negative.
+  const manual = Math.min(Math.max(0, Math.round(input.manualDiscount ?? 0)), Math.max(0, subtotal - (coupon ? couponOff(subtotal, coupon).off : 0)));
+  const combined: CouponDef | undefined = coupon
+    ? { ...coupon, kind: "flat", value: couponOff(subtotal, coupon).off + manual, maxOff: undefined }
+    : manual > 0 ? { code: "MANUAL", kind: "flat", value: manual } : undefined;
+  return quoteCart(lines, { inter: !!input.inter, inclusive: true, coupon: combined });
 }
 
-export function createOrder(input: {
+export async function createOrder(input: {
   customerId?: number; lines: { productId: number; qty: number }[]; coupon?: string;
-  inter?: boolean; channel?: string; notes?: string;
-}): number {
+  inter?: boolean; channel?: string; notes?: string; manualDiscount?: number;
+}): Promise<number> {
   commerceTables();
   const db = getDb();
+  if ((input.manualDiscount ?? 0) > 0) {
+    const { flagOn } = await import("./flags");
+    if (!flagOn("discount_override")) throw new Error("discount override is off");
+  }
   const q = quote(input);
   if (!q.lines.length) throw new Error("empty cart");
   const orderId = Number(db.prepare(`INSERT INTO ShopOrder (customerId, status, subtotal, discount, tax, grand, coupon, channel, notes)
@@ -612,7 +640,7 @@ export async function creditSale(input: { customerId: number; lines: { productId
   const c = db.prepare("SELECT credit, balance FROM Customer WHERE id=?").get(input.customerId) as
     { credit: number; balance: number } | undefined;
   if (!c) throw new Error("no customer");
-  const id = createOrder({ customerId: input.customerId, lines: input.lines, coupon: input.coupon, channel: "credit", notes: input.notes });
+  const id = await createOrder({ customerId: input.customerId, lines: input.lines, coupon: input.coupon, channel: "credit", notes: input.notes });
   const o = db.prepare("SELECT grand FROM ShopOrder WHERE id=?").get(id) as { grand: number };
   if (c.credit > 0 && c.balance + o.grand > c.credit) {
     db.prepare("DELETE FROM OrderLine WHERE orderId=?").run(id);
@@ -668,7 +696,7 @@ export async function publicCheckout(input: {
   if (phone.length < 10) throw new Error("valid phone required");
   const c = db.prepare("SELECT id FROM Customer WHERE phone LIKE ?").get(`%${phone}`) as { id: number } | undefined;
   const cid = c?.id ?? saveCustomer({ name: input.name.slice(0, 120), phone, notes: (input.address ?? "").slice(0, 300) });
-  const id = createOrder({ customerId: cid, lines: input.lines, coupon: input.coupon, channel: `web-${method}`, notes: (input.address ?? "").slice(0, 300) });
+  const id = await createOrder({ customerId: cid, lines: input.lines, coupon: input.coupon, channel: `web-${method}`, notes: (input.address ?? "").slice(0, 300) });
   const o = db.prepare("SELECT grand FROM ShopOrder WHERE id=?").get(id) as { grand: number };
   return { orderId: id, grand: o.grand };
 }

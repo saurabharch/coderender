@@ -3,11 +3,17 @@ import { z } from "zod";
 import { deleteLot, listLots, saveLot } from "@/lib/commerce";
 import { shopGate } from "@/lib/shop-auth";
 
-// GET ?productId= → lots. POST {...} → save. DELETE ?id=&productId= → drop.
+// GET ?productId= | ?lot= (batch search with product + stock + sold).
 export async function GET(req: Request) {
   const deny = await shopGate(req, false);
   if (deny) return deny;
-  return NextResponse.json({ lots: listLots(Number(new URL(req.url).searchParams.get("productId") || 0)) });
+  const url = new URL(req.url);
+  const lot = url.searchParams.get("lot") || "";
+  if (lot.trim()) {
+    const { findLot } = await import("@/lib/commerce");
+    return NextResponse.json({ lots: findLot(lot) });
+  }
+  return NextResponse.json({ lots: listLots(Number(url.searchParams.get("productId") || 0)) });
 }
 
 export async function POST(req: Request) {

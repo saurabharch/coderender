@@ -44,6 +44,16 @@ export function CrmConsole() {
     setMsg(d?.error ?? `segment ${d.segment} · spend ₹${(d.spend / 100).toFixed(0)} · ${d.orders} orders · ${d.loyalty.points} pts (${d.loyalty.tier}) · ${d.timeline.length} events`);
   }
 
+  async function issueCard() {
+    if (!cid) return;
+    const res = await fetch("/api/crm/customers", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ issueCard: Number(cid) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Card issued: ${d.cardNo} ✓` : (d.error ?? "failed"));
+  }
+
   if (!loaded) return <Skeleton lines={5} />;
   return (
     <div className="grid gap-3">
@@ -64,6 +74,8 @@ export function CrmConsole() {
             className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void profile()} disabled={!cid}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Lookup</button>
+          <button onClick={() => void issueCard()} disabled={!cid}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Issue card</button>
         </div>
       </AdminCard>
       <AdminCard>

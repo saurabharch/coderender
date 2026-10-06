@@ -29,10 +29,11 @@ export async function PUT(req: Request) {
     customerId: z.number().int().optional(), lines: z.array(line).min(1).max(50),
     coupon: z.string().max(24).optional(), inter: z.boolean().optional(),
     channel: z.string().max(20).optional(), notes: z.string().max(500).optional(),
+    manualDiscount: z.number().min(0).max(100000000).optional(),
   }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad order" }, { status: 422 });
   try {
-    const id = createOrder(parsed.data);
+    const id = await createOrder(parsed.data);
     return NextResponse.json({ ok: true, id, order: getOrder(id) });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "order failed" }, { status: 422 });
