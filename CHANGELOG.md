@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.33.0] - 2026-10-06
+## [0.34.0] - 2026-10-06
+- Barcode engine + quick-create + serials## [0.33.0] - 2026-10-06
 - Stock fix, batches, label studio## [0.32.3] - 2026-10-06
 - Camera permission fix (Permissions-Policy self)## [0.32.2] - 2026-10-06
 - Camera denial guide with retry## [0.32.1] - 2026-10-06
