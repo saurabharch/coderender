@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.41.1] - 2026-10-06
+## [0.41.2] - 2026-10-07
+- Hide URL field## [0.41.1] - 2026-10-06
 - Add-product capture## [0.41.0] - 2026-10-06
 - Client bg worker, organized media, swap race## [0.40.0] - 2026-10-06
 - BG removal jobs + auto-swap## [0.39.0] - 2026-10-06
