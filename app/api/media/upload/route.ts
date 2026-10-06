@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { randomBytes } from "node:crypto";
 import { sessionUser } from "@/lib/auth";
 import { getDb } from "@/lib/store";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/media";
@@ -21,29 +20,39 @@ export async function POST(req: Request) {
   const folder = String(form?.get("folder") ?? "").slice(0, 80);
   const alt = String(form?.get("alt") ?? "").slice(0, 160);
   const ext = (file.name.split(".").pop() || "bin").slice(0, 8).replace(/[^a-z0-9]/gi, "");
-  const filename = `${Date.now()}-${randomBytes(4).toString("hex")}.${ext}`;
   const bytes = Buffer.from(await file.arrayBuffer());
+  // Organized storage: products/{id}/{slug}-{ts}.ext locally, mirrored on R2.
+  const productId = Number(form?.get("productId") || 0);
+  let prodName = "item";
+  if (productId) {
+    const p = getDb().prepare("SELECT name FROM Product WHERE id=?").get(productId) as { name: string } | undefined;
+    if (p?.name) prodName = p.name;
+  }
+  const { productFile } = await import("@/lib/bgremove");
+  const rel = productFile(productId, prodName, ext || "bin");
   // R2 when configured (dashboard vault), local /uploads otherwise — offline-first.
-  let url = `/uploads/${filename}`;
+  let url = `/uploads/${rel}`;
   let via = "local";
+  let storedName = rel;
   try {
     const { r2Config, r2Put } = await import("@/lib/r2");
     if (r2Config()) {
-      const r = await r2Put(bytes, `products/${filename}`, file.type);
-      url = r.url; via = r.via;
+      const r = await r2Put(bytes, rel, file.type);
+      url = r.url; via = r.via; storedName = r.url;
     }
   } catch (e) {
     if (via !== "local") return NextResponse.json({ error: e instanceof Error ? e.message : "R2 failed" }, { status: 422 });
   }
   if (via === "local") {
-    const dir = join(process.cwd(), "public", "uploads");
+    const { mkdir } = await import("node:fs/promises");
+    const { join, dirname } = await import("node:path");
+    const dir = join(process.cwd(), "public", "uploads", dirname(rel));
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, filename), bytes);
+    await writeFile(join(dir, `${rel.split("/").pop()}`), bytes);
   }
   const r = getDb().prepare("INSERT INTO MediaAsset (filename, mime, size, folder, alt) VALUES (?,?,?,?,?)")
-    .run(via === "local" ? filename : url, file.type, file.size, folder, alt);
+    .run(storedName, file.type, file.size, folder, alt);
   // Optional: attach straight to a product (caps: 10 images, 3 videos).
-  const productId = Number(form?.get("productId") || 0);
   if (productId) {
     const { getProductFull } = await import("@/lib/commerce");
     const full = getProductFull(productId) as { product: Record<string, string> } | null;

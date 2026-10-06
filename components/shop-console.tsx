@@ -127,8 +127,33 @@ export function ShopConsole() {
     if (res.ok) { setEid(""); setEname(""); setEprice(""); setEstock(""); void load(); }
   }
 
-  async function capturePhoto(productId: number, file: File | undefined) {
-    if (!file) return;
+  // Client WASM worker: same job id as the server job — first swap wins.
+  async function runClientWorker(imageUrl: string, jobId: number) {
+    try {
+      const worker = new Worker(new URL("./bg.worker.ts", import.meta.url));
+      const done = new Promise<void>((resolve) => {
+        worker.onmessage = async (e: MessageEvent<{ ok: boolean; jobId: number; bytes?: ArrayBuffer; error?: string }>) => {
+          try {
+            if (e.data?.ok && e.data.bytes) {
+              const form = new FormData();
+              form.append("jobId", String(e.data.jobId));
+              form.append("file", new Blob([e.data.bytes], { type: "image/png" }), "nobg.png");
+              const r = await fetch("/api/media/bgdone", { method: "POST", body: form });
+              const d = await r.json().catch(() => ({}));
+              if (r.ok) setMsg(`Transparent image live ✓ (${d.url})`);
+            }
+          } catch { /* server job may have won — fine */ }
+          worker.terminate();
+          resolve();
+        };
+        worker.onerror = () => { worker.terminate(); resolve(); };
+      });
+      worker.postMessage({ imageUrl, jobId });
+      await done;
+    } catch { /* server job covers it */ }
+  }
+
+  async function capturePhoto(productId: number, file: File | undefined) {    if (!file) return;
     setMsg("Uploading original…");
     try {
       // Downscale monster camera files first (upload cap is 2MB).
@@ -161,7 +186,14 @@ export function ShopConsole() {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ assetId: d.id, productId }),
         }).then((r) => r.json()).catch(() => null);
-        setMsg(q?.ok ? `Photo live ✓ — transparent version swaps in automatically (job #${q.id})` : `Photo attached ✓ (${d.via})`);
+        if (q?.ok) {
+          setMsg(`Photo live ✓ — transparent version swaps in automatically (job #${q.id})`);
+          // Client WASM worker races the server job on the same job id;
+          // first swap wins, the loser no-ops. Works on-device browsers.
+          void runClientWorker(d.url, q.id);
+        } else {
+          setMsg(`Photo attached ✓ (${d.via})`);
+        }
       } else {
         setMsg(`Photo attached ✓ (${d.via})`);
       }
