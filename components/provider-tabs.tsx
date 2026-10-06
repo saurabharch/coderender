@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMap } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { Skeleton } from "@/components/admin-ui";
@@ -10,7 +11,7 @@ type Status = Record<string, { fields: Field[]; source: string }>;
 
 export function ProviderTabs() {
   const [st, setSt] = useState<Status>({});
-  const [vals, setVals] = useState<Record<string, string>>({});
+  const vals = useMap<string, string>();
   const [msg, setMsg] = useState<Record<string, string>>({});
   const [chats, setChats] = useState<{ id: string; name: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -26,7 +27,7 @@ export function ProviderTabs() {
   async function save(name: string) {
     const body: Record<string, string> = {};
     for (const f of st[name]?.fields ?? []) {
-      const v = vals[`${name}:${f.label}`];
+      const v = vals.get(`${name}:${f.label}`);
       if (v !== undefined) body[f.label] = v;
     }
     const res = await fetch("/api/providers", {
@@ -34,11 +35,7 @@ export function ProviderTabs() {
       body: JSON.stringify({ name, values: body }),
     });
     setMsg((m) => ({ ...m, [name]: res.ok ? "Saved ✓ (AES-sealed)" : "Save failed" }));
-    setVals((v) => {
-      const n = { ...v };
-      for (const f of st[name]?.fields ?? []) delete n[`${name}:${f.label}`];
-      return n;
-    });
+    for (const f of st[name]?.fields ?? []) vals.delete(`${name}:${f.label}`);
     void load();
   }
 
@@ -103,8 +100,8 @@ export function ProviderTabs() {
               <label key={f.label} className="grid gap-0.5 text-sm">{f.label}
                 <span className="flex gap-1">
                   <input type="password" autoComplete="off" placeholder={f.set ? "•••••• (set — leave blank to keep)" : f.hint}
-                    value={vals[`${name}:${f.label}`] ?? ""}
-                    onChange={(e) => setVals((v) => ({ ...v, [`${name}:${f.label}`]: e.target.value }))}
+                    value={vals.get(`${name}:${f.label}`) ?? ""}
+                    onChange={(e) => vals.set(`${name}:${f.label}`, e.target.value)}
                     className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
                 </span>
               </label>

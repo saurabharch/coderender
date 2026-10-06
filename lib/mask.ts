@@ -78,3 +78,8 @@ export function maskGst(raw: string): string {
 export function maskPin(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 6);
 }
+
+/** Uppercase codes (coupons, SKUs): trim, upper, single spaces, cap length. */
+export function maskUpper(raw: string, max = 24): string {
+  return raw.toUpperCase().replace(/\s+/g, " ").trim().slice(0, max);
+}

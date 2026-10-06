@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAmount, maskAmount, maskBarcode, maskEmail, maskGst, maskInt, maskPercent, maskPhone, maskPin, maskSigned, maskUpi, maskYearMonth } from "@/lib/mask";
+import { isAmount, maskAmount, maskBarcode, maskEmail, maskGst, maskInt, maskPercent, maskPhone, maskPin, maskSigned, maskUpper, maskUpi, maskYearMonth } from "@/lib/mask";
 
 describe("input masks (mantine use-mask recipe)", () => {
   it("masks phones to last 10 digits, 5+5", () => {
@@ -37,5 +37,10 @@ describe("input masks (mantine use-mask recipe)", () => {
     expect(maskYearMonth("202610")).toBe("2026-10");
     expect(maskGst("27abc de1234f1z5!")).toBe("27ABCDE1234F1Z5");
     expect(maskPin("4000012")).toBe("400001");
+  });
+
+  it("uppercases codes", () => {
+    expect(maskUpper(" diwali10 ")).toBe("DIWALI10");
+    expect(maskUpper("a  b")).toBe("A B");
   });
 });

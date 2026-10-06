@@ -2,6 +2,8 @@
 
 import { Plus } from "lucide-react"
 import { useEffect, useMemo, useState } from "react";
+import { MultiSelect } from "@mantine/core";
+import { NoSsr } from "@/components/no-ssr";
 import { addDays, barSpan, dayKey, groupByDay, monthGrid, parseSlotDay, type CalTask } from "@/lib/calendar-core";
 import { priorityBadge } from "@/lib/kanban-core";
 import type { BoardTask } from "@/lib/kanban";
@@ -48,7 +50,7 @@ export function BoardViews({ boardId, initialTasks, columns, designations, board
   const [quickDay, setQuickDay] = useState<string | null>(null);
   const [quickTitle, setQuickTitle] = useState("");
   // filters
-  const [fAssignee, setFAssignee] = useState("");
+  const [fAssignees, setFAssignees] = useState<string[]>([]);
   const [fDesig, setFDesig] = useState("");
   const [fPriority, setFPriority] = useState("");
 
@@ -73,10 +75,10 @@ export function BoardViews({ boardId, initialTasks, columns, designations, board
 
   const cal = useMemo(() => tasks
     .filter((t) => !t.archived)
-    .filter((t) => !fAssignee || t.assigneeEmail === fAssignee)
+    .filter((t) => fAssignees.length === 0 || fAssignees.includes(t.assigneeEmail))
     .filter((t) => !fDesig || (designations[t.assigneeEmail] ?? "") === fDesig)
     .filter((t) => !fPriority || t.priority === fPriority)
-    .map((t) => toCal(t, designations)), [tasks, designations, fAssignee, fDesig, fPriority]);
+    .map((t) => toCal(t, designations)), [tasks, designations, fAssignees, fDesig, fPriority]);
   const byDay = useMemo(() => groupByDay(cal), [cal]);
   const meetByDay = useMemo(() => {
     const out: Record<string, Meeting[]> = {};
@@ -139,13 +141,19 @@ export function BoardViews({ boardId, initialTasks, columns, designations, board
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-        <label className="flex min-h-[44px] items-center gap-1">Who
-          <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)}
-            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
-            <option value="">Everyone</option>
-            {assignees.map((a) => <option key={a} value={a}>{a.split("@")[0]}</option>)}
-          </select>
-        </label>
+        <NoSsr fallback={
+          <label className="flex min-h-[44px] items-center gap-1">Who
+            <select multiple value={fAssignees} onChange={(e) => setFAssignees([...e.target.selectedOptions].map((o) => o.value))}
+              aria-label="Filter by team member"
+              className="min-h-[44px] max-w-[160px] rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
+              {assignees.map((a) => <option key={a} value={a}>{a.split("@")[0]}</option>)}
+            </select>
+          </label>
+        }>
+          <MultiSelect data={assignees.map((a) => ({ value: a, label: a.split("@")[0] }))} value={fAssignees} onChange={setFAssignees}
+            placeholder={assignees.length > 0 ? "Everyone" : "No assignees"} aria-label="Filter by team member"
+            clearable searchable size="sm" className="min-w-[140px]" />
+        </NoSsr>
         {desigs.length > 0 && (
           <label className="flex min-h-[44px] items-center gap-1">Role
             <select value={fDesig} onChange={(e) => setFDesig(e.target.value)}
@@ -162,8 +170,8 @@ export function BoardViews({ boardId, initialTasks, columns, designations, board
             {["urgent", "high", "medium", "low"].map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </label>
-        {(fAssignee || fDesig || fPriority) && (
-          <button onClick={() => { setFAssignee(""); setFDesig(""); setFPriority(""); }}
+        {(fAssignees.length > 0 || fDesig || fPriority) && (
+          <button onClick={() => { setFAssignees([]); setFDesig(""); setFPriority(""); }}
             className="min-h-[44px] rounded-xl px-2 text-zinc-500">Clear ×</button>
         )}
       </div>

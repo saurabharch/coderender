@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DatePickerInput } from "@mantine/dates";
-import { Camera, Plus, ScanBarcode, Tag } from "lucide-react";
+import { Camera, Copy, Plus, ScanBarcode, Tag } from "lucide-react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { NoSsr } from "@/components/no-ssr";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
+import { notifications } from "@mantine/notifications";
 import { ProductPicker } from "@/components/product-picker";
 import { CollapsibleCard, CopyBtn, JobProgress, StatusBadge } from "@/components/admin-ux";
-import { maskAmount, maskBarcode, maskInt } from "@/lib/mask";
+import { maskAmount, maskBarcode, maskInt, maskPercent, maskUpper } from "@/lib/mask";
 
 interface Product { id: number; name: string; sku: string; price: number; stock: number; status: string; category: string; ratingAvg: number; ratingCount: number; vcount: number }
 interface Order { id: number; status: string; grand: number; coupon: string; createdAt: string }
@@ -598,14 +599,14 @@ export function ShopConsole() {
       <AdminCard>
         <p className="font-bold">Coupons ({coupons.length})</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <input value={ccode} onChange={(e) => setCcode(e.target.value)} placeholder="CODE" maxLength={24}
+          <input value={ccode} onChange={(e) => setCcode(maskUpper(e.target.value))} placeholder="CODE" maxLength={24}
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm uppercase dark:border-white/20" />
           <select value={ckind} onChange={(e) => setCkind(e.target.value)}
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
             <option value="pct">%</option>
             <option value="flat">₹ flat</option>
           </select>
-          <input value={cval} onChange={(e) => setCval(e.target.value)} placeholder={ckind === "pct" ? "%" : "₹"} inputMode="decimal"
+          <input value={cval} onChange={(e) => setCval(ckind === "pct" ? maskPercent(e.target.value) : maskAmount(e.target.value))} placeholder={ckind === "pct" ? "%" : "₹"} inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void addCoupon()} disabled={!ccode.trim() || !cval} aria-label="Save coupon"
             className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40"><Plus size={20} /></button>
@@ -613,8 +614,18 @@ export function ShopConsole() {
         {coupons.length === 0 ? <div className="mt-2"><Empty>No coupons yet.</Empty></div> : (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
             {coupons.map((c) => (
-              <li key={c.code} className="rounded-full border border-black/15 px-3 py-1.5 dark:border-white/20">
-                {c.code} · {c.kind} {c.kind === "pct" ? `${c.value}%` : `₹${(c.value / 100).toFixed(0)}`}
+              <li key={c.code}>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(c.code).then(
+                      () => notifications.show({ title: "Copied", message: c.code, color: "teal" }),
+                      () => notifications.show({ title: "Copy failed", message: "Long-press to copy manually.", color: "red" }),
+                    );
+                  }}
+                  title={`Tap to copy ${c.code}`} aria-label={`Copy coupon ${c.code}`}
+                  className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-black/15 px-3 py-1.5 dark:border-white/20">
+                  {c.code} · {c.kind} {c.kind === "pct" ? `${c.value}%` : `₹${(c.value / 100).toFixed(0)}`} <Copy size={14} />
+                </button>
               </li>
             ))}
           </ul>
@@ -623,13 +634,13 @@ export function ShopConsole() {
       <AdminCard>
         <p className="font-bold">Add variant <span className="text-xs font-normal text-zinc-500">(size / color + own price)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <ProductPicker value={vpid} shortcut="F4" onPick={(x) => setVpid(x ? String(x.id) : "")} placeholder="Product for variant…" />          <input value={vname} onChange={(e) => setVname(e.target.value)} placeholder="Variant name" maxLength={120}
+          <div className="min-w-[140px] flex-1 basis-full sm:basis-0"><ProductPicker value={vpid} shortcut="F4" onPick={(x) => setVpid(x ? String(x.id) : "")} placeholder="Product for variant…" /></div>          <input value={vname} onChange={(e) => setVname(e.target.value)} placeholder="Variant name" maxLength={120}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={vsize} onChange={(e) => setVsize(e.target.value)} placeholder="Size" maxLength={20}
             className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={vcolor} onChange={(e) => setVcolor(e.target.value)} placeholder="Color" maxLength={20}
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={vprice} onChange={(e) => setVprice(e.target.value)} placeholder="₹ (2 decimals)" inputMode="decimal"
+          <input value={vprice} onChange={(e) => setVprice(maskAmount(e.target.value))} placeholder="₹ (2 decimals)" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <select value={vunit} onChange={(e) => setVunit(e.target.value)} aria-label="Variant unit"
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">

@@ -5,6 +5,7 @@ import { AdminCard, Empty } from "@/components/admin-ui";
 import { CustomerPicker, type Cust } from "@/components/customer-picker";
 import { ScanBarcode, Plus } from "lucide-react"
 import { Seg } from "@/components/admin-ux";
+import { useLongPress } from "@mantine/hooks";
 import { maskAmount } from "@/lib/mask";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { modals } from "@mantine/modals";
@@ -72,13 +73,21 @@ export function PosCounter() {
     });
   }
 
-  function addLine(productId: number, name: string, price: number) {
+  function addLine(productId: number, name: string, price: number, qty = 1) {
     setLines((ls) => {
       const ex = ls.find((l) => l.productId === productId);
-      if (ex) return ls.map((l) => (l.productId === productId ? { ...l, qty: l.qty + 1 } : l));
-      return [...ls, { productId, name, price, qty: 1 }];
+      if (ex) return ls.map((l) => (l.productId === productId ? { ...l, qty: l.qty + qty } : l));
+      return [...ls, { productId, name, price, qty }];
     });
   }
+
+  // Mantine use-long-press recipe: tap adds 1, hold (600ms) adds 5.
+  const holdTarget = useRef<{ id: number; name: string; price: number } | null>(null);
+  const swallowed = useRef(false);
+  const holdPress = useLongPress(() => {
+    const f = holdTarget.current;
+    if (f) { swallowed.current = true; addLine(f.id, f.name, f.price, 5); setFound([]); setQ(""); }
+  }, { threshold: 600 });
 
   function onSearch(v: string) {
     setQ(v);
@@ -230,7 +239,14 @@ export function PosCounter() {
               {found.map((f) => (
                 <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
                   <span className="min-w-0 flex-1 truncate">{f.name} · ₹{(f.price / 100).toFixed(0)} · {f.stock} in stock</span>
-                  <button onClick={() => { addLine(f.id, f.name, f.price); setFound([]); setQ(""); }}
+                  <button
+                    onMouseDown={(e) => { holdTarget.current = { id: f.id, name: f.name, price: f.price }; holdPress.onMouseDown?.(e); }}
+                    onMouseUp={(e) => holdPress.onMouseUp?.(e)}
+                    onMouseLeave={(e) => holdPress.onMouseLeave?.(e)}
+                    onTouchStart={(e) => { holdTarget.current = { id: f.id, name: f.name, price: f.price }; holdPress.onTouchStart?.(e); }}
+                    onTouchEnd={(e) => holdPress.onTouchEnd?.(e)}
+                    onClick={() => { if (swallowed.current) { swallowed.current = false; return; } addLine(f.id, f.name, f.price); setFound([]); setQ(""); }}
+                    title="Add to bill (hold for 5)"
                     className="flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-brand px-4 text-white" aria-label="Add to bill"><Plus size={20} /></button>
                 </li>
               ))}

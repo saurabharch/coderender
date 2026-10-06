@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useOrientation } from "@mantine/hooks";
 
 // ZBar-via-WASM scanner (eringen/web-wasm-barcode-reader): works anywhere the
 // native BarcodeDetector is missing (notably iOS Safari) and brings its own
@@ -19,6 +20,7 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
   const [phase, setPhase] = useState<"checking" | "guide" | "scan">("checking");
   const [guide, setGuide] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const { type: orientType } = useOrientation();
 
   useEffect(() => {
     if (!open) return;
@@ -167,7 +169,8 @@ export function WasmScanDialog({ open, onClose, onScan, title = "Scan barcode" }
           <div ref={mountRef} className="absolute inset-0 [&>canvas]:absolute [&>canvas]:inset-0 [&>canvas]:h-full [&>canvas]:w-full [&>video]:absolute [&>video]:inset-0 [&>video]:h-full [&>video]:w-full [&>video]:object-cover" />
         )}
         {phase === "scan" && !err && (
-          <p className="pointer-events-none absolute inset-x-0 top-3 text-center text-sm font-medium text-white/90">Align the barcode inside the frame</p>
+          <p className="pointer-events-none absolute inset-x-0 top-3 text-center text-sm font-medium text-white/90">Align the barcode inside the frame
+            {orientType.startsWith("landscape") && <span className="mt-1 block text-xs text-white/70">Landscape crops the frame — portrait fits more of the code</span>}</p>
         )}
         {err && phase === "scan" && (
           <p role="alert" className="absolute inset-x-4 top-1/3 rounded-2xl bg-red-600/90 p-4 text-center text-sm font-semibold text-white">{err}</p>
