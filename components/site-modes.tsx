@@ -42,9 +42,15 @@ export function ProfileMode() {
   );
 }
 
+// Paise → display, trimming to whole rupees when exact.
+export function fmtPaise(paise: number): string {
+  const v = Math.max(0, Math.round(paise)) / 100;
+  return Number.isInteger(v) ? String(v) : v.toFixed(2);
+}
+
 // Shop storefront: live catalogue grid + enquiry.
 export function ShopMode() {
-  let products: { id: number; name: string; price: number; mrp: number; shortDesc: string; images: string }[] = [];
+  let products: { id: number; name: string; price: number; mrp: number; shortDesc: string; images: string; category: string; ratingAvg: number; ratingCount: number }[] = [];
   let slides: { id: number; image: string; title: string; subtitle: string; cta: string; href: string; anim: string }[] = [];
   try {
     products = listProducts({ status: "active", limit: 24 }) as typeof products;
@@ -71,16 +77,23 @@ export function ShopMode() {
           {products.map((p) => {
             const img = (JSON.parse(p.images || "[]") as string[])[0];
             return (
-              <li key={p.id} className="overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
+              <li key={p.id} className="flex flex-col overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
                 {img ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={img} alt={p.name} loading="lazy" className="aspect-square w-full object-cover" />
                 ) : <div aria-hidden className="aspect-square w-full bg-black/5 dark:bg-white/10" />}
-                <div className="p-3">
-                  <p className="truncate text-sm font-bold">{p.name}</p>
-                  <p className="text-sm">₹{(p.price / 100).toFixed(0)}
-                    {p.mrp > p.price && <span className="ml-1 text-xs text-zinc-500 line-through">₹{(p.mrp / 100).toFixed(0)}</span>}</p>
-                  {p.shortDesc && <p className="mt-0.5 truncate text-xs text-zinc-500">{p.shortDesc}</p>}
+                <div className="flex flex-1 flex-col gap-0.5 p-3">
+                  <p className="truncate text-base font-extrabold tracking-tight">{p.name}</p>
+                  <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                    <b>₹{fmtPaise(p.price)}</b>
+                    {p.mrp > p.price && <span className="text-xs text-zinc-500 line-through">₹{fmtPaise(p.mrp)}</span>}
+                    {p.ratingCount > 0 && <span className="text-xs text-amber-600">★{p.ratingAvg}({p.ratingCount})</span>}
+                  </p>
+                  {p.category ? (
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{p.category}</p>
+                  ) : p.shortDesc ? (
+                    <p className="truncate text-xs text-zinc-500">{p.shortDesc}</p>
+                  ) : null}
                 </div>
               </li>
             );
@@ -162,8 +175,7 @@ export function siteLinks(): { label: string; href: string }[] {
   }
 }
 
-export function LinkStrip() {
-  const links = siteLinks();
+export function LinkStrip() {  const links = siteLinks();
   if (!links.length) return null;
   return (
     <nav aria-label="Quick links" className="mt-4 flex flex-wrap justify-center gap-1.5 text-sm">
