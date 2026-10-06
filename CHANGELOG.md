@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.36.1] - 2026-10-06
+## [0.37.0] - 2026-10-06
+- Picker UX + barcode search + images## [0.36.1] - 2026-10-06
 - UPC-E + loss/return moves## [0.36.0] - 2026-10-06
 - Phase 3 GS1/extensions/A4 (plan complete)## [0.35.0] - 2026-10-06
 - Channels, tiered pricing, FEFO, weighted## [0.34.0] - 2026-10-06
