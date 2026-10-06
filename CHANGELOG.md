@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.38.1] - 2026-10-06
+## [0.38.2] - 2026-10-06
+- Mobile row wrap pass## [0.38.1] - 2026-10-06
 - Batch scan select## [0.38.0] - 2026-10-06
 - POS customers, loyalty cards, discount override, batch UX## [0.37.0] - 2026-10-06
 - Picker UX + barcode search + images## [0.36.1] - 2026-10-06
