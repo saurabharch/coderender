@@ -338,8 +338,6 @@ export function ShopConsole() {
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={imgurls} onChange={(e) => setImgurls(e.target.value)} placeholder="Image URLs, comma (optional)" maxLength={2000}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input ref={addPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" aria-label="Capture product photo"
             onChange={(e) => {
               const f = e.target.files?.[0];
