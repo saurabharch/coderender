@@ -21,6 +21,8 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Wishlist (customerId INTEGER NOT NULL, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (customerId, productId))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductView (id INTEGER PRIMARY KEY AUTOINCREMENT, fp TEXT NOT NULL DEFAULT '', customerId INTEGER NOT NULL DEFAULT 0, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS BinLoc (id INTEGER PRIMARY KEY AUTOINCREMENT, warehouseId INTEGER NOT NULL DEFAULT 1, floor TEXT NOT NULL DEFAULT '', rack TEXT NOT NULL DEFAULT '', shelf TEXT NOT NULL DEFAULT '', code TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ProductLot (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, lot TEXT NOT NULL DEFAULT '', mfg TEXT NOT NULL DEFAULT '', exp TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_lot_product ON ProductLot(productId)`);
   for (const [t, c] of [
     ["Product", "category TEXT NOT NULL DEFAULT ''"], ["Product", "subcategory TEXT NOT NULL DEFAULT ''"],
     ["Product", "shortDesc TEXT NOT NULL DEFAULT ''"], ["Product", "description TEXT NOT NULL DEFAULT ''"],
@@ -317,6 +319,32 @@ export function saveBin(input: { id?: number; warehouseId?: number; floor?: stri
   return Number(db.prepare("INSERT INTO BinLoc (warehouseId, floor, rack, shelf, code) VALUES (?,?,?,?,?)")
     .run(input.warehouseId ?? 1, (input.floor ?? "").slice(0, 20), (input.rack ?? "").slice(0, 20),
       (input.shelf ?? "").slice(0, 20), code).lastInsertRowid);
+}
+
+// ---- batches / lots (mfg + expiry mapped per product) ----
+export function listLots(productId: number) {
+  commerceTables();
+  return getDb().prepare("SELECT * FROM ProductLot WHERE productId=? ORDER BY id DESC").all(productId);
+}
+
+export function saveLot(input: { id?: number; productId: number; lot?: string; mfg?: string; exp?: string; qty?: number; notes?: string }): number {
+  commerceTables();
+  const db = getDb();
+  if (!db.prepare("SELECT id FROM Product WHERE id=?").get(input.productId)) throw new Error("no product");
+  if (input.id) {
+    db.prepare("UPDATE ProductLot SET lot=?, mfg=?, exp=?, qty=?, notes=? WHERE id=? AND productId=?")
+      .run((input.lot ?? "").slice(0, 40), (input.mfg ?? "").slice(0, 10), (input.exp ?? "").slice(0, 10),
+        Math.max(0, input.qty ?? 0), (input.notes ?? "").slice(0, 200), input.id, input.productId);
+    return input.id;
+  }
+  return Number(db.prepare("INSERT INTO ProductLot (productId, lot, mfg, exp, qty, notes) VALUES (?,?,?,?,?,?)")
+    .run(input.productId, (input.lot ?? "").slice(0, 40), (input.mfg ?? "").slice(0, 10), (input.exp ?? "").slice(0, 10),
+      Math.max(0, input.qty ?? 0), (input.notes ?? "").slice(0, 200)).lastInsertRowid);
+}
+
+export function deleteLot(id: number, productId: number): void {
+  commerceTables();
+  getDb().prepare("DELETE FROM ProductLot WHERE id=? AND productId=?").run(id, productId);
 }
 
 // ---- quote + orders ----

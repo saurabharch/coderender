@@ -33,6 +33,11 @@ export function ShopConsole() {
   const [slides, setSlides] = useState<{ id: number; title: string; anim: string; active: number }[]>([]);
   const [stitle, setStitle] = useState("");
   const [sanim, setSanim] = useState("slide");
+  const [lots, setLots] = useState<{ id: number; lot: string; mfg: string; exp: string }[]>([]);
+  const [lotpid, setLotpid] = useState("");
+  const [lotno, setLotno] = useState("");
+  const [lotmfg, setLotmfg] = useState("");
+  const [lotexp, setLotexp] = useState("");
 
   async function load() {
     const [p, o, c, h] = await Promise.all([
@@ -114,6 +119,22 @@ export function ShopConsole() {
       body: JSON.stringify({ op: "slide-del", id }),
     }).catch(() => {});
     void load();
+  }
+
+  async function loadLots() {
+    if (!lotpid) { setLots([]); return; }
+    const d = await fetch(`/api/shop/lots?productId=${encodeURIComponent(lotpid)}`).then((r) => r.json()).catch(() => null);
+    if (d?.lots) setLots(d.lots);
+  }
+
+  async function addLot() {
+    const res = await fetch("/api/shop/lots", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: Number(lotpid), lot: lotno, mfg: lotmfg, exp: lotexp }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Batch saved ✓" : (d.error ?? "failed"));
+    if (res.ok) { setLotno(""); setLotmfg(""); setLotexp(""); void loadLots(); }
   }
 
   async function move(id: number, to: string) {
@@ -203,6 +224,30 @@ export function ShopConsole() {
           </ul>
         )}
         <p className="mt-1 text-xs text-zinc-500">Tip: paste a media-library URL via Edit — set image per slide with the API (image field).</p>
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Batches — mfg / expiry per product</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={lotpid} onChange={(e) => { setLotpid(e.target.value); }} onBlur={() => void loadLots()} placeholder="Product id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={lotno} onChange={(e) => setLotno(e.target.value)} placeholder="Batch no" maxLength={40}
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={lotmfg} onChange={(e) => setLotmfg(e.target.value)} placeholder="MFG yyyy-mm" maxLength={10}
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={lotexp} onChange={(e) => setLotexp(e.target.value)} placeholder="EXP yyyy-mm" maxLength={10}
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addLot()} disabled={!lotpid}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save</button>
+        </div>
+        {lots.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {lots.map((l) => (
+              <li key={l.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>{l.lot || `#${l.id}`} · MFG {l.mfg || "—"} · EXP {l.exp || "—"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Orders ({orders.length})</p>

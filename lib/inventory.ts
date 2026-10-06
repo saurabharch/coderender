@@ -23,11 +23,13 @@ export function inventoryTables(): void {
 
 function move(productId: number, warehouseId: number, kind: MoveKind, qty: number, ref: string, cost = 0): void {
   const db = getDb();
+  // Seed from the Product.stock mirror first — otherwise the first move
+  // overwrites real opening stock instead of adding to it.
+  const cur = ensureLevel(productId, warehouseId);
+  const row = db.prepare("SELECT avgCost FROM StockLevel WHERE productId=? AND warehouseId=?").get(productId, warehouseId) as
+    { avgCost: number } | undefined;
   db.prepare("INSERT INTO StockMove (productId, warehouseId, kind, qty, ref, cost) VALUES (?,?,?,?,?,?)")
     .run(productId, warehouseId, kind, qty, ref.slice(0, 120), Math.round(cost));
-  const row = db.prepare("SELECT qty, avgCost FROM StockLevel WHERE productId=? AND warehouseId=?").get(productId, warehouseId) as
-    { qty: number; avgCost: number } | undefined;
-  const cur = row?.qty ?? 0;
   const delta = kind === "in" || kind === "release" ? qty : kind === "out" || kind === "reserve" ? -qty : kind === "adjust" ? qty : 0;
   const next = cur + delta;
   const avg = kind === "in" && qty > 0 ? avgCost(cur, row?.avgCost ?? 0, qty, cost) : (row?.avgCost ?? 0);
@@ -89,8 +91,8 @@ export function stockLevels(warehouseId = 0) {
   inventoryTables();
   const db = getDb();
   return db.prepare(warehouseId
-    ? `SELECT p.id, p.name, p.sku, p.lowAt, COALESCE(s.qty,0) qty, w.name wh FROM Product p LEFT JOIN StockLevel s ON s.productId=p.id AND s.warehouseId=? LEFT JOIN Warehouse w ON w.id=? WHERE p.kind='physical' ORDER BY p.name`
-    : `SELECT p.id, p.name, p.sku, p.lowAt, COALESCE(s.qty,0) qty, w.name wh FROM Product p LEFT JOIN StockLevel s ON s.productId=p.id AND s.warehouseId=1 LEFT JOIN Warehouse w ON w.id=1 WHERE p.kind='physical' ORDER BY p.name`)
+    ? `SELECT p.id, p.name, p.sku, p.lowAt, COALESCE(s.qty,p.stock,0) qty, w.name wh FROM Product p LEFT JOIN StockLevel s ON s.productId=p.id AND s.warehouseId=? LEFT JOIN Warehouse w ON w.id=? WHERE p.kind='physical' ORDER BY p.name`
+    : `SELECT p.id, p.name, p.sku, p.lowAt, COALESCE(s.qty,p.stock,0) qty, w.name wh FROM Product p LEFT JOIN StockLevel s ON s.productId=p.id AND s.warehouseId=1 LEFT JOIN Warehouse w ON w.id=1 WHERE p.kind='physical' ORDER BY p.name`)
     .all(...(warehouseId ? [warehouseId, warehouseId] : []));
 }
 
@@ -103,7 +105,7 @@ export function stockMoves(productId = 0, limit = 50) {
 
 export function lowStockList() {
   inventoryTables();
-  return (getDb().prepare(`SELECT p.id, p.name, p.lowAt, COALESCE(s.qty,0) qty FROM Product p
+  return (getDb().prepare(`SELECT p.id, p.name, p.lowAt, COALESCE(s.qty,p.stock,0) qty FROM Product p
     LEFT JOIN StockLevel s ON s.productId=p.id AND s.warehouseId=1 WHERE p.kind='physical' AND p.status='active'`).all() as
     { id: number; name: string; lowAt: number; qty: number }[])
     .filter((r) => needsReorder(r.qty, r.lowAt));
