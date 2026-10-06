@@ -11,6 +11,7 @@ export async function POST(req: Request) {
   if (deny) return deny;
   const parsed = z.object({
     lines: z.array(line).min(1).max(50), coupon: z.string().max(24).optional(), inter: z.boolean().optional(),
+    channel: z.string().max(20).optional(), customerId: z.number().int().optional(),
   }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad cart" }, { status: 422 });
   try {

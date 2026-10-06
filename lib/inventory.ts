@@ -91,6 +91,30 @@ export function adjustStock(productId: number, delta: number, reason: string, wa
   move(productId, warehouseId, "adjust", delta, reason || "adjust");
 }
 
+// FEFO pick list: lots with stock first by earliest expiry.
+export function fefoLots(productId: number) {
+  inventoryTables();
+  return getDb().prepare(`SELECT * FROM ProductLot WHERE productId=? AND qty > 0
+    ORDER BY CASE WHEN exp='' THEN 1 ELSE 0 END, exp LIMIT 20`).all(productId);
+}
+
+// Consume lots FEFO after a level move (levels stay the source of truth;
+// lots shadow the pick for traceability).
+export function consumeFefo(productId: number, qty: number): { lot: string; took: number }[] {
+  const db = getDb();
+  const picks: { lot: string; took: number }[] = [];
+  let left = qty;
+  for (const l of db.prepare(`SELECT id, lot, qty FROM ProductLot WHERE productId=? AND qty > 0
+    ORDER BY CASE WHEN exp='' THEN 1 ELSE 0 END, exp`).all(productId) as { id: number; lot: string; qty: number }[]) {
+    if (left <= 0) break;
+    const take = Math.min(left, l.qty);
+    db.prepare("UPDATE ProductLot SET qty = qty - ? WHERE id=?").run(take, l.id);
+    picks.push({ lot: l.lot || `#${l.id}`, took: take });
+    left -= take;
+  }
+  return picks;
+}
+
 export function transferStock(productId: number, fromWh: number, toWh: number, qty: number): void {
   inventoryTables();
   if (fromWh === toWh) throw new Error("same warehouse");
@@ -225,7 +249,7 @@ export function setPOStatus(id: number, to: string): void {
 }
 
 // GRN: receive lines into stock (default Main warehouse).
-export function receivePO(id: number, lines: { productId: number; qty: number }[], warehouseId = 1, notes = ""): number {
+export function receivePO(id: number, lines: { productId: number; qty: number; lotId?: number }[], warehouseId = 1, notes = ""): number {
   inventoryTables();
   const db = getDb();
   const o = db.prepare("SELECT status, supplierId FROM PurchaseOrder WHERE id=?").get(id) as
@@ -240,6 +264,10 @@ export function receivePO(id: number, lines: { productId: number; qty: number }[
       const line = db.prepare("SELECT cost FROM POLine WHERE poId=? AND productId=?").get(id, l.productId) as
         { cost: number } | undefined;
       receiveStock(l.productId, l.qty, warehouseId, line?.cost ?? 0, `grn:po${id}`);
+      if (l.lotId) {
+        const lot = db.prepare("SELECT id FROM ProductLot WHERE id=? AND productId=?").get(l.lotId, l.productId);
+        if (lot) db.prepare("UPDATE ProductLot SET qty = qty + ? WHERE id=?").run(l.qty, l.lotId);
+      }
     }
     const grn = Number(db.prepare("INSERT INTO GRN (poId, lines, notes) VALUES (?,?,?)")
       .run(id, JSON.stringify(clean).slice(0, 2000), notes.slice(0, 300)).lastInsertRowid);

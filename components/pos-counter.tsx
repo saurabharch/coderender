@@ -34,7 +34,13 @@ export function PosCounter() {
     if (!c) return;
     const d = await fetch(`/api/shop/scan?code=${encodeURIComponent(c)}`).then((r) => r.json()).catch(() => null);
     if (d?.ok) {
-      addLine(d.productId, d.name, d.price);
+      // Weighted barcodes carry the quantity (kg) in the code itself.
+      if (typeof d.weightKg === "number" && d.weightKg > 0) {
+        addLine(d.productId, `${d.name} (${d.weightKg}kg)`, d.price);
+        setLines((ls) => ls.map((l) => (l.productId === d.productId ? { ...l, qty: d.weightKg } : l)));
+      } else {
+        addLine(d.productId, d.name, d.price);
+      }
       setMsg(`Added ${d.name} ✓`);
       setFlash(d.name);
       try { navigator.vibrate?.(60); } catch { /* ignore */ }

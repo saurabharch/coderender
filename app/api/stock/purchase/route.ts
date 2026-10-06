@@ -55,7 +55,7 @@ export async function PATCH(req: Request) {
   try {
     if (body?.op === "receive") {
       const parsed = z.object({
-        id: z.number().int(), lines: z.array(z.object({ productId: z.number().int(), qty: z.number().min(0.001).max(1000000) })).min(1).max(50),
+        id: z.number().int(), lines: z.array(z.object({ productId: z.number().int(), qty: z.number().min(0.001).max(1000000), lotId: z.number().int().optional() })).min(1).max(50),
         warehouseId: z.number().int().min(1).optional(), notes: z.string().max(300).optional(),
       }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad GRN" }, { status: 422 });

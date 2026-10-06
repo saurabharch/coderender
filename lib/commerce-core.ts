@@ -81,6 +81,43 @@ export const ORDER_FLOW: Record<string, string[]> = {
   returned: [],
 };
 
+export type PriceType = "mrp" | "retail" | "pos" | "online" | "wholesale" | "marketplace" | "member" | "sale" | "promotional" | "cost";
+
+export interface PriceRow {
+  priceType: string; amount: number; minQty: number;
+  startsAt: string; endsAt: string; active: number;
+}
+
+const CHANNEL_TYPE: Record<string, string> = {
+  pos: "pos", online: "online", marketplace: "marketplace", wholesale: "wholesale",
+};
+
+// Price resolution: active sale window → member (wholesale-group) → channel
+// price → retail row → base price. First match with minQty satisfied wins.
+export function resolvePrice(base: number, rows: PriceRow[], opts: {
+  channel?: string; qty?: number; cgroup?: string; now?: string;
+}): { price: number; source: string } {
+  const day = (opts.now ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const qty = opts.qty ?? 1;
+  const live = rows.filter((r) => r.active && r.amount > 0 && qty >= (r.minQty || 0) &&
+    (!r.startsAt || r.startsAt <= day) && (!r.endsAt || r.endsAt >= day));
+  const pick = (t: string) => live.find((r) => r.priceType === t);
+  const sale = pick("sale");
+  if (sale) return { price: sale.amount, source: "sale" };
+  if (opts.cgroup === "wholesale" || opts.cgroup === "member") {
+    const m = pick("member") ?? pick("wholesale");
+    if (m) return { price: m.amount, source: m.priceType };
+  }
+  const ch = CHANNEL_TYPE[opts.channel ?? ""];
+  if (ch) {
+    const c = pick(ch);
+    if (c) return { price: c.amount, source: ch };
+  }
+  const retail = pick("retail");
+  if (retail) return { price: retail.amount, source: "retail" };
+  return { price: base, source: "base" };
+}
+
 export function orderCan(from: string, to: string): boolean {
   return (ORDER_FLOW[from] ?? []).includes(to);
 }

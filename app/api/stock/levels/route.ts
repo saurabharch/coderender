@@ -14,6 +14,10 @@ export async function GET(req: Request) {
   const view = url.searchParams.get("view") || "levels";
   if (view === "moves") return NextResponse.json({ moves: stockMoves(Number(url.searchParams.get("product") || 0)) });
   if (view === "low") return NextResponse.json({ low: lowStockList() });
+  if (view === "fefo") {
+    const { fefoLots } = await import("@/lib/inventory");
+    return NextResponse.json({ lots: fefoLots(Number(url.searchParams.get("product") || 0)) });
+  }
   return NextResponse.json({ levels: stockLevels(Number(url.searchParams.get("warehouse") || 0)) });
 }
 

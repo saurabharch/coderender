@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getProductFull, productByCode, saveProduct } from "@/lib/commerce";
+import { getProductFull, saveProduct } from "@/lib/commerce";
+import { lookupBarcode } from "@/lib/barcode";
 import { barcodeValid } from "@/lib/barcode-core";
 import { shopGate } from "@/lib/shop-auth";
 
-// GET ?code= → product/variant match (powers POS scan).
+// GET ?code= → product/variant match (single indexed query + legacy fallback).
 export async function GET(req: Request) {
   const deny = await shopGate(req, false);
   if (deny) return deny;
   const code = new URL(req.url).searchParams.get("code") || "";
   if (!code.trim()) return NextResponse.json({ error: "code required" }, { status: 422 });
-  const hit = productByCode(code);
+  const hit = lookupBarcode(code);
   if (!hit) return NextResponse.json({ error: "no product for this code" }, { status: 404 });
   return NextResponse.json({ ok: true, ...hit });
 }

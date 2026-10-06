@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { couponOff, orderCan, quoteCart, splitTax, toBase } from "@/lib/commerce-core";
+import { couponOff, orderCan, quoteCart, resolvePrice, splitTax, toBase } from "@/lib/commerce-core";
 
 describe("commerce-core", () => {
   it("converts units to base", () => {
@@ -43,5 +43,29 @@ describe("commerce-core", () => {
     expect(orderCan("draft", "fulfilled")).toBe(false);
     expect(orderCan("fulfilled", "returned")).toBe(true);
     expect(orderCan("cancelled", "draft")).toBe(false);
+  });
+});
+
+describe("resolvePrice", () => {
+  const rows = [
+    { priceType: "retail", amount: 10000, minQty: 0, startsAt: "", endsAt: "", active: 1 },
+    { priceType: "pos", amount: 9500, minQty: 0, startsAt: "", endsAt: "", active: 1 },
+    { priceType: "wholesale", amount: 8000, minQty: 0, startsAt: "", endsAt: "", active: 1 },
+    { priceType: "sale", amount: 7000, minQty: 0, startsAt: "2000-01-01", endsAt: "2100-01-01", active: 1 },
+  ];
+  it("prefers live sale windows over everything", () => {
+    expect(resolvePrice(10000, rows, { channel: "pos" })).toEqual({ price: 7000, source: "sale" });
+  });
+  it("resolves member/wholesale groups and channels", () => {
+    expect(resolvePrice(10000, rows.filter((r) => r.priceType !== "sale"), { cgroup: "wholesale" }).price).toBe(8000);
+    expect(resolvePrice(10000, rows.filter((r) => r.priceType !== "sale"), { channel: "pos" }).price).toBe(9500);
+    expect(resolvePrice(10000, [], {})).toEqual({ price: 10000, source: "base" });
+  });
+  it("respects minQty and windows", () => {
+    const bulk = [{ priceType: "wholesale", amount: 5000, minQty: 10, startsAt: "", endsAt: "", active: 1 }];
+    expect(resolvePrice(10000, bulk, { channel: "wholesale", qty: 2 }).source).toBe("base");
+    expect(resolvePrice(10000, bulk, { channel: "wholesale", qty: 10 }).price).toBe(5000);
+    const expired = [{ priceType: "sale", amount: 1000, minQty: 0, startsAt: "2000-01-01", endsAt: "2000-02-01", active: 1 }];
+    expect(resolvePrice(10000, expired, {}).source).toBe("base");
   });
 });

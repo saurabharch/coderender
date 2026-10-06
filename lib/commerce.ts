@@ -2,7 +2,7 @@
 // Reuses ledger/notify/flows by event — catalog (services/packages) untouched.
 // Money in paise; math lives in commerce-core.
 import { getDb } from "./store";
-import { couponOff, orderCan, quoteCart, type CouponDef, type Quote } from "./commerce-core";
+import { couponOff, orderCan, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
 import { eanFromId } from "./barcode-core";
 import { bankMove } from "./billing";
 import { ledgerPost } from "./finance";
@@ -23,6 +23,9 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS BinLoc (id INTEGER PRIMARY KEY AUTOINCREMENT, warehouseId INTEGER NOT NULL DEFAULT 1, floor TEXT NOT NULL DEFAULT '', rack TEXT NOT NULL DEFAULT '', shelf TEXT NOT NULL DEFAULT '', code TEXT NOT NULL DEFAULT '')`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductLot (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, lot TEXT NOT NULL DEFAULT '', mfg TEXT NOT NULL DEFAULT '', exp TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_lot_product ON ProductLot(productId)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ProductChannel (productId INTEGER NOT NULL, channel TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, onlinePrice INTEGER NOT NULL DEFAULT 0, minQty REAL NOT NULL DEFAULT 0, maxQty REAL NOT NULL DEFAULT 0, PRIMARY KEY (productId, channel))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ProductPrice (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, variantId INTEGER NOT NULL DEFAULT 0, priceType TEXT NOT NULL DEFAULT 'retail', amount INTEGER NOT NULL DEFAULT 0, minQty REAL NOT NULL DEFAULT 0, startsAt TEXT NOT NULL DEFAULT '', endsAt TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_price_product ON ProductPrice(productId, priceType)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_product_barcode ON Product(barcode)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_product_sku ON Product(sku)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_product_name ON Product(name)`);
@@ -358,15 +361,97 @@ export function deleteLot(id: number, productId: number): void {
   getDb().prepare("DELETE FROM ProductLot WHERE id=? AND productId=?").run(id, productId);
 }
 
-// ---- quote + orders ----
-export function quote(input: { lines: { productId: number; qty: number }[]; coupon?: string; inter?: boolean }): Quote {
+// ---- channels + tiered prices ----
+export const SALE_CHANNELS = ["pos", "online", "marketplace", "wholesale", "api", "social"];
+
+export function channelsOf(productId: number): Record<string, { enabled: boolean; onlinePrice: number }> {
+  commerceTables();
+  const out: Record<string, { enabled: boolean; onlinePrice: number }> = {};
+  for (const r of getDb().prepare("SELECT channel, enabled, onlinePrice FROM ProductChannel WHERE productId=?").all(productId) as
+    { channel: string; enabled: number; onlinePrice: number }[]) {
+    out[r.channel] = { enabled: r.enabled === 1, onlinePrice: r.onlinePrice };
+  }
+  return out;
+}
+
+export function saveChannel(productId: number, channel: string, input: { enabled?: boolean; onlinePrice?: number; minQty?: number; maxQty?: number }): void {
+  commerceTables();
+  if (!SALE_CHANNELS.includes(channel)) throw new Error("bad channel");
+  getDb().prepare(`INSERT INTO ProductChannel (productId, channel, enabled, onlinePrice, minQty, maxQty) VALUES (?,?,?,?,?,?)
+    ON CONFLICT(productId, channel) DO UPDATE SET enabled=excluded.enabled, onlinePrice=excluded.onlinePrice, minQty=excluded.minQty, maxQty=excluded.maxQty`)
+    .run(productId, channel, input.enabled === false ? 0 : 1,
+      Math.max(0, Math.round(input.onlinePrice ?? 0)), input.minQty ?? 0, input.maxQty ?? 0);
+}
+
+export function channelEnabled(productId: number, channel: string): boolean {
+  commerceTables();
+  const r = getDb().prepare("SELECT enabled FROM ProductChannel WHERE productId=? AND channel=?").get(productId, channel) as
+    { enabled: number } | undefined;
+  return r ? r.enabled === 1 : true; // unconfigured = omnichannel
+}
+
+export function listPrices(productId: number) {
+  commerceTables();
+  return getDb().prepare("SELECT * FROM ProductPrice WHERE productId=? ORDER BY priceType").all(productId);
+}
+
+export function savePrice(input: { id?: number; productId: number; variantId?: number; priceType: string; amount: number; minQty?: number; startsAt?: string; endsAt?: string; active?: boolean }): number {
+  commerceTables();
+  const types = ["mrp", "retail", "pos", "online", "wholesale", "marketplace", "member", "sale", "promotional", "cost"];
+  if (!types.includes(input.priceType)) throw new Error("bad price type");
+  const db = getDb();
+  if (input.id) {
+    db.prepare("UPDATE ProductPrice SET priceType=?, amount=?, minQty=?, startsAt=?, endsAt=?, active=? WHERE id=? AND productId=?")
+      .run(input.priceType, Math.max(0, Math.round(input.amount)), Math.max(0, input.minQty ?? 0),
+        (input.startsAt ?? "").slice(0, 10), (input.endsAt ?? "").slice(0, 10), input.active === false ? 0 : 1, input.id, input.productId);
+    return input.id;
+  }
+  return Number(db.prepare("INSERT INTO ProductPrice (productId, variantId, priceType, amount, minQty, startsAt, endsAt, active) VALUES (?,?,?,?,?,?,?,?)")
+    .run(input.productId, input.variantId ?? 0, input.priceType, Math.max(0, Math.round(input.amount)),
+      Math.max(0, input.minQty ?? 0), (input.startsAt ?? "").slice(0, 10), (input.endsAt ?? "").slice(0, 10),
+      input.active === false ? 0 : 1).lastInsertRowid);
+}
+
+export function deletePrice(id: number, productId: number): void {
+  commerceTables();
+  getDb().prepare("DELETE FROM ProductPrice WHERE id=? AND productId=?").run(id, productId);
+}
+
+export function priceFor(productId: number, opts: { channel?: string; qty?: number; cgroup?: string } = {}): { price: number; source: string } {
   commerceTables();
   const db = getDb();
+  const p = db.prepare("SELECT price FROM Product WHERE id=?").get(productId) as { price: number } | undefined;
+  if (!p) throw new Error("no product");
+  const rows = db.prepare("SELECT priceType, amount, minQty, startsAt, endsAt, active FROM ProductPrice WHERE productId=? AND active=1").all(productId) as unknown as PriceRow[];
+  return resolvePrice(p.price, rows, opts);
+}
+
+// ---- quote + orders ----
+export function orderChannel(channel: string): string {
+  if (channel === "pos") return "pos";
+  if (channel.startsWith("web-")) return "online";
+  if (channel.startsWith("market:")) return "marketplace";
+  if (channel === "wholesale") return "wholesale";
+  return "retail";
+}
+
+export function quote(input: { lines: { productId: number; qty: number }[]; coupon?: string; inter?: boolean; channel?: string; customerId?: number }): Quote {
+  commerceTables();
+  const db = getDb();
+  const ch = orderChannel(input.channel ?? "");
+  let cgroup = "";
+  if (input.customerId) {
+    const c = db.prepare("SELECT cgroup FROM Customer WHERE id=?").get(input.customerId) as { cgroup: string } | undefined;
+    cgroup = c?.cgroup ?? "";
+  }
   const lines = input.lines.slice(0, 50).map((l) => {
     const p = db.prepare("SELECT id, price, taxPct FROM Product WHERE id=? AND status='active'").get(l.productId) as
       { id: number; price: number; taxPct: number } | undefined;
     if (!p) throw new Error(`product ${l.productId} unavailable`);
-    return { productId: p.id, qty: Math.max(0.001, l.qty), price: p.price, taxPct: p.taxPct };
+    if (!channelEnabled(l.productId, ch) && ch !== "retail") throw new Error(`product ${l.productId} not sold on ${ch}`);
+    const qty = Math.max(0.001, l.qty);
+    const { price } = priceFor(l.productId, { channel: ch, qty, cgroup });
+    return { productId: p.id, qty, price, taxPct: p.taxPct };
   });
   const coupon = input.coupon ? getCoupon(input.coupon) ?? undefined : undefined;
   return quoteCart(lines, { inter: !!input.inter, inclusive: true, coupon });
@@ -429,10 +514,14 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
     if (to === "confirmed") {
       // Reserve stock at confirm through the ledger (086); physical decrement,
       // Main warehouse mirror keeps Product.stock in sync.
-      const { issueStock } = await import("./inventory");
+      const { issueStock, consumeFefo } = await import("./inventory");
       for (const l of db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[]) {
         const p = db.prepare("SELECT kind FROM Product WHERE id=?").get(l.productId) as { kind: string } | undefined;
-        if (p?.kind === "physical") issueStock(l.productId, l.qty, `order#${id}`);
+        if (p?.kind === "physical") {
+          issueStock(l.productId, l.qty, `order#${id}`);
+          const picks = consumeFefo(l.productId, l.qty);
+          if (picks.length) log(id, "fefo", picks.map((x) => `${x.lot}×${x.took}`).join(","));
+        }
       }
       const { earnForOrder } = await import("./crm");
       await earnForOrder(id);

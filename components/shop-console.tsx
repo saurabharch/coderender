@@ -38,6 +38,11 @@ export function ShopConsole() {
   const [lotno, setLotno] = useState("");
   const [lotmfg, setLotmfg] = useState("");
   const [lotexp, setLotexp] = useState("");
+  const [pxpid, setPxpid] = useState("");
+  const [pxtype, setPxtype] = useState("sale");
+  const [pxamt, setPxamt] = useState("");
+  const [prices, setPrices] = useState<{ id: number; priceType: string; amount: number }[]>([]);
+  const [channels, setChannels] = useState<Record<string, { enabled: boolean }>>({});
 
   async function load() {
     const [p, o, c, h] = await Promise.all([
@@ -125,6 +130,36 @@ export function ShopConsole() {
     if (!lotpid) { setLots([]); return; }
     const d = await fetch(`/api/shop/lots?productId=${encodeURIComponent(lotpid)}`).then((r) => r.json()).catch(() => null);
     if (d?.lots) setLots(d.lots);
+  }
+
+  async function loadPrices() {
+    if (!pxpid) { setPrices([]); setChannels({}); return; }
+    const [p, c] = await Promise.all([
+      fetch(`/api/shop/pricing?what=prices&productId=${encodeURIComponent(pxpid)}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/shop/pricing?what=channels&productId=${encodeURIComponent(pxpid)}`).then((r) => r.json()).catch(() => null),
+    ]);
+    if (p?.prices) setPrices(p.prices);
+    if (c?.channels) setChannels(c.channels);
+  }
+
+  async function addPrice() {
+    const res = await fetch("/api/shop/pricing", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ what: "price", productId: Number(pxpid), priceType: pxtype, amount: Math.round(Number(pxamt) * 100) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Price saved ✓" : (d.error ?? "failed"));
+    if (res.ok) { setPxamt(""); void loadPrices(); }
+  }
+
+  async function flipChannel(ch: string) {
+    const cur = channels[ch]?.enabled !== false;
+    const res = await fetch("/api/shop/pricing", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ what: "channel", productId: Number(pxpid), channel: ch, enabled: !cur }),
+    });
+    if (res.ok) void loadPrices();
+    else setMsg("channel failed");
   }
 
   async function addLot() {
@@ -247,6 +282,40 @@ export function ShopConsole() {
               </li>
             ))}
           </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Prices & channels <span className="text-xs font-normal text-zinc-500">(tier overrides + where it sells)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={pxpid} onChange={(e) => setPxpid(e.target.value)} onBlur={() => void loadPrices()} placeholder="Product id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <select value={pxtype} onChange={(e) => setPxtype(e.target.value)}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            {["sale", "pos", "online", "wholesale", "marketplace", "member", "retail", "promotional"].map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <input value={pxamt} onChange={(e) => setPxamt(e.target.value)} placeholder="₹" inputMode="decimal"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addPrice()} disabled={!pxpid || !pxamt}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save</button>
+        </div>
+        {prices.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
+            {prices.map((p) => (
+              <li key={p.id} className="rounded-full border border-black/15 px-3 py-1.5 dark:border-white/20">
+                {p.priceType} ₹{(p.amount / 100).toFixed(0)}
+              </li>
+            ))}
+          </ul>
+        )}
+        {pxpid && (
+          <div className="mt-2 flex flex-wrap gap-1.5 text-sm">
+            {["pos", "online", "marketplace", "wholesale"].map((ch) => (
+              <button key={ch} onClick={() => void flipChannel(ch)} aria-pressed={channels[ch]?.enabled !== false}
+                className={`min-h-[44px] rounded-xl border px-3 font-semibold ${channels[ch]?.enabled === false ? "border-black/15 opacity-50 dark:border-white/20" : "border-brand/50 text-brand-deep"}`}>{ch}</button>
+            ))}
+          </div>
         )}
       </AdminCard>
       <AdminCard>

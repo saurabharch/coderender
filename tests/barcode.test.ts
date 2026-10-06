@@ -45,8 +45,7 @@ describe("barcode-core", () => {
     expect(w).toEqual({ prefix: "20", item: "01234", value: 56789 });
   });
 
-  it("returns structured validation, not bare booleans", () => {
-    const bad = validateBarcode("036000291453");
+  it("returns structured validation, not bare booleans", () => {    const bad = validateBarcode("036000291453");
     expect(bad.valid).toBe(false);
     expect(bad.errors[0]?.code).toBe("INVALID_CHECK_DIGIT");
     expect(validateBarcode("").errors[0]?.code).toBe("EMPTY_BARCODE");

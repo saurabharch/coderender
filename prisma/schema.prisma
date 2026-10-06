@@ -1213,3 +1213,28 @@ model ProductSerial {
 
   @@index([productId])
 }
+
+model ProductChannel {
+  productId   Int
+  channel     String
+  enabled     Boolean @default(true)
+  onlinePrice Int     @default(0)
+  minQty      Float   @default(0)
+  maxQty      Float   @default(0)
+
+  @@id([productId, channel])
+}
+
+model ProductPrice {
+  id        Int    @id @default(autoincrement())
+  productId Int
+  variantId Int    @default(0)
+  priceType String @default("retail")
+  amount    Int    @default(0)
+  minQty    Float  @default(0)
+  startsAt  String @default("")
+  endsAt    String @default("")
+  active    Boolean @default(true)
+
+  @@index([productId, priceType])
+}

@@ -1,7 +1,7 @@
 // Barcode repository: normalized UNIQUE codes linked to products/variants,
 // internal sequence generation, duplicate-guarded assignment, indexed lookup.
 import { getDb } from "./store";
-import { eanCheck, normalizeBarcode, validateBarcode, type BarcodeType } from "./barcode-core";
+import { eanCheck, normalizeBarcode, validateBarcode, weightedInfo, type BarcodeType } from "./barcode-core";
 import { productByCode } from "./commerce";
 
 export function barcodeTables(): void {
@@ -122,7 +122,7 @@ export async function quickCreate(input: {
 
 // POS-critical lookup: ONE indexed query → product + variant + level.
 export function lookupBarcode(code: string): {
-  productId: number; variantId: number; name: string; price: number; stock: number; type: string;
+  productId: number; variantId: number; name: string; price: number; stock: number; type: string; weightKg?: number;
 } | null {
   barcodeTables();
   const db = getDb();
@@ -138,9 +138,17 @@ export function lookupBarcode(code: string): {
     LEFT JOIN StockLevel s ON s.productId=b.productId AND s.warehouseId=1
     WHERE b.normalized=? AND b.active=1 LIMIT 1`).get(norm) as
     { productId: number; variantId: number; name: string; price: number; stock: number; type: string } | undefined;
-  if (b) return b;
+  if (b) {
+    // Weighted codes carry grams in the barcode itself.
+    if (b.type === "WEIGHTED") {
+      const w = weightedInfo(norm);
+      if (w) return { ...b, weightKg: w.value / 1000 };
+    }
+    return b;
+  }
   // Legacy fallback: old single-code columns + SKU.
-  return productByCode(norm);
+  const legacy = productByCode(norm);
+  return legacy ? { ...legacy, type: legacy.type || "UNKNOWN" } : null;
 }
 
 // ---- serials ----
