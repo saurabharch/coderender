@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.45.1] - 2026-10-07
+## [0.46.0] - 2026-10-07
+- Final remainder pass## [0.45.1] - 2026-10-07
 - Shop card alignment## [0.45.0] - 2026-10-07
 - Masks + viz hub## [0.44.0] - 2026-10-07
 - Mantine UX pass 1## [0.43.0] - 2026-10-07
