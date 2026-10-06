@@ -44,8 +44,8 @@ export function CustomerPicker({ customer, onPick }: {
       <div className="flex gap-1.5">
         <input value={customer ? `${customer.name} · ${customer.phone}` : q}
           onChange={(e) => { onPick(null); search(e.target.value); }}
-          placeholder="Customer phone — 5+ digits to search" inputMode="tel" maxLength={60}
-          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          type="search" enterKeyHint="search" autoComplete="off" placeholder="Customer phone — 5+ digits to search" inputMode="tel" maxLength={60}
+          className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         {customer ? (
           <button onClick={() => { onPick(null); setQ(""); }} aria-label="Clear customer"
             className="min-h-[44px] min-w-[44px] rounded-xl border border-black/15 dark:border-white/20">✕</button>
@@ -55,7 +55,7 @@ export function CustomerPicker({ customer, onPick }: {
         )}
       </div>
       {open && !customer && (
-        <ul className="absolute inset-x-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-black/15 bg-white shadow-xl dark:border-white/20 dark:bg-zinc-900">
+        <ul className="absolute inset-x-0 top-full z-30 mt-1 max-h-[50vh] overflow-y-auto overscroll-contain rounded-xl border border-black/15 bg-white shadow-xl dark:border-white/20 dark:bg-zinc-900">
           {opts.map((c) => (
             <li key={c.id}>
               <button onClick={() => { onPick(c); setQ(c.name); setOpen(false); }}

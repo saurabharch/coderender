@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 
@@ -75,15 +76,15 @@ export function ScaleConsole() {
         <p className="font-bold">Franchise & channels</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={fname} onChange={(e) => setFname(e.target.value)} placeholder="Franchisee name" maxLength={120}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void addFranchise()} disabled={!fname.trim()}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
         </div>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <input value={chname} onChange={(e) => setChname(e.target.value)} placeholder="Channel (Amazon, Instagram…)" maxLength={80}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void addChannel()} disabled={!chname.trim()}
-            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Add channel</button>
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20" aria-label="Add channel"><Plus size={20} /></button>
         </div>
       </AdminCard>
       <AdminCard>

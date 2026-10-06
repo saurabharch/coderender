@@ -105,7 +105,7 @@ export function ProviderTabs() {
                   <input type="password" autoComplete="off" placeholder={f.set ? "•••••• (set — leave blank to keep)" : f.hint}
                     value={vals[`${name}:${f.label}`] ?? ""}
                     onChange={(e) => setVals((v) => ({ ...v, [`${name}:${f.label}`]: e.target.value }))}
-                    className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+                    className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
                 </span>
               </label>
             ))}

@@ -13,9 +13,9 @@ export function ServicePicker({ services, selected = [] }: {
   const cats = [...new Set(shown.map((s) => s.category))];
   return (
     <span className="grid gap-1 text-sm">Services included
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type to suggest… (e.g. seo)"
+      <input value={q} onChange={(e) => setQ(e.target.value)} type="search" enterKeyHint="search" autoComplete="off" placeholder="Type to suggest… (e.g. seo)"
         maxLength={60} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
-      <span className="grid max-h-44 gap-0.5 overflow-y-auto rounded-xl border border-black/15 p-2 dark:border-white/20">
+      <span className="grid max-h-[50vh] gap-0.5 overflow-y-auto overscroll-contain rounded-xl border border-black/15 p-2 dark:border-white/20">
         {cats.map((c) => (
           <span key={c}>
             <b className="text-xs uppercase tracking-wider text-zinc-500">{c}</b>

@@ -74,9 +74,9 @@ export function PartnerDash({ email, stats }: {
         <div className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
           <p className="font-bold">Request payout</p>
           <p className="mt-1 text-xs text-zinc-500">Closed periods only, above the minimum goal. Next unlocks after this one settles.</p>
-          <div className="mt-2 flex gap-1">
+          <div className="mt-2 flex flex-wrap gap-1">
             <input value={reqPeriod} onChange={(e) => setReqPeriod(e.target.value)} placeholder="YYYY-MM (e.g. last month)" maxLength={7}
-              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             <button onClick={() => void post("/api/partner/payout", { period: reqPeriod })}
               className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white">Request</button>
           </div>

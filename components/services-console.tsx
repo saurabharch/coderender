@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 
@@ -63,9 +64,9 @@ export function ServicesConsole() {
     <div className="grid gap-3">
       <AdminCard>
         <p className="font-bold">Book a job</p>
-        <div className="mt-2 flex gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={svc} onChange={(e) => setSvc(e.target.value)} placeholder="Service (AC repair, facial…)" maxLength={150}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void book()} disabled={!svc.trim()}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Book</button>
         </div>
@@ -92,11 +93,11 @@ export function ServicesConsole() {
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Branches ({branches.length})</p>
-        <div className="mt-2 flex gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={bname} onChange={(e) => setBname(e.target.value)} placeholder="Branch name" maxLength={80}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void addBranch()} disabled={!bname.trim()}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
         </div>
         {branches.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">

@@ -82,7 +82,7 @@ export function WaProviderCard() {
           <label className="grid gap-1 text-sm">WAHA host URL
             <span className="flex gap-1">
               <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://host:3000" maxLength={200}
-                className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+                className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
               <button onClick={() => void saveUrl()} className="min-h-[44px] shrink-0 rounded-xl border border-black/15 px-4 text-sm dark:border-white/20">Save</button>
             </span>
           </label>

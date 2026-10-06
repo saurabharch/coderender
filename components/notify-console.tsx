@@ -85,7 +85,7 @@ export function NotifyConsole() {
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setSeq((s) => s + 1); }}
           placeholder="Search…" maxLength={120}
-          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Filter by type"
           className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
           <option value="">All types</option>

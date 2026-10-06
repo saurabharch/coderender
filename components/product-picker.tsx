@@ -42,16 +42,16 @@ export function ProductPicker({ value, onPick, shortcut, placeholder = "Search p
   }
 
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="relative min-w-[140px] flex-1 basis-full sm:basis-0">
       <div className="flex gap-1.5">
         <input ref={boxRef} value={q} onChange={(e) => search(e.target.value)}
-          placeholder={`${placeholder}${shortcut ? ` (${shortcut})` : ""}`} maxLength={60}
-          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          type="search" enterKeyHint="search" autoComplete="off" placeholder={`${placeholder}${shortcut ? ` (${shortcut})` : ""}`} maxLength={60}
+          className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         <input value={value} readOnly aria-label="Selected product id" title="Auto-assigned product id"
           className="min-h-[44px] w-16 rounded-xl border border-dashed border-black/20 bg-transparent px-2 text-center font-mono text-sm dark:border-white/20" />
       </div>
       {open && (
-        <ul className="absolute inset-x-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-black/15 bg-white shadow-xl dark:border-white/20 dark:bg-zinc-900">
+        <ul className="absolute inset-x-0 top-full z-30 mt-1 max-h-[50vh] overflow-y-auto overscroll-contain rounded-xl border border-black/15 bg-white shadow-xl dark:border-white/20 dark:bg-zinc-900">
           {opts.map((p) => (
             <li key={p.id}>
               <button

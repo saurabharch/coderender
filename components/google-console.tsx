@@ -1,5 +1,7 @@
 "use client";
 
+import { Plus } from "lucide-react";
+
 import { useEffect, useState } from "react";
 
 interface Status {
@@ -76,9 +78,9 @@ export function GoogleConsole({ gcal }: { gcal: string | null }) {
       </div>
       <div className="rounded-2xl border border-black/10 p-4 text-sm dark:border-white/10">
         <p className="font-bold">Drive — recent files</p>
-        <div className="mt-2 flex gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name…" maxLength={100}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
           <button onClick={() => void search()} className="min-h-[44px] rounded-xl border border-black/15 px-4 font-semibold dark:border-white/20">Search</button>
         </div>
         <ul className="mt-2 space-y-1">

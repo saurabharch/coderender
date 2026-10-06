@@ -117,12 +117,12 @@ export function WaInbox() {
               ))}
               {msgs.length === 0 && <li className="text-sm text-zinc-500">No messages yet.</li>}
             </ul>
-            <div className="mt-2 flex gap-1">
+            <div className="mt-2 flex flex-wrap gap-1">
               <input value={text} onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void send(); }}
                 placeholder={active?.stopped ? "Opted out — cannot reply" : "Reply… (Enter to send)"}
                 maxLength={2000} disabled={active?.stopped === 1}
-                className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm disabled:opacity-50 dark:border-white/20" />
+                className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm disabled:opacity-50 dark:border-white/20" />
               <button onClick={() => void send()} disabled={!text.trim()}
                 className="min-h-[44px] shrink-0 rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-50">Send</button>
             </div>
@@ -144,7 +144,7 @@ export function WaInbox() {
               </ul>
               <div className="mt-1 flex flex-wrap gap-1">
                 <input value={tplVars} onChange={(e) => setTplVars(e.target.value)} placeholder="Variables a|b (for {{1}} {{2}})"
-                  className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                  className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
               </div>
               <div className="mt-1 flex flex-wrap gap-1">
                 <input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder="name_like_this" maxLength={60}

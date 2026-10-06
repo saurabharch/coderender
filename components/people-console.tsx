@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { NoSsr } from "@/components/no-ssr";
@@ -85,11 +86,11 @@ export function PeopleConsole() {
         <p className="font-bold">Add employee</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" maxLength={120}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="Monthly ₹" inputMode="decimal"
             className="min-h-[44px] w-32 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void add()} disabled={!name.trim() || !base}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
         </div>
       </AdminCard>
       <AdminCard>
@@ -135,9 +136,9 @@ export function PeopleConsole() {
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Payroll</p>
-        <div className="mt-2 flex gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="YYYY-MM" maxLength={7}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void runPayroll()}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Open + Pay</button>
         </div>

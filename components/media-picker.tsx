@@ -123,7 +123,7 @@ export function ImageInputField({ value, onChange, folder }: {
       <span className="flex flex-wrap gap-1">
         <input value={text} onChange={(e) => { setText(e.target.value); onChange(e.target.value); }}
           placeholder="/uploads/… or https://…" maxLength={500}
-          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         {text ? (
           <button type="button" onClick={() => { setText(""); onChange(""); }}
             className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm dark:border-white/20">Remove</button>

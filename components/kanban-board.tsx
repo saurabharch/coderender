@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { priorityBadge, type BoardAnalytics } from "@/lib/kanban-core";
 import { dueIn, timeAgo } from "@/lib/timeago";
@@ -162,10 +163,10 @@ function TaskExtras({ taskId }: { taskId: number }) {
         <input value={label} onChange={(e) => setLabel(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) { void addItem(); } }}
           placeholder="+ Add checklist item" maxLength={160}
-          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-dashed border-black/20 bg-transparent px-3 text-sm dark:border-white/20" />
+          className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-dashed border-black/20 bg-transparent px-3 text-sm dark:border-white/20" />
         <EmojiButton onPick={(em) => setLabel((s) => `${s}${em}`)} />
         <button onClick={() => void addItem()} disabled={!label.trim()}
-          className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">Add</button>
+          className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
       </div>
       <div>
         <p className="text-sm font-bold">Discussion</p>
@@ -229,7 +230,7 @@ function ClientOwnerBar({ board }: { board: BoardDetail }) {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search leads…" maxLength={60}
             className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 sm:w-32 dark:border-white/20" />
           <select value={clientId} onChange={(e) => { setClientId(e.target.value); void save({ clientLeadId: e.target.value ? Number(e.target.value) : null }); }}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
             <option value="">— none —</option>
             {board.client && <option value={String(board.client.id)}>{board.client.name} · {board.client.phone}</option>}
             {leads.filter((l) => !board.client || l.id !== board.client.id).map((l) => (
@@ -242,7 +243,7 @@ function ClientOwnerBar({ board }: { board: BoardDetail }) {
       <label className="grid min-w-0 gap-1">Project owner
         <span className="flex min-w-0 flex-wrap gap-1">
           <select value={owner} onChange={(e) => { setOwner(e.target.value); void save({ ownerEmail: e.target.value }); }}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-2 dark:border-white/20">
             <option value="">— none —</option>
             {users.map((u) => <option key={u} value={u}>{u}</option>)}
           </select>
@@ -644,7 +645,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
             <label className="grid gap-1 text-sm">Title
               <span className="flex gap-1">
                 <input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} maxLength={160}
-                  className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+                  className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
                 <EmojiButton onPick={(em) => setEditing({ ...editing, title: `${editing.title}${em}` })} />
               </span></label>
             <label className="grid gap-1 text-sm">Notes

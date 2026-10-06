@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { ProductPicker } from "@/components/product-picker";
@@ -152,11 +153,11 @@ export function StockConsole() {
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Bins ({bins.length}) <span className="text-xs font-normal text-zinc-500">(floor/rack/shelf)</span></p>
-        <div className="mt-2 flex gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={binloc} onChange={(e) => setBinloc(e.target.value)} placeholder="G/A/3" maxLength={40}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void addBin()} disabled={!binloc.trim()}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
         </div>
         {bins.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
@@ -185,11 +186,11 @@ export function StockConsole() {
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Suppliers ({sups.length})</p>
-        <div className="mt-2 flex gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={sname} onChange={(e) => setSname(e.target.value)} placeholder="Supplier name" maxLength={120}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void addSupplier()} disabled={!sname.trim()}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
         </div>
         {sups.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">

@@ -89,9 +89,9 @@ export function HooksConsole() {
 
       <section className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
         <p className="font-bold">Test emit</p>
-        <div className="mt-2 flex gap-1">
+        <div className="mt-2 flex flex-wrap gap-1">
           <input value={emitEvent} onChange={(e) => setEmitEvent(e.target.value)} placeholder="event name" maxLength={40}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={async () => {
             const d = await api("/api/hooks", {
               method: "POST", body: JSON.stringify({ op: "emit", event: emitEvent.trim() || "ping", payload: { hello: "world" } }),

@@ -44,7 +44,7 @@ export function BarcodeGenerator({ productId }: { productId: number }) {
       <p className="text-sm font-bold">Generator <span className="font-normal text-zinc-500">(internal codes are labeled INTERNAL, never GS1)</span></p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         <input value={code} onChange={(e) => void check(e.target.value)} placeholder="Type or scan a code…" maxLength={100}
-          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
+          className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
         <button onClick={() => void mint()} className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Generate internal</button>
         <button onClick={() => void assign()} disabled={!info?.valid}
           className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Assign</button>

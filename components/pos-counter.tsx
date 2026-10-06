@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AdminCard, Empty } from "@/components/admin-ui";
 import { CustomerPicker, type Cust } from "@/components/customer-picker";
-import { ScanBarcode } from "lucide-react";
+import { ScanBarcode, Plus } from "lucide-react"
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { modals } from "@mantine/modals";
 
@@ -200,18 +200,18 @@ export function PosCounter() {
       <div className="grid content-start gap-3 lg:col-span-3">
         <AdminCard>
           <p className="font-bold">Add items — scan, code, or search</p>
-          <div className="mt-2 flex gap-1.5">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             <input ref={codeRef} value={code} onChange={(e) => setCode(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void addCode(code); }}
               placeholder="Scan gun / type code + Enter" maxLength={40}
               inputMode="search" enterKeyHint="go"
-              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
+              className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
             <button onClick={() => void addCode(code)} disabled={!code.trim()}
-              className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+              className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
           </div>
-          <div className="mt-1.5 flex gap-1.5">
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             <input ref={searchRef} value={q} onChange={(e) => onSearch(e.target.value)} placeholder="Search products by name… (F2)" maxLength={60}
-              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             <button onClick={() => setScanOpen(true)} aria-label="Open barcode scanner (F3)" title="Scan (F3)"
               className="flex min-h-[48px] min-w-[56px] items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black"><ScanBarcode size={24} /></button>
           </div>
@@ -220,7 +220,7 @@ export function PosCounter() {
                 aria-label="Take a barcode photo"
                 onChange={(e) => void photoScan(e.target.files?.[0])} />
               <button onClick={() => photoRef.current?.click()}
-                className="min-h-[44px] w-full rounded-xl border border-black/15 text-sm font-semibold dark:border-white/20">📸 Take barcode photo</button>
+                className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-black/15 text-sm font-semibold dark:border-white/20"><ScanBarcode size={18} /> Take barcode photo</button>
             </div>
           <WasmScanDialog open={scanOpen} onClose={() => setScanOpen(false)} onScan={(data) => { void addCode(data); }} />
           {found.length > 0 && (
@@ -229,7 +229,7 @@ export function PosCounter() {
                 <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
                   <span className="min-w-0 flex-1 truncate">{f.name} · ₹{(f.price / 100).toFixed(0)} · {f.stock} in stock</span>
                   <button onClick={() => { addLine(f.id, f.name, f.price); setFound([]); setQ(""); }}
-                    className="min-h-[44px] shrink-0 rounded-xl bg-brand px-4 text-sm font-semibold text-white">+ Add</button>
+                    className="flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-brand px-4 text-white" aria-label="Add to bill"><Plus size={20} /></button>
                 </li>
               ))}
             </ul>
@@ -279,13 +279,13 @@ export function PosCounter() {
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <input value={cardno} onChange={(e) => setCardno(e.target.value)} placeholder="Loyalty card no" maxLength={24}
-              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm uppercase dark:border-white/20" />
+              className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm uppercase dark:border-white/20" />
             <button onClick={() => void lookupCard()} disabled={cardno.trim().length < 3}
               className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Card →</button>
           </div>
-          <div className="mt-1.5 flex gap-1.5">
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             <input value={disval} onChange={(e) => setDisval(e.target.value)} placeholder="Override discount" inputMode="decimal"
-              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             <select value={disKind} onChange={(e) => setDisKind(e.target.value as "flat" | "pct")} aria-label="Discount type"
               className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
               <option value="flat">₹ flat</option>
@@ -374,7 +374,7 @@ function QuickAddForm({ code, onDone }: { code: string; onDone: (id: number, nam
       </div>
       <div className="flex gap-1.5">
         <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="₹ price" inputMode="decimal"
-          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         {kind === "physical" && (
           <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />

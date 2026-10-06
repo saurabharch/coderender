@@ -130,7 +130,7 @@ export function DataTable({ columns, rows, idKey = "id", searchKeys, facets, exp
     <div>
       <div className="flex flex-wrap items-center gap-1.5">
         <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search…" maxLength={200}
-          className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         {exportName && (
           <button onClick={toCSV} className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Export CSV</button>
         )}

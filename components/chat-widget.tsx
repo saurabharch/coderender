@@ -550,7 +550,7 @@ export function ChatWidget() {
                       </div>
                     )}
                     {t.role === "assistant" && (
-                      <span className="mt-1.5 flex gap-1">
+                      <span className="mt-1.5 flex flex-wrap gap-1">
                         {(["up", "down"] as const).map((v) => (
                           <button key={v} onClick={() => vote(t.turnIdx, v, i)} aria-label={`Vote ${v}`}
                             className={`rounded-full border p-1.5 ${t.voted === v ? "border-brand bg-brand-soft" : "border-black/10 dark:border-white/15"}`}>

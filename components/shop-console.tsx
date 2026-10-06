@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DatePickerInput } from "@mantine/dates";
-import { Plus, ScanBarcode } from "lucide-react";
+import { Camera, Plus, ScanBarcode, Tag } from "lucide-react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { NoSsr } from "@/components/no-ssr";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
@@ -369,7 +369,7 @@ export function ShopConsole() {
         <p className="font-bold">Add product <span className="text-xs font-normal text-zinc-500">(₹ price, stock count)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" maxLength={150}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="₹" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" inputMode="numeric"
@@ -381,11 +381,11 @@ export function ShopConsole() {
               e.target.value = "";
             }} />
           <button onClick={() => addPhotoRef.current?.click()} aria-label="Capture product photo" title="Capture photo"
-            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">📷</button>
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-brand-deep dark:border-white/20"><Camera size={22} /></button>
           <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Barcode (blank = auto)" maxLength={40}
             className="min-h-[44px] w-40 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
           <button onClick={() => setScanOpen(true)} aria-label="Scan barcode into this field" title="Scan into barcode field"
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">⌁</button>
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl border border-black/15 text-brand-deep dark:border-white/20"><ScanBarcode size={22} /></button>
           <WasmScanDialog open={scanOpen} onClose={() => setScanOpen(false)} title="Scan product barcode"
             onScan={(data) => { setBarcode(data.slice(0, 40)); setScanOpen(false); setMsg(`Scanned ${data} — edit or save the product`); }} />
           <button onClick={() => void addProduct()} disabled={!name.trim() || !price} aria-label="Add product"
@@ -406,7 +406,7 @@ export function ShopConsole() {
         <div className="mt-2 flex flex-wrap items-end gap-1.5">
           <div className="min-w-0 flex-1"><ProductPicker value={eid} shortcut="F7" placeholder="Product to edit…" onPick={(x) => setEid(x ? String(x.id) : "")} /></div>
           <input value={ename} onChange={(e) => setEname(e.target.value)} placeholder="Name (blank = keep)" maxLength={150}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={eprice} onChange={(e) => setEprice(e.target.value)} placeholder="₹ new" inputMode="decimal"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={estock} onChange={(e) => setEstock(e.target.value)} placeholder="Stock" inputMode="numeric"
@@ -426,11 +426,11 @@ export function ShopConsole() {
                   {p.vcount > 0 && <span>{p.vcount} variants</span>}
                   <span className="ml-auto text-sm font-extrabold text-zinc-800 dark:text-zinc-100">₹{(p.price / 100).toFixed(0)} · {p.stock} in stock</span>
                 </p>
-                <p className="mt-1.5 flex gap-1.5">
+                <p className="mt-1.5 flex flex-wrap gap-1.5">
                   <a href={`/admin/shop/${p.id}/labels`} aria-label={`Print labels for ${p.name}`}
-                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl border border-black/15 text-xs font-semibold dark:border-white/20">🏷 Labels</a>
+                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-black/15 text-xs font-semibold dark:border-white/20"><Tag size={16} /> Labels</a>
                   <button onClick={() => snap(p.id)} aria-label={`Photograph ${p.name}`}
-                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl border border-black/15 text-xs font-semibold dark:border-white/20">📷 Photo</button>
+                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-black/15 text-xs font-semibold dark:border-white/20"><Camera size={16} /> Photo</button>
                 </p>
               </li>
             ))}
@@ -448,7 +448,7 @@ export function ShopConsole() {
         <p className="font-bold">Hero slider ({slides.length}) <span className="text-xs font-normal text-zinc-500">(shop theme front)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={stitle} onChange={(e) => setStitle(e.target.value)} placeholder="Title" maxLength={120}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <select value={sanim} onChange={(e) => setSanim(e.target.value)}
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
             <option value="slide">slide</option>
@@ -456,7 +456,7 @@ export function ShopConsole() {
             <option value="zoom">zoom</option>
           </select>
           <button onClick={() => void addSlide()} disabled={!stitle.trim()}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add</button>
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add"><Plus size={20} /></button>
         </div>
         {slides.length > 0 && (
           <ul className="mt-2 space-y-1 text-sm">
@@ -476,7 +476,7 @@ export function ShopConsole() {
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={lotq} onChange={(e) => setLotq(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void searchLot(); }}
             placeholder="Search batch id…" maxLength={40}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
           <button onClick={() => void searchLot()} disabled={lotq.trim().length < 2}
             className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Find</button>
         </div>
@@ -504,7 +504,7 @@ export function ShopConsole() {
           <div className="min-w-0 flex-1"><ProductPicker value={lotpid} shortcut="F6" placeholder="Product for batch… (or scan →)"
             onPick={(x) => { setLotpid(x ? String(x.id) : ""); if (x) void loadLots(String(x.id)); }} /></div>
           <button onClick={() => setLotscan(true)} aria-label="Scan product barcode"
-            className="min-h-[48px] min-w-[52px] rounded-xl bg-black text-lg font-bold text-white dark:bg-white dark:text-black">⌁</button>
+            className="flex min-h-[48px] min-w-[56px] items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black"><ScanBarcode size={24} /></button>
           <WasmScanDialog open={lotscan} onClose={() => setLotscan(false)} title="Scan product for batch"
             onScan={(data) => { void scanLot(data); }} />
           <input value={lotno} onChange={(e) => setLotno(e.target.value)} placeholder="Batch no" maxLength={40}
@@ -609,7 +609,7 @@ export function ShopConsole() {
         <p className="font-bold">Add variant <span className="text-xs font-normal text-zinc-500">(size / color + own price)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <ProductPicker value={vpid} shortcut="F4" onPick={(x) => setVpid(x ? String(x.id) : "")} placeholder="Product for variant…" />          <input value={vname} onChange={(e) => setVname(e.target.value)} placeholder="Variant name" maxLength={120}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={vsize} onChange={(e) => setVsize(e.target.value)} placeholder="Size" maxLength={20}
             className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={vcolor} onChange={(e) => setVcolor(e.target.value)} placeholder="Color" maxLength={20}

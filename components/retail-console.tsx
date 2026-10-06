@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Phone } from "lucide-react";
+import { Phone, Plus } from "lucide-react"
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 
 interface Campaign { id: number; name: string; channel: string; segment: string; status: string }
@@ -130,9 +130,9 @@ export function RetailConsole() {
       <AdminCard>
         <p className="font-bold">Counter drawer {drawer ? <span className="text-xs font-normal text-zinc-500">({drawer.status} · opening ₹{(drawer.opening / 100).toFixed(0)})</span> : <span className="text-xs font-normal text-zinc-500">(closed)</span>}</p>
         {!drawer || drawer.status !== "open" ? (
-          <div className="mt-2 flex gap-1.5">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             <input value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="Opening ₹" inputMode="decimal"
-              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             <button onClick={() => void open()} disabled={!opening}
               className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Open</button>
           </div>
@@ -214,7 +214,7 @@ export function RetailConsole() {
           <input value={shoid} onChange={(e) => setShoid(e.target.value)} placeholder="Order id" inputMode="numeric"
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={shcourier} onChange={(e) => setShcourier(e.target.value)} placeholder="Courier" maxLength={60}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void createShip()} disabled={!shoid}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Ship</button>
         </div>
