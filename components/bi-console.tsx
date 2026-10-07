@@ -161,14 +161,14 @@ export function BiConsole() {
         <AdminCard>
           <p className="font-bold">Best products</p>
           <ul className="mt-2 space-y-1 text-sm">
-            {s.top.map((t, i) => <li key={i} className="flex justify-between gap-2"><span className="truncate">{t.name}</span><b>₹{(t.s / 100).toFixed(0)}</b></li>)}
+            {s.top.map((t, i) => <li key={i} className="flex justify-between gap-2"><span className="min-w-0 flex-1 truncate">{t.name}</span><b className="shrink-0">₹{(t.s / 100).toFixed(0)}</b></li>)}
             {s.top.length === 0 && <li className="text-zinc-500">No sales yet.</li>}
           </ul>
         </AdminCard>
         <AdminCard>
           <p className="font-bold">Slow stock (never sold)</p>
           <ul className="mt-2 space-y-1 text-sm">
-            {s.slow.map((t, i) => <li key={i} className="flex justify-between gap-2"><span className="truncate">{t.name}</span><b>{t.q}</b></li>)}
+            {s.slow.map((t, i) => <li key={i} className="flex justify-between gap-2"><span className="min-w-0 flex-1 truncate">{t.name}</span><b className="shrink-0">{t.q}</b></li>)}
             {s.slow.length === 0 && <li className="text-zinc-500">Everything moves.</li>}
           </ul>
         </AdminCard>

@@ -87,7 +87,8 @@ function TableBlock({ columns = [], rows = [], title }: { columns?: string[]; ro
           aria-label="Search table"
           className="min-h-[36px] w-full rounded-lg border border-black/10 bg-transparent px-2 text-xs dark:border-white/15" />
         {diffCols.size > 0 && <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">★ highlighted columns differ between options</p>}
-        <table className="w-full text-left text-xs leading-relaxed">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-left text-xs leading-relaxed">
           <thead>
             <tr>
               {columns.map((c, i) => (
@@ -112,6 +113,7 @@ function TableBlock({ columns = [], rows = [], title }: { columns?: string[]; ro
             ))}
           </tbody>
         </table>
+        </div>
         {pages > 1 && (
           <div className="flex items-center justify-between px-1 pt-1 text-xs">
             <button disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="min-h-[36px] px-2 font-bold disabled:opacity-40">← Prev</button>

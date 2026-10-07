@@ -430,7 +430,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
                 <li key={t.id}>
                   <button onClick={() => { setPalette(false); setKq(""); setEditing(t); }}
                     className="flex min-h-[44px] w-full items-center gap-2 rounded-xl px-3 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10">
-                    <b className="truncate">{t.title}</b>
+                    <b className="min-w-0 flex-1 truncate">{t.title}</b>
                     <span className="ml-auto shrink-0 text-xs text-zinc-500">{t.priority} · {dueIn(t.dueAt)}</span>
                   </button>
                 </li>
@@ -652,7 +652,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
             <label className="grid gap-1 text-sm">Notes
               <RichEditor value={editing.body} placeholder="Details, links, context…"
                 onChange={(html) => setEditing((cur) => (cur ? { ...cur, body: html } : cur))} /></label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2 min-[420px]:grid-cols-2">
               <label className="grid gap-1 text-sm">Start
                 <input type="datetime-local" value={toLocal(editing.startAt)} onChange={(e) => setEditing({ ...editing, startAt: e.target.value })}
                   className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
@@ -665,7 +665,7 @@ export function KanbanBoard({ initial, forms }: { initial: BoardDetail; forms: F
               value={editing.submissionId}
               onPick={(id) => setEditing({ ...editing, submissionId: id })}
             />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2 min-[420px]:grid-cols-2">
               <label className="grid gap-1 text-sm">Priority
                 <select value={editing.priority} onChange={(e) => setEditing({ ...editing, priority: e.target.value })}
                   className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
