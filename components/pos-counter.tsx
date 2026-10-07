@@ -125,6 +125,19 @@ export function PosCounter() {
 
   useEffect(() => {
     void loadHeld();
+    // Scanner tray handoff: the floating bar stages scans here, POS consumes.
+    try {
+      const raw = window.localStorage.getItem("cr_scan_tray");
+      const tray = raw ? (JSON.parse(raw) as { id: number; name: string; price: number }[]) : [];
+      if (Array.isArray(tray) && tray.length > 0) {
+        for (const l of tray.slice(0, 50)) {
+          if (Number(l.id) > 0) addLine(Number(l.id), String(l.name || "Item"), Math.max(0, Math.round(Number(l.price) || 0)));
+        }
+        window.localStorage.removeItem("cr_scan_tray");
+        setMsg(`${tray.length} item${tray.length === 1 ? "" : "s"} from scanner ✓ — tender below`);
+      }
+    } catch { /* corrupt tray never breaks the counter */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // F2 search · F3 scan · ESC closes dialogs. Never hijacks text inputs.

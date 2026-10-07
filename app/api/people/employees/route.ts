@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getDb } from "@/lib/store";
 import { giveLoan, listEmployees, openLoans, saveEmployee } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
@@ -9,6 +10,16 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   if (url.searchParams.get("loans")) {
     return NextResponse.json({ loans: openLoans(Number(url.searchParams.get("emp") || 0)) });
+  }
+  const one = Number(url.searchParams.get("id") || 0);
+  if (one) {
+    const emp = listEmployees().find((e) => e.id === one) as
+      { id: number; name: string; designation: string; dept: string } | undefined;
+    if (!emp) return NextResponse.json({ error: "no employee" }, { status: 404 });
+    const today = new Date().toISOString().slice(0, 10);
+    const mark = getDb().prepare("SELECT status FROM Attendance WHERE employeeId=? AND day=?").get(one, today) as
+      { status: string } | undefined;
+    return NextResponse.json({ employee: emp, today: mark?.status ?? null });
   }
   return NextResponse.json({ employees: listEmployees() });
 }

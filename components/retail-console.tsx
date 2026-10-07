@@ -12,7 +12,7 @@ interface Campaign { id: number; name: string; channel: string; segment: string;
 interface Shipment { id: number; orderId: number; courier: string; tracking: string; status: string }
 interface Due { id: number; name: string; phone: string; balance: number }
 
-export function RetailConsole() {
+export function RetailConsole({ tab }: { tab: string }) {
   const [camps, setCamps] = useState<Campaign[]>([]);
   const [ships, setShips] = useState<Shipment[]>([]);
   const [dues, setDues] = useState<Due[]>([]);
@@ -157,7 +157,7 @@ export function RetailConsole() {
 
   if (!loaded) return <Skeleton lines={5} />;
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3">      {tab === "counter" && (<>
       <AdminCard>
         <p className="flex flex-wrap items-center gap-1.5 font-bold">Counter drawer {drawer ? <span className="flex items-center gap-1.5 text-xs font-normal text-zinc-500"><StatusBadge status={drawer.status} /> opening ₹{(drawer.opening / 100).toFixed(0)}</span> : <StatusBadge status="closed" />}</p>
         {!drawer || drawer.status !== "open" ? (
@@ -194,17 +194,6 @@ export function RetailConsole() {
         </div>
       </AdminCard>
       <AdminCard>
-        <p className="font-bold">New campaign</p>
-        <div className="mt-2 grid gap-1.5">
-          <input value={cname} onChange={(e) => setCname(e.target.value)} placeholder="Name (Diwali WA blast)" maxLength={120}
-            className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={cmsg} onChange={(e) => setCmsg(e.target.value)} placeholder="Message — {{name}} {{coupon}} work as variables" maxLength={1000}
-            className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <button onClick={() => void addCampaign()} disabled={!cname.trim()}
-            className="min-h-[44px] w-fit rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Draft</button>
-        </div>
-      </AdminCard>
-      <AdminCard>
         <p className="font-bold">Udhari — dues ({dues.length})</p>
         {dues.length === 0 ? <div className="mt-2"><Empty>All settled — no dues.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
@@ -224,6 +213,19 @@ export function RetailConsole() {
           </ul>
         )}
       </AdminCard>
+      </>)}
+      {tab === "marketing" && (<>
+      <AdminCard>
+        <p className="font-bold">New campaign</p>
+        <div className="mt-2 grid gap-1.5">
+          <input value={cname} onChange={(e) => setCname(e.target.value)} placeholder="Name (Diwali WA blast)" maxLength={120}
+            className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={cmsg} onChange={(e) => setCmsg(e.target.value)} placeholder="Message — {{name}} {{coupon}} work as variables" maxLength={1000}
+            className="min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addCampaign()} disabled={!cname.trim()}
+            className="min-h-[44px] w-fit rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Draft</button>
+        </div>
+      </AdminCard>
       <AdminCard>
         <p className="font-bold">Campaigns ({camps.length})</p>
         {camps.length === 0 ? <div className="mt-2"><Empty>No campaigns yet.</Empty></div> : (
@@ -239,6 +241,8 @@ export function RetailConsole() {
           </ul>
         )}
       </AdminCard>
+      </>)}
+      {tab === "shipments" && (<>
       <AdminCard>
         <p className="font-bold">Delivery partners ({couriers.length}) <span className="text-xs font-normal text-zinc-500">(tracking links)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -288,6 +292,7 @@ export function RetailConsole() {
           </ul>
         )}
       </AdminCard>
+      </>)}
       {msg && <p className="break-words text-sm text-zinc-500">{msg}</p>}
     </div>
   );

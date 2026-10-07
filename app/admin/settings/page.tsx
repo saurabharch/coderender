@@ -31,6 +31,8 @@ async function save(form: FormData) {
   for (const k of ["contact_phone", "contact_email", "partner_plan"]) {    const v = form.get(k);
     if (typeof v === "string") setPref(k, v.slice(0, 4000));
   }
+  const bt = String(form.get("business_type") || "");
+  if (["shop", "ecommerce", "clinic"].includes(bt)) setPref("business_type", bt);
   for (const k of ["sla_ack_hours", "sla_close_days"]) {
     const n = Math.max(1, Math.round(Number(form.get(k) || 0) || 0));
     if (n > 0) setPref(k, String(n));
@@ -157,7 +159,7 @@ async function saveQuickbar(form: FormData) {
     if (picked.length > 0) out[role] = picked;
   }
   setPref("quickbar", JSON.stringify(out));
-  revalidatePath("/admin/settings");
+  redirect("/admin/settings?tab=quickbar&saved=1");
 }
 
 async function savePrices(form: FormData) {  "use server";
@@ -182,9 +184,11 @@ async function savePrices(form: FormData) {  "use server";
 
 const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices", "quickbar"] as const;
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const raw = (await searchParams).tab ?? "general";
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; saved?: string }> }) {
+  const sp = await searchParams;
+  const raw = sp.tab ?? "general";
   const tab = (SETTING_TABS as readonly string[]).includes(raw) ? raw : "general";
+  const saved = sp.saved === "1";
   const me = await sessionUser();
   const isOwner = me?.role === "owner";
   const meEmail = me?.email ?? "";
@@ -224,6 +228,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <input name="contact_phone" defaultValue={getPref("contact_phone", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
         <label className="grid gap-1 text-sm">Contact email
           <input name="contact_email" defaultValue={getPref("contact_email", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+        <label className="grid gap-1 text-sm">Business type (drives staff quick actions)
+          <select name="business_type" defaultValue={getPref("business_type", "shop")}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
+            {[["shop", "Shop — counter first (POS + PIN flow)"], ["ecommerce", "E-commerce — orders first"], ["clinic", "Clinic/OPD — bookings first (phased)"]].map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+        </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="grid gap-1 text-sm">SLA: escalate open after (hours)
             <input name="sla_ack_hours" inputMode="numeric" defaultValue={getPref("sla_ack_hours", "24")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
@@ -338,6 +350,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </form>
       </>)}
       {tab === "quickbar" && (<>
+      {saved && <p role="status" className="mb-2 rounded-xl bg-emerald-500/15 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">Quick bar saved ✓ — staff bars update on next focus.</p>}
       <h2 className="font-bold">Staff quick bar <span className="text-xs font-normal text-zinc-500">(mobile floating buttons per role — scan stays central)</span></h2>
       <form action={saveQuickbar} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
         {QUICKBAR_ROLES.map((role) => {
