@@ -3,7 +3,7 @@
 // Money in paise; math lives in commerce-core.
 import { getDb } from "./store";
 import { couponOff, orderCan, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
-import { fefoLots, openProductStock, releaseStock, reservedFor, reserveStock, setProductStock } from "./inventory";
+import { fefoLots, heldProducts, levelOf, openProductStock, releaseStock, reservedFor, reserveStock, setProductStock } from "./inventory";
 import { eanFromId } from "./barcode-core";
 import { bankMove } from "./billing";
 import { ledgerPost } from "./finance";
@@ -461,24 +461,30 @@ export function bundleAvailability(bundleId: number): number | null {
   return Math.max(0, Math.floor(kits));
 }
 
-// Explode order lines to physical stock moves (bundle → components × qty).
-// Money lines are untouched — callers use this for validate/reserve/issue only.
+// Explode order lines to physical stock moves. Kitted products sell finished
+// stock first; only the shortfall assembles from components (money lines are
+// untouched — callers use this for validate/reserve/issue only).
 export function explodeStockLines(lines: { productId: number; qty: number }[]): { productId: number; qty: number }[] {
   commerceTables();
   const db = getDb();
   const out: { productId: number; qty: number }[] = [];
+  const add = (productId: number, qty: number) => {
+    if (qty <= 0) return;
+    const ex = out.find((x) => x.productId === productId);
+    if (ex) ex.qty += qty;
+    else out.push({ productId, qty });
+  };
   for (const l of lines) {
     const comps = db.prepare("SELECT productId, qty FROM BundleItem WHERE bundleId=?").all(l.productId) as
       { productId: number; qty: number }[];
     if (comps.length === 0) {
-      out.push(l);
+      add(l.productId, l.qty);
       continue;
     }
-    for (const c of comps) {
-      const ex = out.find((x) => x.productId === c.productId);
-      if (ex) ex.qty += c.qty * l.qty;
-      else out.push({ productId: c.productId, qty: c.qty * l.qty });
-    }
+    const finished = levelOf(l.productId, 1);
+    add(l.productId, Math.min(l.qty, finished));
+    const short = l.qty - Math.min(l.qty, finished);
+    for (const c of comps) add(c.productId, c.qty * short);
   }
   return out;
 }
@@ -737,15 +743,22 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
   db.exec("BEGIN");
   try {
     if (to === "confirmed") {
-      // Reserve → release → issue: the hold converts into the real decrement
-      // inside the same transaction. Legacy drafts without holds issue as before.
-      const { issueStock, consumeFefo } = await import("./inventory");
-      const issueLines = explodeStockLines(db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[]);
+      // Reserve → release → issue: holds convert into the real decrement
+      // inside the same transaction. Release FIRST so the explode below sees
+      // pre-reserve levels (the same split as order creation); legacy drafts
+      // without holds issue as before.
+      const { issueStock, consumeFefo, releaseStock } = await import("./inventory");
+      const orderLines = db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[];
+      // Release by moves, not by lines: component holds never appear on the
+      // order lines, and finished stock reads 0 precisely because it is held.
+      for (const pid of heldProducts(id)) {
+        const held = reservedFor(id, pid);
+        if (held > 0) releaseStock(pid, held, `order#${id}-release`);
+      }
+      const issueLines = explodeStockLines(orderLines);
       for (const l of issueLines) {
         const p = db.prepare("SELECT kind FROM Product WHERE id=?").get(l.productId) as { kind: string } | undefined;
         if (p?.kind === "physical") {
-          const held = reservedFor(id, l.productId);
-          if (held > 0) releaseStock(l.productId, Math.min(held, l.qty), `order#${id}-release`);
           issueStock(l.productId, l.qty, `order#${id}`);
           const picks = consumeFefo(l.productId, l.qty);
           if (picks.length) log(id, "fefo", picks.map((x) => `${x.lot}×${x.took}`).join(","));
@@ -762,11 +775,10 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
         { productId: number; qty: number; kind: string }[];
       // Free any outstanding draft holds first (legacy orders hold nothing → no-op).
       let freed = false;
-      const freeLines = explodeStockLines(lines.map((l) => ({ productId: l.productId, qty: l.qty })));
-      for (const l of freeLines) {
-        const held = reservedFor(id, l.productId);
+      for (const pid of heldProducts(id)) {
+        const held = reservedFor(id, pid);
         if (held > 0) {
-          releaseStock(l.productId, held, `order#${id}-release`);
+          releaseStock(pid, held, `order#${id}-release`);
           freed = true;
         }
       }

@@ -162,8 +162,9 @@ export function PosCounter() {
     setDead(readBox("cr_outbox_dead") as (OutOp & { error: string })[]);
     const onOnline = () => { void syncOutbox(); };
     window.addEventListener("online", onOnline);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => window.removeEventListener("online", onOnline);
+    // Mount-only: resubscribing per render would leak listeners.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // F2 search · F3 scan · ESC closes dialogs. Never hijacks text inputs.

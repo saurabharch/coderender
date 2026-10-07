@@ -30,6 +30,11 @@ export function StockConsole() {
   const [poqty, setPoqty] = useState("");
   const [pocost, setPocost] = useState("");
   const [binloc, setBinloc] = useState("");
+  interface WO { id: number; productId: number; name: string; qty: number; made: number; status: string }
+  const [wos, setWos] = useState<WO[]>([]);
+  const [wopid, setWopid] = useState("");
+  const [woqty, setWoqty] = useState("");
+  const [womake, setWomake] = useState<Record<number, string>>({});
 
   async function load() {
     const [l, p, s, b] = await Promise.all([
@@ -38,6 +43,8 @@ export function StockConsole() {
       fetch("/api/stock/places?what=suppliers").then((r) => r.json()).catch(() => null),
       fetch("/api/stock/bins").then((r) => r.json()).catch(() => null),
     ]);
+    const w = await fetch("/api/stock/work").then((r) => r.json()).catch(() => null);
+    if (w?.orders) setWos(w.orders);
     if (l?.levels) setLevels(l.levels);
     if (p?.orders) setPos(p.orders);
     if (s?.suppliers) setSups(s.suppliers);
@@ -46,6 +53,16 @@ export function StockConsole() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function wo(op: string, extra: Record<string, unknown> = {}) {
+    const res = await fetch("/api/stock/work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op, ...extra }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? (d.made ? `Made ${d.made} @ ₹${(d.unitCost / 100).toFixed(0)} each ✓` : "Work order updated ✓") : (d.error ?? "failed"));
+    void load();
+  }
 
   async function receive() {
     const n = Number(qty);
@@ -165,6 +182,43 @@ export function StockConsole() {
         {bins.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
             {bins.map((b) => <li key={b.id} className="rounded-full border border-black/15 px-3 py-1.5 font-mono dark:border-white/20">{b.code}</li>)}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Work orders ({wos.length}) <span className="text-xs font-normal text-zinc-500">(consume BOM → receive finished)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="min-w-[140px] flex-1 basis-full sm:basis-0"><ProductPicker value={wopid} placeholder="Finished product…" onPick={(x) => setWopid(x ? String(x.id) : "")} /></div>
+          <input value={woqty} onChange={(e) => setWoqty(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="Qty" inputMode="decimal"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <IconBtn label="Create work order" onClick={() => { void wo("create", { productId: Number(wopid), qty: Number(woqty) }); setWopid(""); setWoqty(""); }} disabled={!wopid || !woqty} tone="brand"><Plus size={20} /></IconBtn>
+        </div>
+        {wos.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {wos.map((w) => (
+              <li key={w.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>#{w.id} {w.name} · {w.made}/{w.qty} · <b>{w.status}</b></span>
+                <span className="flex flex-wrap items-center gap-1">
+                  {w.status === "draft" && (
+                    <>
+                      <button onClick={() => void wo("start", { id: w.id })}
+                        className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Start</button>
+                      <button onClick={() => void wo("cancel", { id: w.id })}
+                        className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Cancel</button>
+                    </>
+                  )}
+                  {w.status === "in-progress" && (
+                    <>
+                      <input value={womake[w.id] ?? ""} onChange={(e) => setWomake((m) => ({ ...m, [w.id]: e.target.value.replace(/[^0-9.]/g, "") }))}
+                        placeholder="Make qty" inputMode="decimal" aria-label={`Make quantity for order ${w.id}`}
+                        className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                      <button onClick={() => { void wo("produce", { id: w.id, qty: Number(womake[w.id]) }); setWomake((m) => ({ ...m, [w.id]: "" })); }}
+                        className="min-h-[44px] rounded-xl bg-brand px-4 text-xs font-bold text-white">Produce</button>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
           </ul>
         )}
       </AdminCard>

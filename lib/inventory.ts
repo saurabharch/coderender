@@ -8,6 +8,7 @@ export function inventoryTables(): void {
   const db = getDb();
   db.exec(`CREATE TABLE IF NOT EXISTS Warehouse (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, location TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE TABLE IF NOT EXISTS LotAlert (lotId INTEGER PRIMARY KEY, at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS WorkOrder (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, qty REAL NOT NULL DEFAULT 1, made REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS StockLevel (productId INTEGER NOT NULL, warehouseId INTEGER NOT NULL DEFAULT 1, qty REAL NOT NULL DEFAULT 0, avgCost INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (productId, warehouseId))`);
   db.exec(`CREATE TABLE IF NOT EXISTS StockMove (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, warehouseId INTEGER NOT NULL DEFAULT 1, kind TEXT NOT NULL, qty REAL NOT NULL DEFAULT 0, ref TEXT NOT NULL DEFAULT '', cost INTEGER NOT NULL DEFAULT 0, at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Supplier (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', gstin TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', rating INTEGER NOT NULL DEFAULT 0, createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
@@ -120,6 +121,15 @@ export function releaseStock(productId: number, qty: number, ref: string, wareho
   move(productId, warehouseId, "release", qty, ref);
 }
 
+// Products with outstanding holds for an order, read from the moves
+// themselves (order lines never list components or fully-held finished stock).
+export function heldProducts(orderId: number): number[] {
+  inventoryTables();
+  const db = getDb();
+  return (db.prepare("SELECT DISTINCT productId FROM StockMove WHERE ref=?").all(`order#${orderId}-reserve`) as
+    { productId: number }[]).map((r) => r.productId);
+}
+
 // Outstanding hold for an order line (reserve minus release on its refs).
 export function reservedFor(orderId: number, productId: number): number {
   inventoryTables();
@@ -170,7 +180,76 @@ export function openProductStock(productId: number, qty: number): void {
   receiveStock(productId, q, 1, 0, "opening");
 }
 
-// FEFO pick list: lots with stock first by earliest expiry.
+// ---- work orders (manufacturing) ----
+export function listWorkOrders(status = "") {
+  inventoryTables();
+  const db = getDb();
+  return db.prepare(status
+    ? `SELECT w.*, p.name FROM WorkOrder w JOIN Product p ON p.id=w.productId WHERE w.status=? ORDER BY w.id DESC LIMIT 50`
+    : `SELECT w.*, p.name FROM WorkOrder w JOIN Product p ON p.id=w.productId ORDER BY w.id DESC LIMIT 50`)
+    .all(...(status ? [status] : []));
+}
+
+export function createWorkOrder(productId: number, qty: number, notes = ""): number {
+  inventoryTables();
+  const db = getDb();
+  const comps = db.prepare("SELECT productId, qty FROM BundleItem WHERE bundleId=?").all(productId) as
+    { productId: number; qty: number }[];
+  if (comps.length === 0) throw new Error("product has no bill of materials — add kit components first");
+  if (!stockTracked(productId)) throw new Error("only stocked products can be manufactured");
+  if (!(qty > 0)) throw new Error("qty must be positive");
+  return Number(db.prepare("INSERT INTO WorkOrder (productId, qty, notes) VALUES (?,?,?)")
+    .run(productId, qty, notes.slice(0, 300)).lastInsertRowid);
+}
+
+export function setWorkStatus(id: number, to: "in-progress" | "cancelled"): void {
+  inventoryTables();
+  const db = getDb();
+  const w = db.prepare("SELECT status FROM WorkOrder WHERE id=?").get(id) as { status: string } | undefined;
+  if (!w) throw new Error("no work order");
+  if (w.status !== "draft") throw new Error(`only drafts move (now ${w.status})`);
+  if (to === "cancelled") {
+    db.prepare("UPDATE WorkOrder SET status='cancelled' WHERE id=?").run(id);
+    return;
+  }
+  db.prepare("UPDATE WorkOrder SET status='in-progress' WHERE id=?").run(id);
+}
+
+// Produce (partial allowed): consume components, receive finished goods with
+// rolled-up component cost. Atomic — short components fail the whole batch.
+export function produceWorkOrder(id: number, qty: number): { made: number; unitCost: number } {
+  inventoryTables();
+  const db = getDb();
+  const w = db.prepare("SELECT * FROM WorkOrder WHERE id=?").get(id) as
+    { id: number; productId: number; qty: number; made: number; status: string } | undefined;
+  if (!w) throw new Error("no work order");
+  if (w.status !== "in-progress") throw new Error(`start the order first (now ${w.status})`);
+  const q = Math.min(qty, w.qty - w.made);
+  if (!(q > 0)) throw new Error("nothing left to make");
+  const comps = db.prepare(`SELECT b.productId, b.qty, COALESCE(s.qty, 0) stock, COALESCE(s.avgCost, 0) cost
+    FROM BundleItem b LEFT JOIN StockLevel s ON s.productId=b.productId AND s.warehouseId=1
+    WHERE b.bundleId=?`).all(w.productId) as
+    { productId: number; qty: number; stock: number; cost: number }[];
+  for (const c of comps) {
+    if (c.stock < c.qty * q) {
+      const n = db.prepare("SELECT name FROM Product WHERE id=?").get(c.productId) as { name: string } | undefined;
+      throw new Error(`${n?.name ?? `#${c.productId}`}: need ${c.qty * q}, have ${c.stock}`);
+    }
+  }
+  const unitCost = Math.round(comps.reduce((s, c) => s + c.cost * c.qty, 0));
+  db.exec("BEGIN");
+  try {
+    for (const c of comps) issueStock(c.productId, c.qty * q, `wo#${id}`);
+    receiveStock(w.productId, q, 1, unitCost, `wo#${id}`);
+    db.prepare("UPDATE WorkOrder SET made=made+?, status=CASE WHEN made+? >= qty THEN 'done' ELSE status END WHERE id=?")
+      .run(q, q, id);
+    db.exec("COMMIT");
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch { /* already out */ }
+    throw e;
+  }
+  return { made: q, unitCost };
+}
 export function fefoLots(productId: number) {
   inventoryTables();
   return getDb().prepare(`SELECT * FROM ProductLot WHERE productId=? AND qty > 0
