@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { addGoal, addCandidate, applyStructure, checkIn, checkOut, closeExit, closeCycle, completeReview, createCycle, cycleDetail, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, hrReports, listRuns, listShifts, listStructures, completeTraining, listCandidates, listTraining, logEmpEvent, logTime, logTraining, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, payslip, requestLeave, saveDesignation, submitReview, saveHoliday, saveShift, saveStructure, setClearance, setExpense, moveCandidate, setLeave, setOffer, setRoster, setRunStatus, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
+import { addGoal, addCandidate, applyStructure, checkIn, checkOut, closeExit, closeCycle, completeReview, createCycle, cycleDetail, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, hrReports, listRuns, listShifts, listStructures, completeTraining, listCandidates, listTraining, logEmpEvent, logTime, logTraining, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, payslip, requestLeave, runExceptions, saveDesignation, submitReview, saveHoliday, saveShift, saveStructure, setClearance, setExpense, moveCandidate, setLeave, setOffer, setRoster, setRunStatus, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
+import { sessionUser } from "@/lib/auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
 export async function GET(req: Request) {
@@ -57,6 +58,9 @@ export async function GET(req: Request) {
   }
   if (url.searchParams.get("runs") !== null) {
     return NextResponse.json({ runs: listRuns() });
+  }
+  if (url.searchParams.get("exceptions") !== null) {
+    return NextResponse.json({ exceptions: runExceptions(Number(url.searchParams.get("exceptions") || 0)) });
   }
   if (url.searchParams.get("payslip") !== null && url.searchParams.get("emp")) {
     try {
@@ -215,7 +219,13 @@ export async function POST(req: Request) {
       const parsed = z.object({ offerTo: z.enum(["accepted", "declined", "withdrawn"]), offerId: z.number().int() }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad decision" }, { status: 422 });
       try {
-        return NextResponse.json({ ok: true, employeeId: setOffer(parsed.data.offerId, parsed.data.offerTo) });
+        const employeeId = setOffer(parsed.data.offerId, parsed.data.offerTo);
+        if (employeeId) {
+          const me = await sessionUser();
+          const { audit } = await import("@/lib/scale");
+          audit(me?.email ?? "api", "hire", `#${employeeId}`, `offer #${parsed.data.offerId} accepted`);
+        }
+        return NextResponse.json({ ok: true, employeeId });
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
       }
@@ -257,6 +267,9 @@ export async function POST(req: Request) {
       if (!parsed.success) return NextResponse.json({ error: "bad close" }, { status: 422 });
       try {
         closeExit(parsed.data.closeExit);
+        const me = await sessionUser();
+        const { audit } = await import("@/lib/scale");
+        audit(me?.email ?? "api", "exit", `#${parsed.data.closeExit}`, "clearance complete, deactivated");
         return NextResponse.json({ ok: true });
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });

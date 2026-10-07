@@ -410,6 +410,25 @@ export function PeopleConsole() {
   const [stallow, setStallow] = useState("");
   const [stemp, setStemp] = useState("");
 
+  function Exceptions({ runId }: { runId: number }) {
+    const [ex, setEx] = useState<{ level: string; text: string }[] | null>(null);
+    useEffect(() => {
+      fetch(`/api/people/ops?exceptions=${runId}`).then((r) => r.json()).then((d) => {
+        if (d?.exceptions?.length) setEx(d.exceptions);
+      }).catch(() => {});
+    }, [runId]);
+    if (!ex) return null;
+    return (
+      <span className="flex flex-wrap gap-1">
+        {ex.map((x, i) => (
+          <span key={i} className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${x.level === "block" ? "bg-red-500/15 text-red-700" : "bg-amber-500/15 text-amber-700"}`}>
+            {x.level === "block" ? "✕ " : "⚠ "}{x.text}
+          </span>
+        ))}
+      </span>
+    );
+  }
+
   async function loadRuns() {
     const [r, s] = await Promise.all([
       fetch("/api/people/ops?runs=1").then((x) => x.json()).catch(() => null),
@@ -952,6 +971,7 @@ export function PeopleConsole() {
             {runs.slice(0, 6).map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
                 <span>{r.month} · <StatusBadge status={r.status} /></span>
+                <Exceptions runId={r.id} />
                 <span className="flex gap-1">
                   {r.status === "draft" && <button onClick={() => void advanceRun(r.id, "reviewed")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Review</button>}
                   {r.status === "reviewed" && <button onClick={() => void advanceRun(r.id, "approved")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Approve</button>}

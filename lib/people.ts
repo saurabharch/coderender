@@ -157,6 +157,29 @@ export function listRuns() {
   return getDb().prepare("SELECT * FROM PayrollRun ORDER BY month DESC LIMIT 24").all();
 }
 
+// Payroll exception engine (read-only): flags blocking vs warning anomalies
+// on a run before it gets paid.
+export function runExceptions(runId: number): { level: "block" | "warn"; text: string }[] {
+  peopleTables();
+  const db = getDb();
+  const out: { level: "block" | "warn"; text: string }[] = [];
+  const run = db.prepare("SELECT status FROM PayrollRun WHERE id=?").get(runId) as { status: string } | undefined;
+  if (!run) return [{ level: "block", text: "run not found" }];
+  const lines = db.prepare(`SELECT l.employeeId, l.net, l.loanCut, l.base, e.name, e.active
+    FROM PayrollLine l LEFT JOIN Employee e ON e.id=l.employeeId WHERE l.runId=?`).all(runId) as
+    { employeeId: number; net: number; loanCut: number; base: number; name: string; active: number }[];
+  if (lines.length === 0) out.push({ level: "block", text: "no lines — nobody active when opened" });
+  for (const l of lines) {
+    if (l.net <= 0 && l.base > 0) out.push({ level: "block", text: `#${l.employeeId} ${l.name ?? ""}: deductions wipe out pay (net ₹0)` });
+    if (l.loanCut > l.base + l.net) out.push({ level: "warn", text: `#${l.employeeId} ${l.name ?? ""}: loan slice exceeds pay` });
+    if (l.active === 0) out.push({ level: "warn", text: `#${l.employeeId} ${l.name ?? ""}: deactivated since lines froze` });
+  }
+  const missing = db.prepare(`SELECT COUNT(*) c FROM Employee
+    WHERE active=1 AND id NOT IN (SELECT employeeId FROM PayrollLine WHERE runId=?)`).get(runId) as { c: number };
+  if (missing.c > 0) out.push({ level: "warn", text: `${missing.c} active staff missing from this run` });
+  return out;
+}
+
 // Run states: draft → reviewed → approved → locked → paid (forward only).
 const RUN_FLOW = ["draft", "reviewed", "approved", "locked", "paid"] as const;
 
