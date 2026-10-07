@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.51.0] - 2026-10-07
+## [0.52.0] - 2026-10-07
+- Staff quick bar## [0.51.0] - 2026-10-07
 - Couriers + 124 close## [0.50.0] - 2026-10-07
 - Ops pages redesign## [0.49.0] - 2026-10-07
 - Labels studio## [0.48.2] - 2026-10-07
