@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.54.0] - 2026-10-07
+## [0.55.0] - 2026-10-07
+- Batch pricing## [0.54.0] - 2026-10-07
 - UPI receipt## [0.53.0] - 2026-10-07
 - Scan roles + retail## [0.52.1] - 2026-10-07
 - Quickbar parity## [0.52.0] - 2026-10-07
