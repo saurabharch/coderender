@@ -27,6 +27,13 @@ export default async function LearnAdmin() {
         Nightly (02:00 IST) the agent distills weak turns into exemplars via local inference.
         Answers retrieve the closest exemplar by vector similarity. Redacted, capped, prunable.
       </p>
+      <div className="mt-3 flex flex-wrap gap-1.5 text-sm">
+        <span className="rounded-full bg-brand/10 px-3 py-1.5 font-semibold text-brand-deep">{rows.length} exemplars</span>
+        <span className="rounded-full bg-black/5 px-3 py-1.5 dark:bg-white/10">{rows.reduce((a, r) => a + r.uses, 0)} total uses</span>
+        {[...new Set(rows.map((r) => r.source))].map((s) => (
+          <span key={s} className="rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20">{s}</span>
+        ))}
+      </div>
       <form action={runNow} className="mt-3">
         <button className="min-h-[44px] rounded-full border border-black/15 px-5 text-sm font-semibold dark:border-white/20">Distill now (max 3)</button>
       </form>

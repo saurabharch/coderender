@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 // Shared dashboard primitives: one card/skeleton/empty language so every
 // admin console reads as the same product.
@@ -53,5 +54,26 @@ export function Skeleton({ lines = 3 }: { lines?: number }) {
         <div key={i} className="h-11 animate-pulse rounded-xl bg-black/5 dark:bg-white/10" />
       ))}
     </div>
+  );
+}
+
+// Sub-tab bar: icon + label link tabs (?tab=), horizontally scrollable on
+// phones, server-rendered (no client JS). hrefs explicit per tab.
+export function SubTabs({ tabs, active, label = "Sections" }: {
+  tabs: { id: string; label: string; Icon: LucideIcon; href: string }[];
+  active: string; label?: string;
+}) {
+  return (
+    <nav aria-label={label} className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+      {tabs.map(({ id, label: text, Icon, href }) => {
+        const on = id === active;
+        return (
+          <Link key={id} href={href} aria-current={on ? "page" : undefined}
+            className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-semibold ${on ? "bg-brand text-white" : "border border-black/15 dark:border-white/20"}`}>
+            <Icon size={16} />{text}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

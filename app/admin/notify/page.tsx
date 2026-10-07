@@ -5,6 +5,8 @@ import { sessionUser } from "@/lib/auth";
 import { broadcastPush } from "@/lib/push";
 import { requireTeam } from "@/lib/auth";
 import { NotifyConsole } from "@/components/notify-console";
+import { SubTabs } from "@/components/admin-ui";
+import { Bell, Plug } from "lucide-react";
 import { ProviderTabs } from "@/components/provider-tabs";
 
 async function broadcast(form: FormData) {
@@ -26,12 +28,10 @@ export default async function NotifyPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <h1 className="text-2xl font-extrabold">Notifications</h1>
-      <nav className="mt-3 flex gap-2" aria-label="Notify">
-        {(["messages", "providers"] as const).map((t) => (
-          <Link key={t} href={`/admin/notify${t === "messages" ? "" : "?tab=providers"}`}
-            className={`min-h-[44px] rounded-full px-4 py-2 text-sm font-semibold capitalize ${t === tab ? "bg-brand text-white" : "border border-black/15 dark:border-white/20"}`}>{t}</Link>
-        ))}
-      </nav>
+      <SubTabs active={tab} label="Notify" tabs={[
+        { id: "messages", label: "Messages", Icon: Bell, href: "/admin/notify" },
+        { id: "providers", label: "Providers", Icon: Plug, href: "/admin/notify?tab=providers" },
+      ]} />
       {tab === "providers" ? (
         <div className="mt-4">
           <p className="mb-3 text-sm text-zinc-500">AES-sealed in the database, masked in this UI, tested live. Dashboard values override env. System harness for all operational comms.</p>

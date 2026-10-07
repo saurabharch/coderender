@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp, Play, X } from "lucide-react";
+import { IconBtn } from "@/components/admin-ux";
 
 const CHANNELS = ["wa", "email", "telegram", "slack"] as const;
 
@@ -71,7 +73,7 @@ export function FlowBuilder() {
           {CHANNELS.map((c) => (
             <button key={c} onClick={() => void kill(c, !kills[c])} aria-pressed={!!kills[c]}
               className={`min-h-[44px] rounded-full px-4 text-sm font-semibold ${kills[c] === false ? "bg-red-500/15 text-red-700" : "border border-black/15 dark:border-white/20"}`}>
-              {c}: {kills[c] === false ? "KILLED" : "live"}
+              {kills[c] === false ? "KILLED" : "live"} · {c}
             </button>
           ))}
         </div>
@@ -99,12 +101,9 @@ export function FlowBuilder() {
               <input value={s.body} onChange={(e) => setSteps((ss) => ss.map((x, j) => (j === i ? { ...x, body: e.target.value } : x)))}
                 placeholder="Message ({{1}} = contact, {{2}} = subject)" maxLength={2000}
                 className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-black/15 bg-transparent px-2 text-sm dark:border-white/20" />
-              <button aria-label="Move up" onClick={() => setSteps((ss) => { if (i === 0) return ss; const c = [...ss]; [c[i - 1], c[i]] = [c[i], c[i - 1]]; return c; })}
-                className="min-h-[44px] px-2">↑</button>
-              <button aria-label="Move down" onClick={() => setSteps((ss) => { if (i === ss.length - 1) return ss; const c = [...ss]; [c[i + 1], c[i]] = [c[i], c[i + 1]]; return c; })}
-                className="min-h-[44px] px-2">↓</button>
-              <button aria-label="Remove step" onClick={() => setSteps((ss) => ss.filter((_, j) => j !== i))}
-                className="min-h-[44px] px-2">✕</button>
+              <IconBtn label="Move step up" onClick={() => setSteps((ss) => { if (i === 0) return ss; const c = [...ss]; [c[i - 1], c[i]] = [c[i], c[i - 1]]; return c; })}><ChevronUp size={18} /></IconBtn>
+              <IconBtn label="Move step down" onClick={() => setSteps((ss) => { if (i === ss.length - 1) return ss; const c = [...ss]; [c[i + 1], c[i]] = [c[i], c[i + 1]]; return c; })}><ChevronDown size={18} /></IconBtn>
+              <IconBtn label="Remove step" onClick={() => setSteps((ss) => ss.filter((_, j) => j !== i))}><X size={18} /></IconBtn>
             </div>
           ))}
         </div>

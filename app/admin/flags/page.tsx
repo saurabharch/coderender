@@ -1,6 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
 import { requireTeam } from "@/lib/auth";
+import { SubTabs } from "@/components/admin-ui";
+import { Ban, Flag } from "lucide-react";
 
 async function unban(form: FormData) {
   "use server";
@@ -9,8 +11,10 @@ async function unban(form: FormData) {
   revalidatePath("/admin/flags");
 }
 
-export default async function FlagsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const q = ((await searchParams).q || "").slice(0, 60);
+export default async function FlagsPage({ searchParams }: { searchParams: Promise<{ q?: string; tab?: string }> }) {
+  const sp = await searchParams;
+  const q = (sp.q || "").slice(0, 60);
+  const tab = sp.tab === "bans" ? "bans" : "flags";
   const like = `%${q}%`;
   const flags = getDb().prepare(
     `SELECT * FROM BotFlag WHERE (? = '' OR reason LIKE ? OR fp LIKE ? OR ip LIKE ?) ORDER BY id DESC LIMIT 100`
@@ -23,11 +27,18 @@ export default async function FlagsPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <h1 className="text-2xl font-extrabold">Abuse console</h1>
+      <SubTabs active={tab} label="Abuse" tabs={[
+        { id: "flags", label: `Flags (${flags.length})`, Icon: Flag, href: "/admin/flags" },
+        { id: "bans", label: "Bans", Icon: Ban, href: "/admin/flags?tab=bans" },
+      ]} />
+      {tab === "flags" && (<>
       <form method="get" className="mt-3 flex gap-2">
         <input name="q" defaultValue={q} placeholder="Filter reason, fingerprint, IP…" aria-label="Filter flags"
           className="min-h-[44px] w-full max-w-sm rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         <button className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Filter</button>
       </form>
+      </>)}
+      {tab === "bans" && (<>
       <h2 className="mt-6 font-bold">Active bans ({bans.filter((b) => b.until > Date.now()).length})</h2>
       <ul className="mt-2 space-y-1 font-mono text-xs">
         {bans.map((b) => (
@@ -39,6 +50,7 @@ export default async function FlagsPage({ searchParams }: { searchParams: Promis
         ))}
         {bans.length === 0 && <li className="text-sm text-zinc-500">No bans on record.</li>}
       </ul>
+      </>)}
       <h2 className="mt-6 font-bold">Flags ({flags.length})</h2>
       <div className="mt-2 overflow-x-auto rounded-2xl border border-black/10 dark:border-white/10">
         <table className="w-full min-w-[760px] text-left text-xs">

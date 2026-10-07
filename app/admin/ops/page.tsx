@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { listJobs, purgeJobs, queueDepth, retryJob, runQueueTick } from "@/lib/queue";
+import { SubTabs } from "@/components/admin-ui";
+import { CheckCircle2, Clock, Inbox, Skull, LayoutList } from "lucide-react";
 import { requireTeam } from "@/lib/auth";
 
 async function tick() {
@@ -25,16 +27,24 @@ async function purge(form: FormData) {
   revalidatePath("/admin/ops");
 }
 
-export default async function OpsPage() {
+const STATUSES = ["queued", "running", "done", "dead"] as const;
+
+export default async function OpsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  const raw = (await searchParams).status ?? "";
+  const status = (STATUSES as readonly string[]).includes(raw) ? raw : "";
   const depth = queueDepth();
-  const jobs = listJobs(undefined, 50);
+  const jobs = listJobs(status || undefined, 50);
   return (
     <>
       <h1 className="text-2xl font-extrabold">Ops queue</h1>
-      <p className="mt-1 font-mono text-xs">
-        {(["queued", "running", "done", "dead"] as const).map((s) => `${s}: ${depth[s] ?? 0}`).join(" · ")}
-        {" · "}<Link href="/api/ops/run" className="underline">run tick</Link>
-      </p>
+      <SubTabs active={status || "all"} label="Job status" tabs={[
+        { id: "all", label: `All (${Object.values(depth).reduce((a, b) => a + (b ?? 0), 0)})`, Icon: LayoutList, href: "/admin/ops" },
+        { id: "queued", label: `Queued (${depth.queued ?? 0})`, Icon: Inbox, href: "/admin/ops?status=queued" },
+        { id: "running", label: `Running (${depth.running ?? 0})`, Icon: Clock, href: "/admin/ops?status=running" },
+        { id: "done", label: `Done (${depth.done ?? 0})`, Icon: CheckCircle2, href: "/admin/ops?status=done" },
+        { id: "dead", label: `Dead (${depth.dead ?? 0})`, Icon: Skull, href: "/admin/ops?status=dead" },
+      ]} />
+      <p className="mt-1 font-mono text-xs"><Link href="/api/ops/run" className="underline">run tick</Link></p>
       <form action={tick} className="mt-3">
         <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Run worker tick now</button>
       </form>

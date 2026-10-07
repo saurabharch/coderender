@@ -7,6 +7,8 @@ import { flagStates } from "@/lib/flags";
 import { sendDailyReport } from "@/lib/reporter";
 import { sessionUser } from "@/lib/auth";
 import { requireTeam } from "@/lib/auth";
+import { SubTabs } from "@/components/admin-ui";
+import { Flag, IndianRupee, MonitorSmartphone, ReceiptText, SlidersHorizontal, Store, Users } from "lucide-react";
 
 async function save(form: FormData) {
   "use server";
@@ -164,7 +166,11 @@ async function savePrices(form: FormData) {  "use server";
   revalidatePath("/pricing");
 }
 
-export default async function SettingsPage() {
+const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices"] as const;
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const raw = (await searchParams).tab ?? "general";
+  const tab = (SETTING_TABS as readonly string[]).includes(raw) ? raw : "general";
   const me = await sessionUser();
   const isOwner = me?.role === "owner";
   const meEmail = me?.email ?? "";
@@ -180,6 +186,16 @@ export default async function SettingsPage() {
   return (
     <>
       <h1 className="text-2xl font-extrabold">Settings & team</h1>
+      <SubTabs active={tab} label="Settings sections" tabs={[
+        { id: "general", label: "General", Icon: SlidersHorizontal, href: "/admin/settings" },
+        { id: "team", label: `Team (${team.length})`, Icon: Users, href: "/admin/settings?tab=team" },
+        { id: "sessions", label: `Sessions (${sessions.length})`, Icon: MonitorSmartphone, href: "/admin/settings?tab=sessions" },
+        { id: "business", label: "Business", Icon: Store, href: "/admin/settings?tab=business" },
+        { id: "tax", label: "Tax", Icon: ReceiptText, href: "/admin/settings?tab=tax" },
+        { id: "flags", label: "Flags", Icon: Flag, href: "/admin/settings?tab=flags" },
+        { id: "prices", label: "Prices", Icon: IndianRupee, href: "/admin/settings?tab=prices" },
+      ]} />
+      {tab === "general" && (<>
       <form action={save} className="mt-4 grid max-w-xl gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
         <label className="flex min-h-[44px] items-center gap-2 text-sm">
           <input type="checkbox" name="daily_report" value="on" defaultChecked={getPref("daily_report", "on") === "on"} className="h-5 w-5" />
@@ -215,6 +231,8 @@ export default async function SettingsPage() {
       <form action={runInfra} className="mt-2">
         <button className="min-h-[44px] rounded-full border border-black/15 px-5 text-sm font-semibold dark:border-white/20">Run infra check now</button>
       </form>
+      </>)}
+      {tab === "team" && (<>
       <h2 className="mt-6 font-bold">Team ({team.length})</h2>
       <form action={save} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
         <label className="grid gap-1 text-sm">Invite emails (comma-separated — they can sign in as member; assign roles below)
@@ -247,6 +265,8 @@ export default async function SettingsPage() {
         ))}
         {team.length === 0 && <li className="text-zinc-500">Nobody signed in yet — magic links admit owner emails.</li>}
       </ul>
+      </>)}
+      {tab === "sessions" && (<>
       <h2 className="mt-6 font-bold">Active sessions ({sessions.length})</h2>
       <ul className="mt-2 space-y-1 text-sm">
         {sessions.map((s) => (
@@ -257,6 +277,8 @@ export default async function SettingsPage() {
           </li>
         ))}
       </ul>
+      </>)}
+      {tab === "business" && (<>
       <h2 className="mt-6 font-bold">Business profile (prints on bills)</h2>
       <form action={saveBusiness} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 md:grid-cols-2 dark:border-white/10">
         {[["biz_name", "Business name"], ["biz_phone", "Phone"], ["biz_email", "Email"], ["biz_address", "Address"], ["biz_city", "City"], ["biz_state", "State"], ["biz_pin", "Pincode"], ["biz_gstin", "GSTIN"], ["biz_cin", "CIN"]].map(([k, l]) => (
@@ -267,6 +289,8 @@ export default async function SettingsPage() {
         ))}
         <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white md:col-span-2 md:w-fit">Save business</button>
       </form>
+      </>)}
+      {tab === "tax" && (<>
       <h2 className="mt-6 font-bold">Tax rates (GST-ready: rate table, CGST/SGST vs IGST per bill)</h2>
       <ul className="mt-2 max-w-xl space-y-1 text-sm">
         {(listTaxes() as { id: number; name: string; pct: number; inter: number; inclusive: number; active: number }[]).map((t) => (
@@ -285,6 +309,8 @@ export default async function SettingsPage() {
           <input type="checkbox" name="inter" value="on" className="h-5 w-5" /> Inter-state (IGST)</label>
         <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Add rate</button>
       </form>
+      </>)}
+      {tab === "flags" && (<>
       <h2 className="mt-6 font-bold">Service flags (storefront kill-switches)</h2>
       <form action={saveFlags} className="mt-2 grid max-w-xl gap-1 rounded-2xl border border-black/10 p-4 dark:border-white/10">
         {flagStates().map((f) => (
@@ -295,6 +321,8 @@ export default async function SettingsPage() {
         ))}
         <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save flags</button>
       </form>
+      </>)}
+      {tab === "prices" && (<>
       <h2 className="mt-6 font-bold">Site prices (₹ — live on pricing page, calculator, agent)</h2>
       <form action={savePrices} className="mt-2 grid max-w-xl grid-cols-2 gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10 md:grid-cols-3">
         {[["audit", "Audit"], ["packFrom", "Pack from"], ["siteFrom", "Site from"], ["retainerFrom", "Retainer/mo"], ["leadsFrom", "Leads/mo"]].map(([k, l]) => (
@@ -306,6 +334,7 @@ export default async function SettingsPage() {
         <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white md:col-span-3 md:w-fit">Save prices</button>
       </form>
       <p className="mt-2 text-sm text-zinc-500">Broadcasts sent: {notifs.c} · Org: CodeRender (id 1) · preferences stored per key.</p>
+      </>)}
     </>
   );
 }

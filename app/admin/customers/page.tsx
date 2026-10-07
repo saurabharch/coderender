@@ -25,7 +25,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                 <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{c.stage}</span>
                 <span className="rounded-full bg-brand/10 px-2 py-0.5 text-brand-deep">{s.segment}</span>
                 <span>₹{(s.spend / 100).toFixed(0)}</span>
-                <Link href={`/admin/crm`} className="font-semibold text-brand-deep underline">profile →</Link>
+                <Link href={`/admin/crm?id=${c.id}`} className="font-semibold text-brand-deep underline">profile →</Link>
               </span>
             </li>
           );

@@ -34,6 +34,17 @@ export function CrmConsole() {
   }
 
   useEffect(() => { void load(); }, []);
+  // Deep link from Customers (?id=): preselect + load the profile.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id && /^\d+$/.test(id)) {
+      setCid(id);
+      fetch(`/api/crm/customers?id=${encodeURIComponent(id)}`).then((r) => r.json()).then((d) => {
+        setMsg(d?.error ?? `segment ${d.segment} · spend ₹${(d.spend / 100).toFixed(0)} · ${d.orders} orders · ${d.loyalty.points} pts (${d.loyalty.tier}) · ${d.timeline.length} events`);
+      }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function moderate(id: number, to: string) {
     const res = await fetch("/api/crm/engage", {

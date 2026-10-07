@@ -65,7 +65,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
       ["Scale", "/admin/scale", ShieldCheck, "settings"],
       ["Flows", "/admin/flows", Workflow, "settings"],
       ["Webhooks", "/admin/hooks", Plug, "settings"],
-      ["Keys", "/admin/keys", KeyRound, "keys"],
+      ["Api Keys", "/admin/keys", KeyRound, "keys"],
       ["Learn", "/admin/learn", GraduationCap, "reports"],
       ["Flags", "/admin/flags", ShieldCheck, "settings"],
       ["Routes", "/admin/routes", Route, "reports"],

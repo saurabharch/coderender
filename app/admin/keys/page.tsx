@@ -44,7 +44,7 @@ export default async function KeysPage() {
   if (justMade) setPref("last_api_key", "");
   return (
     <>
-      <h1 className="text-2xl font-extrabold">License & API keys</h1>
+      <h1 className="text-2xl font-extrabold">Api Keys <span className="text-sm font-normal text-zinc-500">(license + API)</span></h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
         Sell later: hand a license per purchase, verify via <code>/api/license/verify</code>.
         API keys authenticate service calls (store only the prefix + hash here).
