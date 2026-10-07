@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.61.0] - 2026-10-07
+## [0.62.0] - 2026-10-07
+- Subscriptions## [0.61.0] - 2026-10-07
 - Work orders## [0.60.0] - 2026-10-07
 - Offline outbox## [0.59.0] - 2026-10-07
 - Bundle kits## [0.58.0] - 2026-10-07
