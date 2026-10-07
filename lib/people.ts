@@ -21,6 +21,9 @@ export function peopleTables(): void {
     ins.run("casual", 12); ins.run("sick", 12); ins.run("earned", 15);
   }
   db.exec(`CREATE TABLE IF NOT EXISTS Holiday (day TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE TABLE IF NOT EXISTS PerfCycle (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, period TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS PerfGoal (id INTEGER PRIMARY KEY AUTOINCREMENT, cycleId INTEGER NOT NULL, employeeId INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '', weight INTEGER NOT NULL DEFAULT 1)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS PerfReview (id INTEGER PRIMARY KEY AUTOINCREMENT, cycleId INTEGER NOT NULL, employeeId INTEGER NOT NULL, rating INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', UNIQUE(cycleId, employeeId))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Designation (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL UNIQUE, grade TEXT NOT NULL DEFAULT '', minPay INTEGER NOT NULL DEFAULT 0, maxPay INTEGER NOT NULL DEFAULT 0)`);
   db.exec(`CREATE TABLE IF NOT EXISTS JobOffer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', designation TEXT NOT NULL DEFAULT '', ctc INTEGER NOT NULL DEFAULT 0, joining TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'offered', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS EmpEvent (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
@@ -479,6 +482,60 @@ export function fullFinal(employeeId: number): { earnedLeft: number; leaveValue:
     openLoans,
     unpaidExpenses,
   };
+}
+
+// ---- performance cycles (plan 07 slice 7) ----
+export function createCycle(name: string, period = ""): number {
+  peopleTables();
+  if (!name.trim()) throw new Error("name required");
+  return Number(getDb().prepare("INSERT INTO PerfCycle (name, period) VALUES (?,?)")
+    .run(name.trim().slice(0, 120), period.slice(0, 20)).lastInsertRowid);
+}
+
+export function listCycles() {
+  peopleTables();
+  return getDb().prepare("SELECT * FROM PerfCycle ORDER BY id DESC LIMIT 20").all();
+}
+
+export function closeCycle(id: number): void {
+  peopleTables();
+  getDb().prepare("UPDATE PerfCycle SET status='closed' WHERE id=?").run(id);
+}
+
+export function addGoal(cycleId: number, employeeId: number, title: string, weight = 1): number {
+  peopleTables();
+  if (!title.trim()) throw new Error("title required");
+  if (!getDb().prepare("SELECT id FROM Employee WHERE id=?").get(employeeId)) throw new Error("no employee");
+  return Number(getDb().prepare("INSERT INTO PerfGoal (cycleId, employeeId, title, weight) VALUES (?,?,?,?)")
+    .run(cycleId, employeeId, title.trim().slice(0, 200), Math.max(1, Math.min(5, Math.round(weight) || 1))).lastInsertRowid);
+}
+
+export function cycleDetail(cycleId: number) {
+  peopleTables();
+  const db = getDb();
+  const goals = db.prepare(`SELECT g.*, e.name FROM PerfGoal g LEFT JOIN Employee e ON e.id=g.employeeId
+    WHERE g.cycleId=? ORDER BY g.employeeId, g.id`).all(cycleId);
+  const reviews = db.prepare(`SELECT r.*, e.name FROM PerfReview r LEFT JOIN Employee e ON e.id=r.employeeId
+    WHERE r.cycleId=? ORDER BY r.employeeId`).all(cycleId);
+  return { goals, reviews };
+}
+
+export function submitReview(cycleId: number, employeeId: number, rating: number, notes = ""): void {
+  peopleTables();
+  if (![1, 2, 3, 4, 5].includes(Math.round(rating))) throw new Error("rating 1-5");
+  if (!getDb().prepare("SELECT id FROM Employee WHERE id=?").get(employeeId)) throw new Error("no employee");
+  getDb().prepare(`INSERT INTO PerfReview (cycleId, employeeId, rating, notes, status) VALUES (?,?,?,?, 'submitted')
+    ON CONFLICT(cycleId, employeeId) DO UPDATE SET rating=excluded.rating, notes=excluded.notes, status='submitted'`)
+    .run(cycleId, employeeId, Math.round(rating), notes.slice(0, 1000));
+}
+
+export function completeReview(cycleId: number, employeeId: number): void {
+  peopleTables();
+  const r = getDb().prepare("SELECT status FROM PerfReview WHERE cycleId=? AND employeeId=?").get(cycleId, employeeId) as
+    { status: string } | undefined;
+  if (!r || r.status !== "submitted") throw new Error("submit first");
+  getDb().prepare("UPDATE PerfReview SET status='complete' WHERE cycleId=? AND employeeId=?").run(cycleId, employeeId);
+  logEmpEvent(employeeId, "note", `review complete (cycle #${cycleId})`);
 }
 
 // ---- check-in/out + leave balances + holidays (plan 07 daily slice) ----

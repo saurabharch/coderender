@@ -177,6 +177,58 @@ export function PeopleConsole() {
     void loadLifecycle();
   }
 
+  const [cycles, setCycles] = useState<{ id: number; name: string; period: string; status: string }[]>([]);
+  const [cycname, setCycname] = useState("");
+  const [cycid, setCycid] = useState("");
+  const [cycdetail, setCycdetail] = useState<{ goals: { id: number; employeeId: number; name: string; title: string; weight: number }[]; reviews: { employeeId: number; name: string; rating: number; status: string }[] } | null>(null);
+  const [goalemp, setGoalemp] = useState("");
+  const [goaltitle, setGoaltitle] = useState("");
+  const [revemp, setRevemp] = useState("");
+  const [revrate, setRevrate] = useState("4");
+
+  async function loadCycles() {
+    const d = await fetch("/api/people/ops?cycles=1").then((r) => r.json()).catch(() => null);
+    if (d?.cycles) setCycles(d.cycles);
+  }
+
+  async function openCycle() {
+    if (!cycid) {
+      if (!cycname.trim()) return;
+      const res = await fetch("/api/people/ops", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cycle: cycname.trim() }),
+      });
+      const dd = await res.json().catch(() => ({}));
+      if (res.ok) { setCycname(""); setCycid(String(dd.id)); void loadCycles(); }
+      return;
+    }
+    const d = await fetch(`/api/people/ops?cycle=${encodeURIComponent(cycid)}`).then((r) => r.json()).catch(() => null);
+    if (d) setCycdetail(d);
+  }
+
+  async function addGoal() {
+    if (!cycid || !goalemp || !goaltitle.trim()) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal: Number(cycid), employeeId: Number(goalemp), title: goaltitle.trim() }),
+    });
+    setMsg(res.ok ? "Goal added ✓" : "failed");
+    if (res.ok) { setGoaltitle(""); void openCycle(); }
+  }
+
+  async function submitRev(complete: boolean) {
+    if (!cycid || !revemp) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(complete
+        ? { reviewDone: Number(cycid), employeeId: Number(revemp) }
+        : { review: Number(cycid), employeeId: Number(revemp), rating: Number(revrate) }),
+    });
+    const dd = await res.json().catch(() => ({}));
+    setMsg(res.ok ? (complete ? "Review complete ✓" : "Review submitted ✓") : (dd.error ?? "failed"));
+    if (res.ok) void openCycle();
+  }
+
   async function loadReport() {
     const d = await fetch(`/api/people/ops?hrreport=${encodeURIComponent(repmonth)}`).then((r) => r.json()).catch(() => null);
     if (d && typeof d.headcount === "number") setRep(d);
@@ -202,6 +254,7 @@ export function PeopleConsole() {
     if (h?.holidays) setHols(h.holidays);
     const sh = await fetch("/api/people/ops?shifts=1").then((r) => r.json()).catch(() => null);
     if (sh?.shifts) setShifts(sh.shifts);
+    void loadCycles();
     setLoaded(true);
   }
 
@@ -730,6 +783,61 @@ export function PeopleConsole() {
               {slip.loan && <p className="flex justify-between text-zinc-600"><span>Loan balance</span><span>₹{(slip.loan.balance / 100).toFixed(0)}</span></p>}
             </div>
             <button onClick={() => window.print()} className="mt-3 min-h-[48px] w-full rounded-xl bg-black text-sm font-bold text-white print:hidden">Print slip</button>
+          </div>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Performance <span className="text-xs font-normal text-zinc-500">(cycles, goals, reviews)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <select value={cycid} onChange={(e) => { setCycid(e.target.value); setCycdetail(null); }} aria-label="Review cycle"
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            <option value="">Cycle…</option>
+            {cycles.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.status})</option>)}
+          </select>
+          <input value={cycname} onChange={(e) => setCycname(e.target.value)} placeholder="New cycle (Q4)" maxLength={120}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void openCycle()}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white" aria-label="Open or create cycle"><Plus size={20} /></button>
+        </div>
+        {cycid && (
+          <div className="mt-2 grid gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
+              <input value={goalemp} onChange={(e) => setGoalemp(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+                className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <input value={goaltitle} onChange={(e) => setGoaltitle(e.target.value)} placeholder="Goal (close 20 tickets)" maxLength={200}
+                className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <button onClick={() => void addGoal()} disabled={!goalemp || !goaltitle.trim()}
+                className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Goal</button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <input value={revemp} onChange={(e) => setRevemp(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+                className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <select value={revrate} onChange={(e) => setRevrate(e.target.value)} aria-label="Rating"
+                className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+                {["5", "4", "3", "2", "1"].map((r) => <option key={r} value={r}>{r}★</option>)}
+              </select>
+              <button onClick={() => void submitRev(false)} disabled={!revemp}
+                className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Submit</button>
+              <button onClick={() => void submitRev(true)} disabled={!revemp}
+                className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-bold text-white disabled:opacity-40">Complete</button>
+            </div>
+            {cycdetail && (
+              <ul className="space-y-1 text-sm">
+                {cycdetail.goals.map((g) => (
+                  <li key={g.id} className="rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                    🎯 {g.name || `#${g.employeeId}`} · {g.title}
+                  </li>
+                ))}
+                {cycdetail.reviews.map((r, i) => (
+                  <li key={`r${i}`} className="flex flex-wrap items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                    <span>{"★".repeat(r.rating)}</span>
+                    <StatusBadge status={r.status === "complete" ? "done" : r.status === "submitted" ? "sent" : "draft"} />
+                    <span className="text-xs text-zinc-500">{r.name || `#${r.employeeId}`}</span>
+                  </li>
+                ))}
+                {cycdetail.goals.length === 0 && cycdetail.reviews.length === 0 && <li className="text-zinc-500">Empty cycle — add the first goal.</li>}
+              </ul>
+            )}
           </div>
         )}
       </AdminCard>

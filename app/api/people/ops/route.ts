@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { applyStructure, checkIn, checkOut, closeExit, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, hrReports, listRuns, listShifts, listStructures, logEmpEvent, logTime, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, payslip, requestLeave, saveDesignation, saveHoliday, saveShift, saveStructure, setClearance, setExpense, setLeave, setOffer, setRoster, setRunStatus, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
+import { addGoal, applyStructure, checkIn, checkOut, closeExit, closeCycle, completeReview, createCycle, cycleDetail, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, hrReports, listRuns, listShifts, listStructures, logEmpEvent, logTime, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, payslip, requestLeave, saveDesignation, submitReview, saveHoliday, saveShift, saveStructure, setClearance, setExpense, setLeave, setOffer, setRoster, setRunStatus, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
@@ -71,6 +71,13 @@ export async function GET(req: Request) {
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
     }
+  }
+  if (url.searchParams.get("cycles") !== null) {
+    const { listCycles } = await import("@/lib/people");
+    return NextResponse.json({ cycles: listCycles() });
+  }
+  if (url.searchParams.get("cycle") !== null) {
+    return NextResponse.json(cycleDetail(Number(url.searchParams.get("cycle") || 0)));
   }
   if (url.searchParams.get("overtime") !== null) {
     return NextResponse.json(weekOvertime(Number(url.searchParams.get("overtime") || 0), url.searchParams.get("from") || new Date().toISOString().slice(0, 10)));
@@ -272,6 +279,44 @@ export async function POST(req: Request) {
       if (!parsed.success) return NextResponse.json({ error: "bad apply" }, { status: 422 });
       try {
         applyStructure(parsed.data.employeeId, parsed.data.applyStruct);
+        return NextResponse.json({ ok: true });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.cycle) {
+      const parsed = z.object({ cycle: z.string().min(1).max(120), period: z.string().max(20).optional() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad cycle" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: createCycle(parsed.data.cycle, parsed.data.period ?? "") });
+    }
+    if (body?.cycleClose) {
+      closeCycle(Number(body.cycleClose));
+      return NextResponse.json({ ok: true });
+    }
+    if (body?.goal) {
+      const parsed = z.object({
+        goal: z.number().int(), employeeId: z.number().int(), title: z.string().min(1).max(200), weight: z.number().min(1).max(5).optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad goal" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: addGoal(parsed.data.goal, parsed.data.employeeId, parsed.data.title, parsed.data.weight ?? 1) });
+    }
+    if (body?.review) {
+      const parsed = z.object({
+        review: z.number().int(), employeeId: z.number().int(), rating: z.number().min(1).max(5), notes: z.string().max(1000).optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad review" }, { status: 422 });
+      try {
+        submitReview(parsed.data.review, parsed.data.employeeId, parsed.data.rating, parsed.data.notes ?? "");
+        return NextResponse.json({ ok: true });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.reviewDone) {
+      const parsed = z.object({ reviewDone: z.number().int(), employeeId: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad complete" }, { status: 422 });
+      try {
+        completeReview(parsed.data.reviewDone, parsed.data.employeeId);
         return NextResponse.json({ ok: true });
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
