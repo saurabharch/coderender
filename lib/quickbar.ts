@@ -8,21 +8,23 @@ export const QUICKBAR_ACTIONS = [
   { id: "stock", label: "Stock", href: "/admin/stock" },
   { id: "sales", label: "Sales", href: "/admin/retail" },
   { id: "bi", label: "BI", href: "/admin/bi" },
+  { id: "ai", label: "AI", action: "cr:chat-toggle" },
 ] as const;
 
 export type QuickbarId = (typeof QUICKBAR_ACTIONS)[number]["id"];
 
 export const QUICKBAR_DEFAULTS: Record<string, QuickbarId[]> = {
-  owner: ["pos", "orders", "inventory", "sales", "bi"],
-  manager: ["pos", "orders", "inventory", "sales", "bi"],
-  sales: ["pos", "orders", "inventory"],
+  owner: ["pos", "orders", "inventory", "ai", "bi"],
+  manager: ["pos", "orders", "inventory", "ai", "bi"],
+  sales: ["pos", "orders", "ai"],
   cashier: ["pos", "orders"],
   inventory: ["inventory", "stock"],
+  customer: ["orders", "inventory"],
 };
 
 const FALLBACK: QuickbarId[] = ["pos", "orders"];
 
-export const QUICKBAR_ROLES = ["owner", "manager", "sales", "cashier", "inventory", "accountant", "hr", "marketing", "author", "staff", "member"];
+export const QUICKBAR_ROLES = ["owner", "manager", "sales", "cashier", "inventory", "customer", "accountant", "hr", "marketing", "author", "staff", "member"];
 
 export function quickbarCustom(): Record<string, string[]> {
   try { return JSON.parse(getPref("quickbar", "{}") || "{}"); } catch { return {}; }

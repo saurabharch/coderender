@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Banknote, BarChart3, Boxes, ClipboardList, Package, ScanBarcode, TrendingUp } from "lucide-react";
+import { Banknote, BarChart3, Bot, Boxes, ClipboardList, Package, ScanBarcode, TrendingUp } from "lucide-react";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 
 const ICONS: Record<string, typeof Banknote> = {
   pos: Banknote, orders: ClipboardList, inventory: Package,
-  stock: Boxes, sales: TrendingUp, bi: BarChart3,
+  stock: Boxes, sales: TrendingUp, bi: BarChart3, ai: Bot,
 };
 
-interface Item { id: string; label: string; href: string }
+interface Item { id: string; label: string; href?: string; action?: string }
 
 // Staff floating bar (admin, phones only): role-based quick actions from
 // /api/quickbar with the barcode scanner raised in the center. Scan resolves
@@ -42,32 +42,31 @@ export function StaffQuickBar() {
   const left = items.slice(0, Math.ceil(items.length / 2));
   const right = items.slice(Math.ceil(items.length / 2));
   const cell = "flex min-h-[56px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold";
+  const renderItem = (it: Item) => {
+    const Icon = ICONS[it.id] ?? Package;
+    const inner = (<><Icon size={20} />{it.label}</>);
+    return it.action ? (
+      <button key={it.id} onClick={() => window.dispatchEvent(new Event(it.action!))} aria-label={it.label} className={cell}>
+        {inner}
+      </button>
+    ) : (
+      <a key={it.id} href={it.href} aria-label={it.label} className={cell}>
+        {inner}
+      </a>
+    );
+  };
 
   return (
     <>
       <div className="fixed inset-x-0 bottom-3 z-40 px-4 pb-[env(safe-area-inset-bottom)] md:hidden">
         {msg ? <p role="status" className="mx-auto mb-1 w-fit rounded-full bg-black/80 px-3 py-1 text-xs text-white">{msg}</p> : null}
         <div className="glass mx-auto flex max-w-sm items-end rounded-3xl px-1 pb-1 pt-1">
-          {left.map((it) => {
-            const Icon = ICONS[it.id] ?? Package;
-            return (
-              <a key={it.id} href={it.href} aria-label={it.label} className={cell}>
-                <Icon size={20} />{it.label}
-              </a>
-            );
-          })}
+          {left.map(renderItem)}
           <button onClick={() => setScanOpen(true)} aria-label="Scan barcode"
             className="-mt-7 flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand text-white shadow-lg">
             <ScanBarcode size={26} />
           </button>
-          {right.map((it) => {
-            const Icon = ICONS[it.id] ?? Package;
-            return (
-              <a key={it.id} href={it.href} aria-label={it.label} className={cell}>
-                <Icon size={20} />{it.label}
-              </a>
-            );
-          })}
+          {right.map(renderItem)}
         </div>
       </div>
       <WasmScanDialog open={scanOpen} onClose={() => setScanOpen(false)} title="Scan product"

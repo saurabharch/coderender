@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Phone, MessageCircle, CalendarCheck, Bot } from "lucide-react";
 import { CONTACT } from "@/lib/site";
 
@@ -11,6 +12,9 @@ const ITEMS = [
 ];
 
 export function QuickBar() {
+  const path = usePathname();
+  // Dashboard has its own role-based staff bar — never double up.
+  if (path?.startsWith("/admin")) return null;
   const fire = (action?: string) => {
     if (action) window.dispatchEvent(new Event(action));
   };
