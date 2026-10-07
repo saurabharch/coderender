@@ -29,7 +29,9 @@ differences from the plan are marked (SQLite-native, no rewrite).
 - Cart/quote (§21): ✅ quote() + channel/cgroup resolution.
 - Discounts/coupons (§25): ✅ flat/pct/caps/windows + manual override (flag-gated).
 - GST tax engine (§26): ✅ CGST/SGST/IGST, inclusive/exclusive.
-- Invoice numbering + immutability (§27-28, rule 8): ✅ prefixed docs; 🟡 immutability by status (no edits past paid — verify before claiming hard).
+- Invoice numbering + immutability (§27-28, rule 8): ✅ verified 2026-10-07 —
+  bills write once at creation; setBillStatus throws on paid/cancelled
+  ("final"); no line/amount edit path exists.
 - Order FSM (§20): ✅ draft→confirmed→fulfilled→cancelled/returned, atomic confirm.
 - Khata/credit (§31): ✅ udhari dues + collect.
 - Subscriptions/digital/service (§45-47): 🟡 kinds + skip-stock; no billing cycles.
@@ -43,7 +45,9 @@ differences from the plan are marked (SQLite-native, no rewrite).
 ## Money & accounting (P1 §38-42 / MOD-23)
 - Ledger/bank moves (§38-40): ✅ BankTx + ledgerPost; 🟡 single-sided (plan wants double-entry — deliberate, note openly).
 - Returns + restock decision (§41-42): ✅ returned/rto statuses + sale-return moves.
-- Refunds as new records (rule 10): ✅ recordPayment negative/new-row path (verify on use).
+- Refunds as new records (rule 10): ✅ verified 2026-10-07 — refundPayment
+  inserts Refund rows + refund ledger entries; originals untouched (only a
+  status flip to refunded when fully refunded).
 
 ## Platform (P1 §50-56 / MOD-1-3 / IMPL-61-64,67-71,80-82)
 - Lifecycle/audit/RBAC/metrics/reports/search/indexes: ✅ audit(), RBAC matrix, BI hub, FTS/search, indexes.

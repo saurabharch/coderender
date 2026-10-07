@@ -3667,3 +3667,1051 @@ The logical next implementation sequence is:
 Plan 4
 
 
+The Payroll Calculation Engine + statutory engines + transactional service layer + Next.js UI foundation around your existing Prisma HR schema and your preferred frontend stack.
+
+Implementation package
+
+Download the complete HR Payroll Engine implementation
+
+It contains 17 implementation files covering:
+
+hr-payroll-engine/
+├── src/
+│   ├── payroll/
+│   │   ├── money.ts
+│   │   ├── types.ts
+│   │   ├── calculator.ts
+│   │   ├── service.ts
+│   │   ├── validation.ts
+│   │   ├── index.ts
+│   │   └── engines/
+│   │       ├── rules.ts
+│   │       ├── pf.ts
+│   │       ├── esi.ts
+│   │       ├── pt.ts
+│   │       ├── lwf.ts
+│   │       ├── gratuity.ts
+│   │       └── tax.ts
+│   │
+│   ├── app/api/v1/hr/payroll/
+│   │   └── runs/[id]/calculate/route.ts
+│   │
+│   ├── components/hr/payroll/
+│   │   └── payroll-run-card.tsx
+│   │
+│   └── app/(dashboard)/hr/payroll/
+│       └── page.tsx
+│
+└── README.md
+
+1. Payroll calculation architecture
+
+The calculation pipeline is:
+
+Employee
+   ↓
+Effective Salary Assignment
+   ↓
+Attendance + Leave + LOP
+   ↓
+Salary Components
+   ↓
+Bonus / Commission / Overtime / Adjustments
+   ↓
+Gross Earnings
+   ↓
+┌──────────────────────────────────────┐
+│ Statutory Engines                    │
+│                                      │
+│ PF                                    │
+│ EPS                                   │
+│ EDLI                                  │
+│ ESI                                   │
+│ Professional Tax                     │
+│ Labour Welfare Fund                  │
+│ Gratuity                              │
+│ Income Tax / TDS                     │
+└──────────────────────────────────────┘
+   ↓
+Gross Deductions
+   ↓
+Net Pay
+   ↓
+Employer Cost
+   ↓
+Payroll Snapshot
+   ↓
+Payroll Employee
+   ↓
+Payroll Lines
+   ↓
+Payroll Exceptions
+   ↓
+Review → Approve → Lock → Accounting → Pay
+
+The key design decision is that the statutory engines do not own the statutory rates.
+
+They resolve effective-dated rules from:
+
+StatutoryPolicy
+       ↓
+StatutoryRule
+
+TaxYear
+       ↓
+TaxRule
+
+That means a future PF/ESI/PT/tax change does not require rewriting the payroll engine.
+
+
+---
+
+2. Statutory engines included
+
+PF
+
+Supports:
+
+employee PF
+
+employer PF
+
+EPS
+
+EDLI
+
+PF wage ceiling
+
+higher-wage PF
+
+effective-dated PF rules
+
+
+Example rule codes:
+
+PF_EMPLOYEE_RATE_BPS
+PF_EMPLOYER_RATE_BPS
+PF_WAGE_CEILING_PAISE
+EPS_RATE_BPS
+EDLI_RATE_BPS
+EDLI_WAGE_CEILING_PAISE
+
+ESI
+
+Supports:
+
+ESI_EMPLOYEE_RATE_BPS
+ESI_EMPLOYER_RATE_BPS
+ESI_WAGE_CEILING_PAISE
+
+with employee/employer contributions generated independently.
+
+Professional Tax
+
+Designed around state-specific slabs:
+
+PT_SLAB_1
+PT_SLAB_2
+PT_SLAB_3
+...
+
+with metadata such as:
+
+{
+  "minPaise": "0",
+  "maxPaise": "1500000",
+  "month": 2
+}
+
+This allows Maharashtra and other states to have separate configurations.
+
+Labour Welfare Fund
+
+Supports employee/employer contributions through:
+
+LWF_EMPLOYEE_AMOUNT_PAISE
+LWF_EMPLOYER_AMOUNT_PAISE
+
+Gratuity
+
+The engine creates an employer provision, rather than deducting gratuity from employee salary.
+
+Income Tax / TDS
+
+Supports:
+
+tax regime
+
+annualisation
+
+prior taxable income
+
+previous TDS
+
+remaining months
+
+standard deduction
+
+rebate
+
+surcharge
+
+cess
+
+configurable tax slabs
+
+current-month TDS
+
+
+The tax engine is deliberately rule-driven rather than embedding a fixed tax table.
+
+
+---
+
+3. Payroll service transaction
+
+PayrollService.calculateRun() performs the complete transaction.
+
+It:
+
+1. Loads payroll run.
+
+
+2. Validates state.
+
+
+3. Resolves eligible employees.
+
+
+4. Resolves effective salary.
+
+
+5. Loads statutory profile.
+
+
+6. Loads attendance.
+
+
+7. Loads approved leave.
+
+
+8. Loads overtime.
+
+
+9. Loads bonus.
+
+
+10. Loads commission.
+
+
+11. Loads tax declaration.
+
+
+12. Resolves tax year.
+
+
+13. Calculates salary components.
+
+
+14. Calculates PF/EPS/EDLI.
+
+
+15. Calculates ESI.
+
+
+16. Calculates PT.
+
+
+17. Calculates LWF.
+
+
+18. Calculates gratuity.
+
+
+19. Calculates TDS.
+
+
+20. Calculates net salary.
+
+
+21. Creates immutable payroll snapshot.
+
+
+22. Generates payroll lines.
+
+
+23. Generates payroll exceptions.
+
+
+24. Updates payroll employee.
+
+
+25. Calculates blocking exceptions.
+
+
+26. Moves payroll to CALCULATED or REVIEW.
+
+
+
+The transaction uses:
+
+isolationLevel: "Serializable"
+
+so two payroll calculations cannot silently modify the same run concurrently.
+
+
+---
+
+4. Immutable payroll snapshot
+
+Every calculated employee receives:
+
+PayrollSnapshot
+
+containing:
+
+employeeJson
+employmentJson
+salaryJson
+attendanceJson
+leaveJson
+taxJson
+statutoryJson
+inputHash
+ruleVersion
+
+The input is hashed using SHA-256.
+
+This is important for your platform because payroll should be reproducible.
+
+For example:
+
+Payroll calculated:
+October 2026
+Employee: EMP-001
+Rule Version: FY2026-27
+Input Hash: abc123...
+
+Six months later, you should still be able to determine exactly what inputs produced that payslip.
+
+
+---
+
+5. Payroll state machine
+
+The service enforces:
+
+OPEN
+ ↓
+PROCESSING
+ ↓
+CALCULATED
+ ↓
+REVIEW
+ ↓
+APPROVED
+ ↓
+LOCKED
+ ↓
+PAID
+ ↓
+CLOSED
+
+Invalid transitions are rejected.
+
+For example:
+
+LOCKED → CALCULATED     ❌
+LOCKED → APPROVED       ❌
+CLOSED → PROCESSING     ❌
+
+Corrections after locking should go through:
+
+PayrollAdjustment
+Supplementary Payroll
+Reversal
+Full & Final
+
+rather than modifying the original payroll.
+
+
+---
+
+6. Exception framework
+
+Payroll exceptions are first-class records.
+
+Examples:
+
+MISSING_BANK
+MISSING_PAN
+MISSING_PF_PROFILE
+MISSING_ESI_PROFILE
+MISSING_SALARY
+INVALID_ATTENDANCE
+INVALID_LEAVE
+NEGATIVE_NET_PAY
+INVALID_STATUTORY_RULE
+TAX_DATA_MISSING
+DUPLICATE_EMPLOYEE
+
+Each has:
+
+severity
+blocking
+resolved
+resolvedBy
+resolvedAt
+
+Therefore:
+
+2 blocking exceptions
+        ↓
+Payroll cannot be approved
+        ↓
+HR resolves exceptions
+        ↓
+Recalculate
+        ↓
+Approve
+
+
+---
+
+7. Money handling
+
+The implementation uses:
+
+bigint
+
+for payroll money.
+
+For example:
+
+const basic = 3000000n; // ₹30,000.00
+const pf = 360000n;     // ₹3,600.00
+
+No floating-point arithmetic is used for monetary values.
+
+This is particularly important for your SQLite/Prisma architecture where payroll calculations eventually synchronize with your accounting ledger.
+
+
+---
+
+8. Frontend: shadcn + Tailwind + Mantine
+
+I've structured the frontend as a hybrid rather than mixing the libraries indiscriminately.
+
+shadcn/ui
+
+Use for:
+
+Button
+Card
+Dialog
+Table
+Tabs
+Dropdown
+Badge
+Progress
+Form
+Input
+Select
+Alert
+Command
+Sheet
+
+Tailwind
+
+Use for:
+
+layout
+responsive grids
+spacing
+typography
+dashboard composition
+responsive payroll tables
+dark mode
+state styling
+
+Mantine
+
+Use selectively for specialized enterprise controls:
+
+NumberInput
+DateInput / DatePicker
+Notifications
+modals where useful
+advanced data-entry utilities
+
+So the UI architecture becomes:
+
+Tailwind
+   │
+   ├── shadcn visual primitives
+   │
+   └── Mantine specialized controls
+
+rather than having shadcn and Mantine competing to style the same component.
+
+
+---
+
+9. Payroll dashboard
+
+The included dashboard provides the foundation for:
+
+HR
+└── Payroll
+    ├── Payroll Runs
+    ├── Processing Status
+    ├── Employees
+    ├── Exceptions
+    ├── Review
+    ├── Approval
+    ├── Lock
+    └── Accounting
+
+The run card exposes:
+
+Employees
+Blocking Exceptions
+Ready %
+Calculate Payroll
+Approve
+Lock
+
+and can be expanded into the full payroll workspace.
+
+
+---
+
+10. API foundation
+
+Included:
+
+POST /api/v1/hr/payroll/runs/:id/calculate
+
+The next routes should follow the same service pattern:
+
+POST /hr/payroll/runs/:id/review
+POST /hr/payroll/runs/:id/approve
+POST /hr/payroll/runs/:id/lock
+POST /hr/payroll/runs/:id/post-accounting
+POST /hr/payroll/runs/:id/mark-paid
+
+The API should never calculate payroll directly inside the route handler.
+
+Correct architecture:
+
+Route
+ ↓
+Zod validation
+ ↓
+Auth / RBAC
+ ↓
+Organization context
+ ↓
+PayrollService
+ ↓
+CalculationEngine
+ ↓
+Statutory Engines
+ ↓
+Prisma Transaction
+
+
+---
+
+One important production point
+
+The package intentionally does not pretend that statutory rates are permanently fixed. The default values in the engine are fallbacks for development/testing; production India payroll must load the applicable rules for the relevant effective date and state.
+
+Also, the next hardening step should replace the simplified working-day calculation with a proper:
+
+Attendance
++
+Shift
++
+Roster
++
+Weekly Off
++
+Holiday Calendar
++
+Paid Leave
++
+Unpaid Leave
++
+Joining Date
++
+Exit Date
++7
+LOP
++
+Half Day
+
+engine. That is critical for accurate payroll.
+
+The next logical layer for your platform is therefore:
+
+Payroll → Accounting → Bank Payment → Payslip → Statutory Filing → Full & Final → Employee Self-Service, with the same transaction/snapshot architecture.
+
+
+
+Plan 5
+
+This becomes the complete payroll-to-employee lifecycle, not just a payroll calculator.
+
+I’ve implemented the next layer as a separate 
+
+
+End-to-end architecture
+
+┌───────────────────────────────────────────────────────────────┐
+│                         HR / PAYROLL                          │
+└───────────────────────────────────────────────────────────────┘
+
+Employee
+   │
+   ├── Employment
+   ├── Salary
+   ├── Attendance
+   ├── Leave
+   ├── Overtime
+   └── Benefits
+          │
+          ▼
+   ┌───────────────┐
+   │ Payroll Engine│
+   └───────┬───────┘
+           │
+           ├── PF / EPS / EDLI
+           ├── ESI
+           ├── PT
+           ├── LWF
+           ├── Gratuity
+           └── TDS
+           │
+           ▼
+      Payroll Snapshot
+           │
+           ▼
+      Payroll LOCKED
+           │
+     ┌─────┴─────────┐
+     ▼               ▼
+ Accounting       Payslip
+     │               │
+     ▼               ▼
+ Journal         PDF / ESS
+     │
+     ▼
+ Salary Payable
+     │
+     ▼
+ Bank Payment Batch
+     │
+     ▼
+ Bank / Payout Provider
+     │
+     ▼
+ Reconciliation
+     │
+     ▼
+ Payroll PAID
+     │
+     ├───────────────┐
+     ▼               ▼
+Statutory Filing   Employee Portal
+     │
+     ▼
+ PF / ESI / PT / LWF / TDS
+
+Included in this implementation
+
+Accounting
+
+PayrollAccountingPostingService
+
+Creates the accounting boundary:
+
+Dr Salary Expense
+Dr Employer Statutory Expense
+Dr Gratuity Provision
+
+    Cr Salary Payable
+    Cr PF Payable
+    Cr ESI Payable
+    Cr Professional Tax Payable
+    Cr TDS Payable
+    Cr LWF Payable
+
+It explicitly validates:
+
+Total Debits === Total Credits
+
+before posting.
+
+It is designed to connect to your existing accounting ledger, rather than creating a second accounting system.
+
+
+---
+
+Bank payment
+
+PayrollPaymentService
+
+Flow:
+
+LOCKED
+  ↓
+Create Payment Batch
+  ↓
+Validate Employee Bank
+  ↓
+Submit to Bank/Provider
+  ↓
+Provider Reference
+  ↓
+Webhook/Reconciliation
+  ↓
+SUCCESS
+  ↓
+Payroll PAID
+
+The important part is the adapter:
+
+interface BankPaymentAdapter {
+  createBatch(...)
+}
+
+That lets you plug in different payment providers without changing payroll:
+
+RazorpayX
+Cashfree Payouts
+Bank API
+Corporate Banking
+File-based bank upload
+ISO 20022
+
+
+---
+
+Payslip
+
+PayslipService
+
+A payslip is only released when payroll is:
+
+LOCKED
+PAID
+CLOSED
+
+It exposes:
+
+Employee
+Payroll Period
+Earnings
+Deductions
+Employer Contributions
+Gross
+Tax
+Net Pay
+
+Recommended production flow:
+
+Payroll Snapshot
+       ↓
+Payslip HTML
+       ↓
+PDF Renderer
+       ↓
+R2 / MinIO / S3
+       ↓
+Signed URL
+       ↓
+Employee
+
+This fits particularly well with your existing object-storage architecture.
+
+
+---
+
+Statutory filing
+
+StatutoryFilingService
+
+Supports the filing pipeline:
+
+PF
+ESI
+PT
+LWF
+TDS
+
+The critical design is:
+
+LOCKED PAYROLL
+      ↓
+Filing Dataset
+      ↓
+Validation
+      ↓
+Maker Review
+      ↓
+Submit
+      ↓
+Acknowledgement
+      ↓
+Reconciliation
+      ↓
+Archive
+
+The filing dataset comes from locked payroll lines, not mutable employee records.
+
+That prevents historical payroll filings from changing when an employee profile is subsequently edited.
+
+
+---
+
+Full & Final Settlement
+
+FullFinalSettlementService
+
+Handles:
+
+Credits
+
+Unpaid Salary
+Leave Encashment
+Bonus
+Reimbursement
+Notice Pay
+Gratuity
+
+Debits
+
+Notice Recovery
+Loan Outstanding
+Salary Advance
+Other Recovery
+
+Then:
+
+Gross Credits
+    -
+Gross Debits
+    =
+Net F&F
+
+Lifecycle:
+
+CALCULATED
+    ↓
+APPROVED
+    ↓
+SETTLED
+
+This should eventually connect with:
+
+Resignation
+     ↓
+Notice Period
+     ↓
+Last Working Date
+     ↓
+Attendance
+     ↓
+Leave Encashment
+     ↓
+Loans
+     ↓
+Gratuity
+     ↓
+F&F
+     ↓
+Exit Clearance
+     ↓
+Experience Letter
+     ↓
+Relieving Letter
+
+
+---
+
+Employee Self-Service
+
+The package also contains the foundation for an employee portal.
+
+Employee dashboard
+
+┌─────────────────────────────────────────┐
+│ My HR                                   │
+├──────────┬──────────┬──────────┬────────┤
+│ Leave    │ Net Pay  │ Attend.  │ Pending│
+│ 12.5 d   │ ₹48,250  │ 96%      │ 2      │
+└──────────┴──────────┴──────────┴────────┘
+
+Tabs
+
+Payslips
+Leave
+Attendance
+Profile
+
+Employees can eventually have:
+
+My Profile
+My Payslips
+Tax Documents
+Tax Declaration
+Tax Proofs
+Leave
+Attendance
+Regularisation
+Overtime
+Expenses
+Reimbursements
+Loans
+Salary
+Benefits
+Announcements
+Policies
+Notifications
+Resignation
+Exit Status
+
+
+---
+
+Frontend stack
+
+For this part I'd keep the UI architecture:
+
+Next.js
+│
+├── Tailwind CSS
+│
+├── shadcn/ui
+│   ├── Card
+│   ├── Table
+│   ├── Tabs
+│   ├── Button
+│   ├── Badge
+│   ├── Dialog
+│   ├── Form
+│   └── Data tables
+│
+└── Mantine
+    ├── Date inputs
+    ├── Number inputs
+    ├── Notifications
+    ├── Progress
+    ├── RingProgress
+    └── specialized enterprise controls
+
+This avoids the common problem of having two competing design systems.
+
+
+---
+
+Recommended final architecture
+
+Your HR platform should now be separated into these bounded contexts:
+
+src/
+└── hr/
+    ├── organization/
+    ├── employees/
+    ├── recruitment/
+    ├── onboarding/
+    ├── workforce/
+    │
+    ├── attendance/
+    ├── shifts/
+    ├── rosters/
+    ├── overtime/
+    ├── timesheets/
+    │
+    ├── leave/
+    ├── holidays/
+    │
+    ├── compensation/
+    ├── payroll/
+    │   ├── calculation/
+    │   ├── engines/
+    │   ├── snapshots/
+    │   ├── exceptions/
+    │   └── transitions/
+    │
+    ├── accounting/
+    │   └── payroll-posting/
+    │
+    ├── payments/
+    │   └── payroll-payment/
+    │
+    ├── payslip/
+    │
+    ├── statutory/
+    │   ├── pf/
+    │   ├── esi/
+    │   ├── pt/
+    │   ├── lwf/
+    │   ├── tds/
+    │   └── filings/
+    │
+    ├── fnf/
+    │
+    ├── performance/
+    │
+    ├── lifecycle/
+    │
+    ├── ess/
+    │
+    ├── announcements/
+    │
+    └── reports/
+
+Most important boundary
+
+The lifecycle should ultimately be:
+
+┌───────────────┐
+                  │ Employee Data │
+                  └───────┬───────┘
+                          ↓
+               ┌────────────────────┐
+               │ Workforce Inputs   │
+               └─────────┬──────────┘
+                         ↓
+               ┌────────────────────┐
+               │ Payroll Calculation│
+               └─────────┬──────────┘
+                         ↓
+               ┌────────────────────┐
+               │ Immutable Snapshot │
+               └─────────┬──────────┘
+                         ↓
+                     LOCKED
+                         │
+            ┌────────────┼────────────┐
+            ↓            ↓            ↓
+       Accounting     Payslip     Statutory
+            ↓            ↓            ↓
+       Payable        Employee     Filing
+            ↓          Portal         ↓
+       Bank Payment       │       Acknowledgement
+            ↓             │
+       Reconciliation     │
+            └──────┬──────┘
+                   ↓
+                  PAID
+                   ↓
+             Payroll Closed
+
+This gives you a clean foundation for enterprise HRMS + payroll + accounting + employee self-service, while preserving the offline/local SQLite architecture and server-authoritative payroll model you established earlier.
+
+make sure everythig is working and aling to existing infra first and every features and implementation is working with current application without  breakig or hamper the any features services in platform application.
+
+
