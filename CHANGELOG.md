@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.57.0] - 2026-10-07
+## [0.58.0] - 2026-10-07
+- Split payments## [0.57.0] - 2026-10-07
 - Reservations## [0.56.0] - 2026-10-07
 - Matrix + coverage## [0.55.0] - 2026-10-07
 - Batch pricing## [0.54.0] - 2026-10-07
