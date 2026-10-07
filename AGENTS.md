@@ -24,6 +24,9 @@ Never `pm2 restart` unless the build just went green — a failed build leaves `
 Stop dev with `pkill -f "[n]ext dev"` — a bare `pkill -f "next dev"` matches and kills your own shell.
 Next 15: route `params` is `Promise` — `await` it in pages + `generateMetadata`.
 Vitest needs `vitest.config.ts` `@` alias (tsconfig paths are not enough).
+On-device `next build` can emit split-brain chunks (new route + stale lib →
+runtime "X is not defined" while typecheck is green). If live behavior
+contradicts a green build, `pm2 stop`, `rm -rf .next`, rebuild, start.
 
 ## Routes (must exist, SEO slugs)
 

@@ -8,6 +8,7 @@ export function peopleTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Employee (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', dept TEXT NOT NULL DEFAULT '', designation TEXT NOT NULL DEFAULT '', base INTEGER NOT NULL DEFAULT 0, allowances INTEGER NOT NULL DEFAULT 0, deductions INTEGER NOT NULL DEFAULT 0, joinedAt TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE TABLE IF NOT EXISTS EmpLoan (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, amount INTEGER NOT NULL DEFAULT 0, balance INTEGER NOT NULL DEFAULT 0, installment INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS PayrollRun (id INTEGER PRIMARY KEY AUTOINCREMENT, month TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'draft', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS SalaryStructure (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, base INTEGER NOT NULL DEFAULT 0, allowances INTEGER NOT NULL DEFAULT 0, deductions INTEGER NOT NULL DEFAULT 0)`);
   db.exec(`CREATE TABLE IF NOT EXISTS PayrollLine (id INTEGER PRIMARY KEY AUTOINCREMENT, runId INTEGER NOT NULL, employeeId INTEGER NOT NULL, base INTEGER NOT NULL DEFAULT 0, allowances INTEGER NOT NULL DEFAULT 0, deductions INTEGER NOT NULL DEFAULT 0, loanCut INTEGER NOT NULL DEFAULT 0, net INTEGER NOT NULL DEFAULT 0)`);
   db.exec(`CREATE TABLE IF NOT EXISTS Attendance (employeeId INTEGER NOT NULL, day TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'present', PRIMARY KEY (employeeId, day))`);
   db.exec(`CREATE TABLE IF NOT EXISTS LeaveReq (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, fromDay TEXT NOT NULL DEFAULT '', toDay TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'casual', status TEXT NOT NULL DEFAULT 'pending', notes TEXT NOT NULL DEFAULT '')`);
@@ -79,7 +80,7 @@ export function openRun(month: string): number {
   const db = getDb();
   const ex = db.prepare("SELECT id, status FROM PayrollRun WHERE month=?").get(month) as { id: number; status: string } | undefined;
   if (ex) {
-    if (ex.status !== "draft") throw new Error("run already paid");
+    if (ex.status === "paid") throw new Error("run already paid");
     return ex.id;
   }
   const id = Number(db.prepare("INSERT INTO PayrollRun (month) VALUES (?)").run(month).lastInsertRowid);
@@ -107,12 +108,50 @@ export function listRuns() {
   return getDb().prepare("SELECT * FROM PayrollRun ORDER BY month DESC LIMIT 24").all();
 }
 
+// Run states: draft → reviewed → approved → locked → paid (forward only).
+const RUN_FLOW = ["draft", "reviewed", "approved", "locked", "paid"] as const;
+
+export function setRunStatus(id: number, to: string): void {
+  peopleTables();
+  if (!RUN_FLOW.includes(to as (typeof RUN_FLOW)[number])) throw new Error("bad status");
+  const db = getDb();
+  const r = db.prepare("SELECT status FROM PayrollRun WHERE id=?").get(id) as { status: string } | undefined;
+  if (!r) throw new Error("no run");
+  const from = RUN_FLOW.indexOf(r.status as (typeof RUN_FLOW)[number]);
+  const next = RUN_FLOW.indexOf(to as (typeof RUN_FLOW)[number]);
+  if (from < 0 || next !== from + 1) throw new Error(`${r.status} → ${to} not allowed`);
+  db.prepare("UPDATE PayrollRun SET status=? WHERE id=?").run(to, id);
+}
+
+export function listStructures() {
+  peopleTables();
+  return getDb().prepare("SELECT * FROM SalaryStructure ORDER BY name").all();
+}
+
+export function saveStructure(name: string, base: number, allowances: number, deductions: number): number {
+  peopleTables();
+  const n = name.trim().slice(0, 80);
+  if (!n) throw new Error("name required");
+  return Number(getDb().prepare("INSERT INTO SalaryStructure (name, base, allowances, deductions) VALUES (?,?,?,?) ON CONFLICT(name) DO UPDATE SET base=excluded.base, allowances=excluded.allowances, deductions=excluded.deductions")
+    .run(n, Math.max(0, Math.round(base)), Math.max(0, Math.round(allowances)), Math.max(0, Math.round(deductions))).lastInsertRowid);
+}
+
+export function applyStructure(employeeId: number, structureId: number): void {
+  peopleTables();
+  const db = getDb();
+  const s = db.prepare("SELECT base, allowances, deductions FROM SalaryStructure WHERE id=?").get(structureId) as
+    { base: number; allowances: number; deductions: number } | undefined;
+  if (!s) throw new Error("no structure");
+  if (!db.prepare("SELECT id FROM Employee WHERE id=?").get(employeeId)) throw new Error("no employee");
+  db.prepare("UPDATE Employee SET base=?, allowances=?, deductions=? WHERE id=?").run(s.base, s.allowances, s.deductions, employeeId);
+}
+
 export async function payRun(id: number, accountId = 1): Promise<{ paid: number; total: number }> {
   peopleTables();
   const db = getDb();
   const run = db.prepare("SELECT month, status FROM PayrollRun WHERE id=?").get(id) as { month: string; status: string } | undefined;
   if (!run) throw new Error("no run");
-  if (run.status !== "draft") throw new Error("run already paid");
+  if (run.status !== "locked") throw new Error(`pay needs a locked run (now ${run.status})`);
   const lines = db.prepare("SELECT * FROM PayrollLine WHERE runId=?").all(id) as
     { employeeId: number; net: number }[];
   const total = lines.reduce((s, l) => s + l.net, 0);

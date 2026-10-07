@@ -285,19 +285,70 @@ export function PeopleConsole() {
     if (res.ok) void load();
   }
 
+  const [runs, setRuns] = useState<{ id: number; month: string; status: string }[]>([]);
+  const [structs, setStructs] = useState<{ id: number; name: string; base: number; allowances: number; deductions: number }[]>([]);
+  const [stname, setStname] = useState("");
+  const [stbase, setStbase] = useState("");
+  const [stallow, setStallow] = useState("");
+  const [stemp, setStemp] = useState("");
+
+  async function loadRuns() {
+    const [r, s] = await Promise.all([
+      fetch("/api/people/ops?runs=1").then((x) => x.json()).catch(() => null),
+      fetch("/api/people/ops?structures=1").then((x) => x.json()).catch(() => null),
+    ]);
+    if (r?.runs) setRuns(r.runs);
+    if (s?.structures) setStructs(s.structures);
+  }
+
   async function runPayroll() {
+    const step = async (body: Record<string, unknown>) => {
+      const r = await fetch("/api/people/ops", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      return { ok: r.ok, d: await r.json().catch(() => ({})) };
+    };
+    const opened = await step({ month });
+    if (!opened.ok) { setMsg(opened.d.error ?? "failed"); return; }
+    const id = opened.d.id;
+    for (const to of ["reviewed", "approved", "locked"]) {
+      const s = await step({ runstate: id, to });
+      if (!s.ok) { setMsg(`Stuck at ${to}: ${s.d.error ?? "failed"}`); void loadRuns(); return; }
+    }
+    const pay = await step({ pay: id });
+    setMsg(pay.ok ? `Paid ${pay.d.paid} staff ₹${(pay.d.total / 100).toFixed(0)} ✓ (reviewed → approved → locked → paid)` : (pay.d.error ?? "pay failed"));
+    void loadRuns();
+  }
+
+  async function advanceRun(id: number, to: string) {
     const res = await fetch("/api/people/ops", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month }),
+      body: JSON.stringify({ runstate: id, to }),
     });
     const d = await res.json().catch(() => ({}));
-    if (!res.ok) { setMsg(d.error ?? "failed"); return; }
-    const pay = await fetch("/api/people/ops", {
+    setMsg(res.ok ? `${to} ✓` : (d.error ?? "failed"));
+    if (res.ok) void loadRuns();
+  }
+
+  async function saveStruct() {
+    if (!stname.trim() || !stbase) return;
+    const res = await fetch("/api/people/ops", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pay: d.id }),
+      body: JSON.stringify({ structure: stname.trim(), base: Math.round(Number(stbase) * 100), allowances: Math.round(Number(stallow || 0) * 100), deductions: 0 }),
     });
-    const p = await pay.json().catch(() => ({}));
-    setMsg(pay.ok ? `Paid ${p.paid} staff ₹${(p.total / 100).toFixed(0)} ✓` : (p.error ?? "pay failed"));
+    setMsg(res.ok ? "Structure saved ✓" : "failed");
+    if (res.ok) { setStname(""); setStbase(""); setStallow(""); void loadRuns(); }
+  }
+
+  async function applyStruct(id: number) {
+    if (!stemp) { setMsg("Enter emp id to apply to."); return; }
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ applyStruct: id, employeeId: Number(stemp) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Applied to employee ✓" : (d.error ?? "failed"));
+    if (res.ok) void load();
   }
 
   if (!loaded) return <Skeleton lines={4} />;
@@ -604,13 +655,51 @@ export function PeopleConsole() {
         )}
       </AdminCard>
       <AdminCard>
-        <p className="font-bold">Payroll</p>
+        <p className="font-bold">Payroll <span className="text-xs font-normal text-zinc-500">(review → approve → lock → pay)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={month} onChange={(e) => setMonth(maskYearMonth(e.target.value))} placeholder="YYYY-MM" maxLength={7}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void runPayroll()}
             className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Open + Pay</button>
         </div>
+        {runs.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {runs.slice(0, 6).map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>{r.month} · <StatusBadge status={r.status} /></span>
+                <span className="flex gap-1">
+                  {r.status === "draft" && <button onClick={() => void advanceRun(r.id, "reviewed")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Review</button>}
+                  {r.status === "reviewed" && <button onClick={() => void advanceRun(r.id, "approved")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Approve</button>}
+                  {r.status === "approved" && <button onClick={() => void advanceRun(r.id, "locked")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Lock</button>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 font-bold">Salary structures</p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          <input value={stname} onChange={(e) => setStname(e.target.value)} placeholder="Name (Trainee)" maxLength={80}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={stbase} onChange={(e) => setStbase(maskAmount(e.target.value))} placeholder="Base ₹/mo" inputMode="decimal"
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={stallow} onChange={(e) => setStallow(maskAmount(e.target.value))} placeholder="Allow ₹" inputMode="decimal"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={stemp} onChange={(e) => setStemp(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void saveStruct()} disabled={!stname.trim() || !stbase}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Save structure"><Plus size={20} /></button>
+        </div>
+        {structs.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
+            {structs.map((s) => (
+              <li key={s.id} className="flex items-center gap-1.5 rounded-full border border-black/15 py-1.5 pl-3 pr-1.5 dark:border-white/20">
+                {s.name} ₹{(s.base / 100).toFixed(0)}
+                <button onClick={() => void applyStruct(s.id)} title="Apply to emp id above"
+                  className="min-h-[36px] rounded-full bg-brand/10 px-3 text-xs font-bold text-brand-deep">Apply</button>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="mt-1 text-xs text-zinc-500">Builds lines (base + allowances − deductions − loan slice), pays from Cash, posts to ledger. Attendance, leave and timesheets live on the API.</p>
       </AdminCard>
       {msg && <p className="text-sm text-zinc-500">{msg}</p>}
