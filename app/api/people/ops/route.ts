@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { checkIn, checkOut, deleteHoliday, fileExpense, getRun, leaveBalances, listExpenses, listHolidays, listLeaves, listRuns, listShifts, logTime, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, requestLeave, saveHoliday, saveShift, setExpense, setLeave, setRoster, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
+import { checkIn, checkOut, closeExit, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, listRuns, listShifts, logEmpEvent, logTime, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, requestLeave, saveDesignation, saveHoliday, saveShift, setClearance, setExpense, setLeave, setOffer, setRoster, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
@@ -32,6 +32,25 @@ export async function GET(req: Request) {
   }
   if (url.searchParams.get("expenses") !== null) {
     return NextResponse.json({ expenses: listExpenses(url.searchParams.get("expenses") || "") });
+  }
+  if (url.searchParams.get("designations") !== null) {
+    return NextResponse.json({ designations: listDesignations() });
+  }
+  if (url.searchParams.get("offers") !== null) {
+    return NextResponse.json({ offers: listOffers() });
+  }
+  if (url.searchParams.get("timeline") !== null) {
+    return NextResponse.json({ timeline: empTimeline(Number(url.searchParams.get("timeline") || 0)) });
+  }
+  if (url.searchParams.get("exit") !== null) {
+    return NextResponse.json({ exit: exitCase(Number(url.searchParams.get("exit") || 0)) });
+  }
+  if (url.searchParams.get("fullfinal") !== null) {
+    try {
+      return NextResponse.json(fullFinal(Number(url.searchParams.get("fullfinal") || 0)));
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+    }
   }
   if (url.searchParams.get("overtime") !== null) {
     return NextResponse.json(weekOvertime(Number(url.searchParams.get("overtime") || 0), url.searchParams.get("from") || new Date().toISOString().slice(0, 10)));
@@ -145,6 +164,66 @@ export async function POST(req: Request) {
       if (!parsed.success) return NextResponse.json({ error: "bad transition" }, { status: 422 });
       try {
         setExpense(parsed.data.expenseId, parsed.data.expenseTo);
+        return NextResponse.json({ ok: true });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.offer) {
+      const parsed = z.object({
+        offer: z.string().min(1).max(120), email: z.string().max(120).optional(),
+        designation: z.string().max(80).optional(), ctc: z.number().min(0).max(1000000000).optional(),
+        joining: z.string().max(10).optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad offer" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: makeOffer({ name: parsed.data.offer, ...parsed.data }) });
+    }
+    if (body?.offerTo) {
+      const parsed = z.object({ offerTo: z.enum(["accepted", "declined", "withdrawn"]), offerId: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad decision" }, { status: 422 });
+      try {
+        return NextResponse.json({ ok: true, employeeId: setOffer(parsed.data.offerId, parsed.data.offerTo) });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.designation) {
+      const parsed = z.object({ designation: z.string().min(1).max(80), grade: z.string().max(20).optional() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad designation" }, { status: 422 });
+      saveDesignation(parsed.data.designation, parsed.data.grade ?? "");
+      return NextResponse.json({ ok: true });
+    }
+    if (body?.empEvent) {
+      const parsed = z.object({ empEvent: z.number().int(), kind: z.string().max(20), detail: z.string().max(300).optional() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad event" }, { status: 422 });
+      logEmpEvent(parsed.data.empEvent, parsed.data.kind, parsed.data.detail ?? "");
+      return NextResponse.json({ ok: true });
+    }
+    if (body?.resign) {
+      const parsed = z.object({ resign: z.number().int(), reason: z.string().max(200).optional(), lastDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad resignation" }, { status: 422 });
+      try {
+        fileExit(parsed.data.resign, parsed.data.reason ?? "", parsed.data.lastDay);
+        return NextResponse.json({ ok: true });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.clear) {
+      const parsed = z.object({ clear: z.number().int(), key: z.string().min(1).max(40), done: z.boolean() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad clearance" }, { status: 422 });
+      try {
+        setClearance(parsed.data.clear, parsed.data.key, parsed.data.done);
+        return NextResponse.json({ ok: true });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.closeExit) {
+      const parsed = z.object({ closeExit: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad close" }, { status: 422 });
+      try {
+        closeExit(parsed.data.closeExit);
         return NextResponse.json({ ok: true });
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });

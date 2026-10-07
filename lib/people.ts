@@ -20,6 +20,10 @@ export function peopleTables(): void {
     ins.run("casual", 12); ins.run("sick", 12); ins.run("earned", 15);
   }
   db.exec(`CREATE TABLE IF NOT EXISTS Holiday (day TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Designation (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL UNIQUE, grade TEXT NOT NULL DEFAULT '', minPay INTEGER NOT NULL DEFAULT 0, maxPay INTEGER NOT NULL DEFAULT 0)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS JobOffer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', designation TEXT NOT NULL DEFAULT '', ctc INTEGER NOT NULL DEFAULT 0, joining TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'offered', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS EmpEvent (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ExitCase (employeeId INTEGER PRIMARY KEY, reason TEXT NOT NULL DEFAULT '', lastDay TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'resigned', clearance TEXT NOT NULL DEFAULT '{}')`);
   db.exec(`CREATE TABLE IF NOT EXISTS HrExpense (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, head TEXT NOT NULL DEFAULT '', amount INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Shift (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, start TEXT NOT NULL DEFAULT '09:00', end TEXT NOT NULL DEFAULT '18:00')`);
   if ((db.prepare("SELECT COUNT(*) c FROM Shift").get() as { c: number }).c === 0) {
@@ -285,6 +289,113 @@ export function weekOvertime(employeeId: number, monday: string): { logged: numb
   };
   const rostered = rows.reduce((s, r) => s + span(r.start, r.end), 0);
   return { logged, rostered, overtime: Math.max(0, Math.round((logged - rostered) * 10) / 10) };
+}
+
+// ---- designations + offers + lifecycle (plan 07 slice 4) ----
+export function listDesignations() {
+  peopleTables();
+  return getDb().prepare("SELECT * FROM Designation ORDER BY title").all();
+}
+
+export function saveDesignation(title: string, grade = "", minPay = 0, maxPay = 0) {
+  peopleTables();
+  const t = title.trim().slice(0, 80);
+  if (!t) throw new Error("title required");
+  getDb().prepare("INSERT INTO Designation (title, grade, minPay, maxPay) VALUES (?,?,?,?) ON CONFLICT(title) DO UPDATE SET grade=excluded.grade, minPay=excluded.minPay, maxPay=excluded.maxPay")
+    .run(t, grade.slice(0, 20), Math.max(0, Math.round(minPay)), Math.max(0, Math.round(maxPay)));
+}
+
+export function makeOffer(input: { name: string; email?: string; designation?: string; ctc?: number; joining?: string }): number {
+  peopleTables();
+  if (!input.name.trim()) throw new Error("name required");
+  return Number(getDb().prepare("INSERT INTO JobOffer (name, email, designation, ctc, joining) VALUES (?,?,?,?,?)")
+    .run(input.name.trim().slice(0, 120), (input.email ?? "").slice(0, 120), (input.designation ?? "").slice(0, 80),
+      Math.max(0, Math.round(input.ctc ?? 0)), (input.joining ?? "").slice(0, 10)).lastInsertRowid);
+}
+
+export function listOffers(status = "") {
+  peopleTables();
+  return getDb().prepare(status
+    ? "SELECT * FROM JobOffer WHERE status=? ORDER BY id DESC LIMIT 50"
+    : "SELECT * FROM JobOffer ORDER BY id DESC LIMIT 50").all(...(status ? [status] : []));
+}
+
+export function setOffer(id: number, to: string): number | null {
+  peopleTables();
+  if (!["accepted", "declined", "withdrawn"].includes(to)) throw new Error("bad status");
+  const db = getDb();
+  const o = db.prepare("SELECT * FROM JobOffer WHERE id=?").get(id) as
+    { name: string; email: string; designation: string; ctc: number; joining: string; status: string } | undefined;
+  if (!o || o.status !== "offered") throw new Error("offer not open");
+  db.prepare("UPDATE JobOffer SET status=? WHERE id=?").run(to, id);
+  if (to !== "accepted") return null;
+  // Accepted → employee row + timeline seed (one hire, no duplicates).
+  const monthly = Math.round(o.ctc / 12);
+  return saveEmployee({ name: o.name, email: o.email, designation: o.designation, base: monthly, joinedAt: o.joining || new Date().toISOString().slice(0, 10) });
+}
+
+export function logEmpEvent(employeeId: number, kind: string, detail = ""): void {
+  peopleTables();
+  const k = ["promotion", "transfer", "probation", "confirmed", "resigned", "exited", "note"].includes(kind) ? kind : "note";
+  getDb().prepare("INSERT INTO EmpEvent (employeeId, kind, detail) VALUES (?,?,?)")
+    .run(employeeId, k, detail.slice(0, 300));
+}
+
+export function empTimeline(employeeId: number) {
+  peopleTables();
+  return getDb().prepare("SELECT kind, detail, at FROM EmpEvent WHERE employeeId=? ORDER BY id DESC LIMIT 50").all(employeeId);
+}
+
+export function fileExit(employeeId: number, reason: string, lastDay: string): void {
+  peopleTables();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(lastDay)) throw new Error("last day like YYYY-MM-DD");
+  getDb().prepare("INSERT INTO ExitCase (employeeId, reason, lastDay) VALUES (?,?,?) ON CONFLICT(employeeId) DO UPDATE SET reason=excluded.reason, lastDay=excluded.lastDay, status='resigned'")
+    .run(employeeId, reason.slice(0, 200), lastDay);
+  logEmpEvent(employeeId, "resigned", `${reason.slice(0, 200)} · last day ${lastDay}`);
+}
+
+export function exitCase(employeeId: number) {
+  peopleTables();
+  return getDb().prepare("SELECT * FROM ExitCase WHERE employeeId=?").get(employeeId) as
+    { employeeId: number; reason: string; lastDay: string; status: string; clearance: string } | undefined ?? null;
+}
+
+export function setClearance(employeeId: number, key: string, done: boolean): void {
+  peopleTables();
+  const cur = exitCase(employeeId);
+  if (!cur) throw new Error("no exit case");
+  let map: Record<string, boolean> = {};
+  try { map = JSON.parse(cur.clearance || "{}"); } catch { /* reset */ }
+  map[key.slice(0, 40)] = done;
+  getDb().prepare("UPDATE ExitCase SET clearance=? WHERE employeeId=?").run(JSON.stringify(map).slice(0, 2000), employeeId);
+}
+
+export function closeExit(employeeId: number): void {
+  peopleTables();
+  const cur = exitCase(employeeId);
+  if (!cur || cur.status !== "resigned") throw new Error("nothing to close");
+  getDb().prepare("UPDATE ExitCase SET status='exited' WHERE employeeId=?").run(employeeId);
+  getDb().prepare("UPDATE Employee SET active=0 WHERE id=?").run(employeeId);
+  logEmpEvent(employeeId, "exited", "clearance complete, deactivated");
+}
+
+// Dues statement for full-and-final: unused earned leave value + open loans +
+// unpaid approved expenses. Read-only math, payout stays manual.
+export function fullFinal(employeeId: number): { earnedLeft: number; leaveValue: number; openLoans: number; unpaidExpenses: number } {
+  peopleTables();
+  const db = getDb();
+  const emp = db.prepare("SELECT base FROM Employee WHERE id=?").get(employeeId) as { base: number } | undefined;
+  if (!emp) throw new Error("no employee");
+  const earned = leaveBalances(employeeId).find((b) => b.kind === "earned");
+  const earnedLeft = earned?.left ?? 0;
+  const openLoans = (db.prepare("SELECT COALESCE(SUM(balance),0) s FROM EmpLoan WHERE employeeId=? AND status='open'").get(employeeId) as { s: number }).s;
+  const unpaidExpenses = (db.prepare("SELECT COALESCE(SUM(amount),0) s FROM HrExpense WHERE employeeId=? AND status='approved'").get(employeeId) as { s: number }).s;
+  return {
+    earnedLeft,
+    leaveValue: Math.round((earnedLeft * (emp.base || 0)) / 30),
+    openLoans,
+    unpaidExpenses,
+  };
 }
 
 // ---- check-in/out + leave balances + holidays (plan 07 daily slice) ----

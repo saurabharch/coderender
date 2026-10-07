@@ -117,6 +117,7 @@ const TONE: Record<string, string> = {
   created: "gray", packed: "blue", shipped: "orange", delivered: "green", rto: "red",
   open: "green", closed: "gray", launched: "teal", submitted: "blue", approved: "teal",
   rejected: "red",
+  offered: "blue", withdrawn: "gray", hired: "green",
 };
 
 export function StatusBadge({ status }: { status: string }) {

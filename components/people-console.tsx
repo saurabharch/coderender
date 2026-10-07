@@ -38,6 +38,19 @@ export function PeopleConsole() {
   const [examt, setExamt] = useState("");
   const [otid, setOtid] = useState("");
   const [ot, setOt] = useState<{ logged: number; rostered: number; overtime: number } | null>(null);
+  const [desigs, setDesigs] = useState<{ title: string; grade: string }[]>([]);
+  const [dtitle, setDtitle] = useState("");
+  const [offers, setOffers] = useState<{ id: number; name: string; designation: string; ctc: number; joining: string; status: string }[]>([]);
+  const [ofname, setOfname] = useState("");
+  const [ofctc, setOfctc] = useState("");
+  const [lcid, setLcid] = useState("");
+  const [timeline, setTimeline] = useState<{ kind: string; detail: string; at: string }[]>([]);
+  const [evkind, setEvkind] = useState("note");
+  const [evdetail, setEvdetail] = useState("");
+  const [exreason, setExreason] = useState("");
+  const [exday, setExday] = useState("");
+  const [exitinfo, setExitinfo] = useState<{ reason: string; lastDay: string; status: string; clearance: string } | null>(null);
+  const [ff, setFf] = useState<{ earnedLeft: number; leaveValue: number; openLoans: number; unpaidExpenses: number } | null>(null);
   const [leaves, setLeaves] = useState<{ id: number; name: string; fromDay: string; toDay: string; kind: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
@@ -79,6 +92,84 @@ export function PeopleConsole() {
     if (!otid) return;
     const d = await fetch(`/api/people/ops?overtime=${encodeURIComponent(otid)}`).then((r) => r.json()).catch(() => null);
     if (d && typeof d.overtime === "number") setOt(d);
+  }
+
+  async function loadMeta() {
+    const [dg, of] = await Promise.all([
+      fetch("/api/people/ops?designations=1").then((r) => r.json()).catch(() => null),
+      fetch("/api/people/ops?offers=1").then((r) => r.json()).catch(() => null),
+    ]);
+    if (dg?.designations) setDesigs(dg.designations);
+    if (of?.offers) setOffers(of.offers);
+  }
+
+  async function addDesignation() {
+    if (!dtitle.trim()) return;
+    await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ designation: dtitle.trim() }),
+    });
+    setDtitle(""); void loadMeta();
+  }
+
+  async function makeOffer() {
+    if (!ofname.trim()) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ offer: ofname.trim(), ctc: Math.round(Number(ofctc || 0) * 100) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Offer made ✓" : (d.error ?? "failed"));
+    if (res.ok) { setOfname(""); setOfctc(""); void loadMeta(); }
+  }
+
+  async function decideOffer(id: number, to: string) {
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ offerTo: to, offerId: id }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? (d.employeeId ? `Hired ✓ employee #${d.employeeId}` : `${to} ✓`) : (d.error ?? "failed"));
+    if (res.ok) { void loadMeta(); void load(); }
+  }
+
+  async function loadLifecycle() {
+    if (!lcid) return;
+    const [tl, ex, f] = await Promise.all([
+      fetch(`/api/people/ops?timeline=${encodeURIComponent(lcid)}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/people/ops?exit=${encodeURIComponent(lcid)}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/people/ops?fullfinal=${encodeURIComponent(lcid)}`).then((r) => r.json()).catch(() => null),
+    ]);
+    if (tl?.timeline) setTimeline(tl.timeline);
+    setExitinfo(ex?.exit ?? null);
+    if (f && typeof f.earnedLeft === "number") setFf(f);
+  }
+
+  async function recordEvent() {
+    if (!lcid) return;
+    await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ empEvent: Number(lcid), kind: evkind, detail: evdetail.trim() }),
+    });
+    setEvdetail(""); void loadLifecycle();
+  }
+
+  async function resign() {
+    if (!lcid || !exday) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resign: Number(lcid), reason: exreason.trim(), lastDay: exday }),
+    });
+    setMsg(res.ok ? "Resignation filed ✓" : "failed");
+    if (res.ok) void loadLifecycle();
+  }
+
+  async function toggleClear(key: string, done: boolean) {
+    await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clear: Number(lcid), key, done }),
+    });
+    void loadLifecycle();
   }
 
   async function load() {
@@ -408,6 +499,109 @@ export function PeopleConsole() {
             className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Check</button>
           {ot && <span className="flex items-center gap-1.5 text-sm">logged <b>{ot.logged}h</b> · rostered <b>{ot.rostered}h</b> · <b className={ot.overtime > 0 ? "text-amber-600" : ""}>{ot.overtime}h OT</b></span>}
         </div>
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Designations ({desigs.length})</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={dtitle} onChange={(e) => setDtitle(e.target.value)} placeholder="Senior Cashier" maxLength={80}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addDesignation()} disabled={!dtitle.trim()}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add designation"><Plus size={20} /></button>
+        </div>
+        {desigs.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
+            {desigs.map((d) => <li key={d.title} className="rounded-full border border-black/15 px-3 py-1.5 dark:border-white/20">{d.title}</li>)}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Offers ({offers.filter((o) => o.status === "offered").length} open)</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={ofname} onChange={(e) => setOfname(e.target.value)} placeholder="Candidate name" maxLength={120}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={ofctc} onChange={(e) => setOfctc(maskAmount(e.target.value))} placeholder="Annual CTC ₹" inputMode="decimal"
+            className="min-h-[44px] w-32 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void makeOffer()} disabled={!ofname.trim()}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Make offer"><Plus size={20} /></button>
+        </div>
+        {offers.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {offers.slice(0, 8).map((o) => (
+              <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>{o.name} · ₹{(o.ctc / 100).toFixed(0)}/yr · <StatusBadge status={o.status} /></span>
+                {o.status === "offered" && (
+                  <span className="flex gap-1">
+                    <button onClick={() => void decideOffer(o.id, "accepted")} className="min-h-[44px] rounded-xl bg-brand px-3 text-xs font-bold text-white">Hire</button>
+                    <button onClick={() => void decideOffer(o.id, "declined")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Decline</button>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Lifecycle & exit <span className="text-xs font-normal text-zinc-500">(timeline, clearance, dues)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={lcid} onChange={(e) => setLcid(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void loadLifecycle()} disabled={!lcid}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Open</button>
+          {ff && <span className="flex items-center gap-1.5 text-xs text-zinc-500">earned leave {ff.earnedLeft}d (₹{(ff.leaveValue / 100).toFixed(0)}) · loans ₹{(ff.openLoans / 100).toFixed(0)} · unpaid expenses ₹{(ff.unpaidExpenses / 100).toFixed(0)}</span>}
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <select value={evkind} onChange={(e) => setEvkind(e.target.value)} aria-label="Event kind"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            {["promotion", "transfer", "probation", "confirmed", "note"].map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <input value={evdetail} onChange={(e) => setEvdetail(e.target.value)} placeholder="Detail (new dept, grade…)" maxLength={300}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void recordEvent()} disabled={!lcid}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Log</button>
+        </div>
+        {timeline.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {timeline.map((x, i) => (
+              <li key={i} className="flex flex-wrap justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span><b className="capitalize">{x.kind}</b> · {x.detail}</span>
+                <span className="text-xs text-zinc-500">{x.at.slice(0, 16).replace("T", " ")}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-1.5 flex flex-wrap items-end gap-1.5">
+          <input value={exreason} onChange={(e) => setExreason(e.target.value)} placeholder="Exit reason" maxLength={200}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input type="date" value={exday} onChange={(e) => setExday(e.target.value)} aria-label="Last day"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void resign()} disabled={!lcid || !exday}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Resign</button>
+        </div>
+        {exitinfo && (
+          <div className="mt-1.5 rounded-xl border border-black/10 p-2 dark:border-white/10">
+            <p className="text-sm">Exit: {exitinfo.status} · last day {exitinfo.lastDay} · {exitinfo.reason}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {["accounts", "devices", "dues", "handover"].map((k) => {
+                let done = false;
+                try { done = !!(JSON.parse(exitinfo.clearance || "{}") as Record<string, boolean>)[k]; } catch { /* ignore */ }
+                return (
+                  <button key={k} onClick={() => void toggleClear(k, !done)} aria-pressed={done}
+                    className={`min-h-[44px] rounded-xl border px-3 text-xs font-semibold ${done ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}>{done ? "✓ " : ""}{k}</button>
+                );
+              })}
+              {exitinfo.status === "resigned" && (
+                <button onClick={async () => {
+                  const res = await fetch("/api/people/ops", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ closeExit: Number(lcid) }),
+                  });
+                  setMsg(res.ok ? "Exited ✓ deactivated" : "failed");
+                  if (res.ok) { void loadLifecycle(); void load(); }
+                }} className="min-h-[44px] rounded-xl bg-brand px-4 text-xs font-bold text-white">Close exit</button>
+              )}
+            </div>
+          </div>
+        )}
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Payroll</p>
