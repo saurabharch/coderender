@@ -67,6 +67,9 @@ export function startScheduler() {
       const { stockAlertTick } = await import("./inventory");
       const fresh = stockAlertTick();
       if (fresh.length) console.log(`[stock] low: ${fresh.map((f) => f.name).join(", ")}`);
+      const { reservationTick } = await import("./commerce");
+      const freed = reservationTick(48);
+      if (freed.length) console.log(`[stock] released stale holds: ${freed.join(",")}`);
       const { lotExpiryTick } = await import("./inventory");
       const exp = lotExpiryTick();
       if (exp.length) console.log(`[stock] expiring lots: ${exp.length}`);

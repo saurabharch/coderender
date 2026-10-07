@@ -148,6 +148,8 @@ export default async function ProductDetailPage({ params, searchParams }: {
     const levels = db.prepare(`SELECT w.name wh, COALESCE(s.qty, p.stock, 0) qty FROM Product p
       LEFT JOIN StockLevel s ON s.productId=p.id LEFT JOIN Warehouse w ON w.id=s.warehouseId WHERE p.id=?`).all(pid) as
       { wh: string | null; qty: number }[];
+    const { reservedQty } = await import("@/lib/inventory");
+    const held = reservedQty(pid);
     const moves = stockMoves(pid, 20) as { kind: string; qty: number; ref: string; at: string }[];
     const lots = listLots(pid) as { id: number; lot: string; mfg: string; exp: string; qty: number }[];
     return (
@@ -156,6 +158,7 @@ export default async function ProductDetailPage({ params, searchParams }: {
         {tabbar}
         <AdminCard>
           <p className="font-bold">Levels by warehouse</p>
+          {held > 0 && <p className="mt-1 text-sm font-semibold text-amber-600">{held} held in open drafts (auto-releases in 48h)</p>}
           <ul className="mt-2 space-y-1 text-sm">
             {levels.map((l, i) => (
               <li key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">

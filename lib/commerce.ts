@@ -3,7 +3,7 @@
 // Money in paise; math lives in commerce-core.
 import { getDb } from "./store";
 import { couponOff, orderCan, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
-import { fefoLots, openProductStock, setProductStock } from "./inventory";
+import { fefoLots, openProductStock, releaseStock, reservedFor, reserveStock, setProductStock } from "./inventory";
 import { eanFromId } from "./barcode-core";
 import { bankMove } from "./billing";
 import { ledgerPost } from "./finance";
@@ -568,20 +568,62 @@ export async function createOrder(input: {
   }
   const q = quote(input);
   if (!q.lines.length) throw new Error("empty cart");
-  const orderId = Number(db.prepare(`INSERT INTO ShopOrder (customerId, status, subtotal, discount, tax, grand, coupon, channel, notes)
-    VALUES (?,?,?,?,?,?,?,?,?)`).run(
-    input.customerId ?? 0, "draft", q.subtotal, q.discount, q.taxTotal, q.grand,
-    q.coupon ?? "", (input.channel ?? "admin").slice(0, 20), (input.notes ?? "").slice(0, 500)).lastInsertRowid);
-  const lineIns = db.prepare("INSERT INTO OrderLine (orderId, productId, name, qty, price, total) VALUES (?,?,?,?,?,?)");
-  for (const l of q.lines) {
-    const p = db.prepare("SELECT name, stock, kind FROM Product WHERE id=?").get(l.productId) as
-      { name: string; stock: number; kind: string };
-    if (p.kind === "physical" && p.stock < l.qty) throw new Error(`${p.name}: only ${p.stock} in stock`);
-    lineIns.run(orderId, l.productId, p.name.slice(0, 150), l.qty, l.price, l.price * l.qty);
+  // One transaction: order + lines + reserves + coupon commit together —
+  // a failed reserve can never leave a half-built draft behind.
+  db.exec("BEGIN");
+  try {
+    const orderId = Number(db.prepare(`INSERT INTO ShopOrder (customerId, status, subtotal, discount, tax, grand, coupon, channel, notes)
+      VALUES (?,?,?,?,?,?,?,?,?)`).run(
+      input.customerId ?? 0, "draft", q.subtotal, q.discount, q.taxTotal, q.grand,
+      q.coupon ?? "", (input.channel ?? "admin").slice(0, 20), (input.notes ?? "").slice(0, 500)).lastInsertRowid);
+    const lineIns = db.prepare("INSERT INTO OrderLine (orderId, productId, name, qty, price, total) VALUES (?,?,?,?,?,?)");
+    let held = 0;
+    for (const l of q.lines) {
+      const p = db.prepare("SELECT name, stock, kind FROM Product WHERE id=?").get(l.productId) as
+        { name: string; stock: number; kind: string };
+      if (p.kind === "physical" && p.stock < l.qty) throw new Error(`${p.name}: only ${p.stock} in stock`);
+      lineIns.run(orderId, l.productId, p.name.slice(0, 150), l.qty, l.price, l.price * l.qty);
+      if (p.kind === "physical") {
+        reserveStock(l.productId, l.qty, `order#${orderId}-reserve`);
+        held++;
+      }
+    }
+    if (q.coupon) db.prepare("UPDATE Coupon SET used = used + 1 WHERE code=?").run(q.coupon);
+    log(orderId, "created", `grand ₹${(q.grand / 100).toFixed(0)} · ${q.lines.length} lines`);
+    if (held > 0) log(orderId, "reserve", `${held} line${held === 1 ? "" : "s"} held for this draft`);
+    db.exec("COMMIT");
+    return orderId;
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch { /* already out */ }
+    throw e;
   }
-  if (q.coupon) db.prepare("UPDATE Coupon SET used = used + 1 WHERE code=?").run(q.coupon);
-  log(orderId, "created", `grand ₹${(q.grand / 100).toFixed(0)} · ${q.lines.length} lines`);
-  return orderId;
+}
+
+// Expired draft holds auto-release (default 48h). Returns released order ids.
+export function reservationTick(maxAgeH = 48): number[] {
+  commerceTables();
+  const db = getDb();
+  const stale = db.prepare(`SELECT id FROM ShopOrder WHERE status='draft'
+    AND datetime(createdAt) < datetime('now', ?) ORDER BY id LIMIT 100`).all(`-${Math.max(1, Math.round(maxAgeH))} hours`) as
+    { id: number }[];
+  const out: number[] = [];
+  for (const o of stale) {
+    const lines = db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(o.id) as
+      { productId: number; qty: number }[];
+    let freed = false;
+    for (const l of lines) {
+      const held = reservedFor(o.id, l.productId);
+      if (held > 0) {
+        releaseStock(l.productId, held, `order#${o.id}-release`);
+        freed = true;
+      }
+    }
+    if (freed) {
+      log(o.id, "reserve-expired", `holds older than ${maxAgeH}h released`);
+      out.push(o.id);
+    }
+  }
+  return out;
 }
 
 export function getOrder(id: number) {
@@ -615,12 +657,14 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
   db.exec("BEGIN");
   try {
     if (to === "confirmed") {
-      // Reserve stock at confirm through the ledger (086); physical decrement,
-      // Main warehouse mirror keeps Product.stock in sync.
+      // Reserve → release → issue: the hold converts into the real decrement
+      // inside the same transaction. Legacy drafts without holds issue as before.
       const { issueStock, consumeFefo } = await import("./inventory");
       for (const l of db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[]) {
         const p = db.prepare("SELECT kind FROM Product WHERE id=?").get(l.productId) as { kind: string } | undefined;
         if (p?.kind === "physical") {
+          const held = reservedFor(id, l.productId);
+          if (held > 0) releaseStock(l.productId, Math.min(held, l.qty), `order#${id}-release`);
           issueStock(l.productId, l.qty, `order#${id}`);
           const picks = consumeFefo(l.productId, l.qty);
           if (picks.length) log(id, "fefo", picks.map((x) => `${x.lot}×${x.took}`).join(","));
@@ -635,6 +679,16 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
       const lines = db.prepare(`SELECT l.productId, l.qty, p.kind FROM OrderLine l
         LEFT JOIN Product p ON p.id=l.productId WHERE l.orderId=?`).all(id) as
         { productId: number; qty: number; kind: string }[];
+      // Free any outstanding draft holds first (legacy orders hold nothing → no-op).
+      let freed = false;
+      for (const l of lines) {
+        const held = reservedFor(id, l.productId);
+        if (held > 0) {
+          releaseStock(l.productId, held, `order#${id}-release`);
+          freed = true;
+        }
+      }
+      if (freed) log(id, "reserve-released", "draft holds freed");
       if (from === "confirmed" || to === "returned") {
         const { receiveStock } = await import("./inventory");
         const skipped: number[] = [];

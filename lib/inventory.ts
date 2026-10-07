@@ -103,6 +103,46 @@ export function adjustStock(productId: number, delta: number, reason: string, wa
   move(productId, warehouseId, "adjust", delta, reason || "adjust");
 }
 
+// Draft holds (plan §37): reserve at order placement, released at confirm
+// (then issued) or at cancel/expiry. Best-effort reads use outstanding sums
+// so legacy orders without reserve moves behave exactly as before.
+export function reserveStock(productId: number, qty: number, ref: string, warehouseId = 1): void {
+  inventoryTables();
+  if (qty <= 0) throw new Error("qty must be positive");
+  if (!stockTracked(productId)) throw new Error("service/digital products take no stock");
+  if (levelOf(productId, warehouseId) < qty) throw new Error("insufficient stock");
+  move(productId, warehouseId, "reserve", qty, ref);
+}
+
+export function releaseStock(productId: number, qty: number, ref: string, warehouseId = 1): void {
+  inventoryTables();
+  if (qty <= 0) return;
+  move(productId, warehouseId, "release", qty, ref);
+}
+
+// Outstanding hold for an order line (reserve minus release on its refs).
+export function reservedFor(orderId: number, productId: number): number {
+  inventoryTables();
+  const db = getDb();
+  const r = db.prepare(`SELECT
+    COALESCE(SUM(CASE WHEN ref=? THEN qty ELSE 0 END),0) res,
+    COALESCE(SUM(CASE WHEN ref=? THEN qty ELSE 0 END),0) rel
+    FROM StockMove WHERE productId=?`).get(`order#${orderId}-reserve`, `order#${orderId}-release`, productId) as
+    { res: number; rel: number };
+  return Math.max(0, r.res - r.rel);
+}
+
+// Outstanding holds across all drafts, per product (confirm/cancel net to 0).
+export function reservedQty(productId: number): number {
+  inventoryTables();
+  const db = getDb();
+  const r = db.prepare(`SELECT
+    COALESCE(SUM(CASE WHEN kind='reserve' THEN qty ELSE 0 END),0) res,
+    COALESCE(SUM(CASE WHEN kind='release' THEN qty ELSE 0 END),0) rel
+    FROM StockMove WHERE productId=?`).get(productId) as { res: number; rel: number };
+  return Math.max(0, r.res - r.rel);
+}
+
 // Ledger-first product stock writes (fixes mirror-divergence: Product.stock
 // used to be written directly, bypassing StockMove). Untracked kinds
 // (service/digital/made_to_order) keep the direct mirror write.
