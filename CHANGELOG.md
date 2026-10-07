@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.64.0] - 2026-10-07
+## [0.65.0] - 2026-10-07
+- HR shifts## [0.64.0] - 2026-10-07
 - HR daily## [0.63.0] - 2026-10-07
 - Versioning + soft delete## [0.62.0] - 2026-10-07
 - Subscriptions## [0.61.0] - 2026-10-07
