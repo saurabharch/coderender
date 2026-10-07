@@ -8,7 +8,8 @@ import { sendDailyReport } from "@/lib/reporter";
 import { sessionUser } from "@/lib/auth";
 import { requireTeam } from "@/lib/auth";
 import { SubTabs } from "@/components/admin-ui";
-import { Flag, IndianRupee, MonitorSmartphone, ReceiptText, SlidersHorizontal, Store, Users } from "lucide-react";
+import { QUICKBAR_ACTIONS, QUICKBAR_ROLES, quickbarCustom } from "@/lib/quickbar";
+import { Flag, IndianRupee, MonitorSmartphone, ReceiptText, SlidersHorizontal, Store, Users, Zap } from "lucide-react";
 
 async function save(form: FormData) {
   "use server";
@@ -146,6 +147,19 @@ async function saveFlags(form: FormData) {
   revalidatePath("/admin/settings");
 }
 
+async function saveQuickbar(form: FormData) {
+  "use server";
+  await requireTeam();
+  const ids = new Set<string>(QUICKBAR_ACTIONS.map((a) => a.id));
+  const out: Record<string, string[]> = {};
+  for (const role of QUICKBAR_ROLES) {
+    const picked = form.getAll(`qb_${role}`).map(String).filter((x) => ids.has(x)).slice(0, 5);
+    if (picked.length > 0) out[role] = picked;
+  }
+  setPref("quickbar", JSON.stringify(out));
+  revalidatePath("/admin/settings");
+}
+
 async function savePrices(form: FormData) {  "use server";
   const me = await sessionUser();
   if (!me || me.role !== "owner") return;
@@ -166,7 +180,7 @@ async function savePrices(form: FormData) {  "use server";
   revalidatePath("/pricing");
 }
 
-const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices"] as const;
+const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices", "quickbar"] as const;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const raw = (await searchParams).tab ?? "general";
@@ -194,6 +208,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         { id: "tax", label: "Tax", Icon: ReceiptText, href: "/admin/settings?tab=tax" },
         { id: "flags", label: "Flags", Icon: Flag, href: "/admin/settings?tab=flags" },
         { id: "prices", label: "Prices", Icon: IndianRupee, href: "/admin/settings?tab=prices" },
+        { id: "quickbar", label: "Quick bar", Icon: Zap, href: "/admin/settings?tab=quickbar" },
       ]} />
       {tab === "general" && (<>
       <form action={save} className="mt-4 grid max-w-xl gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
@@ -320,6 +335,28 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </label>
         ))}
         <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save flags</button>
+      </form>
+      </>)}
+      {tab === "quickbar" && (<>
+      <h2 className="font-bold">Staff quick bar <span className="text-xs font-normal text-zinc-500">(mobile floating buttons per role — scan stays central)</span></h2>
+      <form action={saveQuickbar} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        {QUICKBAR_ROLES.map((role) => {
+          const cur = (quickbarCustom()[role] ?? []);
+          return (
+            <fieldset key={role} className="grid gap-1 rounded-xl border border-black/10 p-2 dark:border-white/10">
+              <legend className="px-1 text-sm font-bold capitalize">{role}{cur.length === 0 && <span className="font-normal text-zinc-500"> (defaults)</span>}</legend>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICKBAR_ACTIONS.map((a) => (
+                  <label key={a.id} className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl border border-black/15 px-3 text-sm dark:border-white/20">
+                    <input type="checkbox" name={`qb_${role}`} value={a.id} defaultChecked={cur.includes(a.id)} className="h-5 w-5" />
+                    {a.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          );
+        })}
+        <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save quick bar</button>
       </form>
       </>)}
       {tab === "prices" && (<>
