@@ -12,6 +12,14 @@ export function peopleTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Attendance (employeeId INTEGER NOT NULL, day TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'present', PRIMARY KEY (employeeId, day))`);
   db.exec(`CREATE TABLE IF NOT EXISTS LeaveReq (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, fromDay TEXT NOT NULL DEFAULT '', toDay TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'casual', status TEXT NOT NULL DEFAULT 'pending', notes TEXT NOT NULL DEFAULT '')`);
   db.exec(`CREATE TABLE IF NOT EXISTS Timesheet (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, day TEXT NOT NULL DEFAULT '', hours REAL NOT NULL DEFAULT 0, taskRef TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE TABLE IF NOT EXISTS AttnLog (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, day TEXT NOT NULL DEFAULT '', inAt TEXT NOT NULL DEFAULT '', outAt TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_attnlog_empday ON AttnLog(employeeId, day)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS LeaveType (kind TEXT PRIMARY KEY, quota INTEGER NOT NULL DEFAULT 12)`);
+  if ((db.prepare("SELECT COUNT(*) c FROM LeaveType").get() as { c: number }).c === 0) {
+    const ins = db.prepare("INSERT INTO LeaveType (kind, quota) VALUES (?,?)");
+    ins.run("casual", 12); ins.run("sick", 12); ins.run("earned", 15);
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS Holiday (day TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '')`);
   db.exec(`CREATE TABLE IF NOT EXISTS Budget (id INTEGER PRIMARY KEY AUTOINCREMENT, head TEXT NOT NULL, month TEXT NOT NULL DEFAULT '', planned INTEGER NOT NULL DEFAULT 0)`);
 }
 
@@ -149,6 +157,65 @@ export function setLeave(id: number, to: "approved" | "rejected"): void {
   peopleTables();
   if (!["approved", "rejected"].includes(to)) throw new Error("bad status");
   getDb().prepare("UPDATE LeaveReq SET status=? WHERE id=?").run(to, id);
+}
+
+// ---- check-in/out + leave balances + holidays (plan 07 daily slice) ----
+export function checkIn(employeeId: number, at = ""): number {
+  peopleTables();
+  const day = (at || new Date().toISOString()).slice(0, 10);
+  const open = getDb().prepare("SELECT id FROM AttnLog WHERE employeeId=? AND day=? AND (outAt IS NULL OR outAt='') ORDER BY id DESC LIMIT 1").get(employeeId, day) as
+    { id: number } | undefined;
+  if (open) return open.id;
+  return Number(getDb().prepare("INSERT INTO AttnLog (employeeId, day, inAt) VALUES (?,?,?)")
+    .run(employeeId, day, at || new Date().toISOString()).lastInsertRowid);
+}
+
+export function checkOut(employeeId: number, at = ""): number {
+  peopleTables();
+  const day = (at || new Date().toISOString()).slice(0, 10);
+  const open = getDb().prepare("SELECT id FROM AttnLog WHERE employeeId=? AND day=? AND (outAt IS NULL OR outAt='') ORDER BY id DESC LIMIT 1").get(employeeId, day) as
+    { id: number } | undefined;
+  if (!open) throw new Error("not checked in");
+  getDb().prepare("UPDATE AttnLog SET outAt=? WHERE id=?").run(at || new Date().toISOString(), open.id);
+  return open.id;
+}
+
+export function todayPresence(day = ""): { employeeId: number; name: string; inAt: string; outAt: string }[] {
+  peopleTables();
+  const d = day || new Date().toISOString().slice(0, 10);
+  return getDb().prepare(`SELECT a.employeeId, e.name, a.inAt, a.outAt FROM AttnLog a
+    LEFT JOIN Employee e ON e.id=a.employeeId WHERE a.day=? ORDER BY a.inAt`).all(d) as
+    { employeeId: number; name: string; inAt: string; outAt: string }[];
+}
+
+export function leaveBalances(employeeId: number): { kind: string; quota: number; taken: number; left: number }[] {
+  peopleTables();
+  const db = getDb();
+  const types = db.prepare("SELECT kind, quota FROM LeaveType ORDER BY kind").all() as { kind: string; quota: number }[];
+  return types.map((t) => {
+    const taken = (db.prepare(`SELECT COALESCE(SUM(julianday(toDay) - julianday(fromDay) + 1), 0) n FROM LeaveReq
+      WHERE employeeId=? AND kind=? AND status='approved'`).get(employeeId, t.kind) as { n: number }).n;
+    const whole = Math.max(0, Math.floor(taken));
+    return { kind: t.kind, quota: t.quota, taken: whole, left: Math.max(0, t.quota - whole) };
+  });
+}
+
+export function listHolidays(limit = 60) {
+  peopleTables();
+  return getDb().prepare("SELECT day, name FROM Holiday ORDER BY day LIMIT ?").all(limit);
+}
+
+export function saveHoliday(day: string, name: string): void {
+  peopleTables();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("day like YYYY-MM-DD");
+  if (!name.trim()) throw new Error("name required");
+  getDb().prepare("INSERT INTO Holiday (day, name) VALUES (?,?) ON CONFLICT(day) DO UPDATE SET name=excluded.name")
+    .run(day, name.trim().slice(0, 120));
+}
+
+export function deleteHoliday(day: string): void {
+  peopleTables();
+  getDb().prepare("DELETE FROM Holiday WHERE day=?").run(day);
 }
 
 export function listLeaves(status = "") {

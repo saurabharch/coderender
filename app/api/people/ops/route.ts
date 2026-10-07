@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRun, listLeaves, listRuns, logTime, markAttendance, monthAttendance, openRun, payRun, requestLeave, setLeave, weekHours } from "@/lib/people";
+import { checkIn, checkOut, deleteHoliday, getRun, leaveBalances, listHolidays, listLeaves, listRuns, logTime, markAttendance, monthAttendance, openRun, payRun, requestLeave, saveHoliday, setLeave, todayPresence, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
@@ -20,6 +20,15 @@ export async function GET(req: Request) {
   }
   if (url.searchParams.get("leaves") !== null) {
     return NextResponse.json({ leaves: listLeaves(url.searchParams.get("leaves") || "") });
+  }
+  if (url.searchParams.get("presence") !== null) {
+    return NextResponse.json({ presence: todayPresence(url.searchParams.get("day") || "") });
+  }
+  if (url.searchParams.get("balances") !== null) {
+    return NextResponse.json({ balances: leaveBalances(Number(url.searchParams.get("balances") || 0)) });
+  }
+  if (url.searchParams.get("holidays") !== null) {
+    return NextResponse.json({ holidays: listHolidays() });
   }
   return NextResponse.json({ runs: listRuns() });
 }
@@ -63,6 +72,30 @@ export async function POST(req: Request) {
       const parsed = z.object({ approve: z.number().int(), to: z.enum(["approved", "rejected"]) }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad approve" }, { status: 422 });
       setLeave(parsed.data.approve, parsed.data.to);
+      return NextResponse.json({ ok: true });
+    }
+    if (body?.checkin) {
+      const parsed = z.object({ checkin: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad checkin" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: checkIn(parsed.data.checkin) });
+    }
+    if (body?.checkout) {
+      const parsed = z.object({ checkout: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad checkout" }, { status: 422 });
+      try {
+        return NextResponse.json({ ok: true, id: checkOut(parsed.data.checkout) });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.holiday) {
+      const parsed = z.object({ holiday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), name: z.string().min(1).max(120) }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad holiday" }, { status: 422 });
+      saveHoliday(parsed.data.holiday, parsed.data.name);
+      return NextResponse.json({ ok: true });
+    }
+    if (body?.holidayDel) {
+      deleteHoliday(String(body.holidayDel).slice(0, 10));
       return NextResponse.json({ ok: true });
     }
     if (body?.time) {

@@ -15,6 +15,13 @@ interface Emp { id: number; name: string; dept: string; designation: string }
 
 export function PeopleConsole() {
   const [emps, setEmps] = useState<Emp[]>([]);
+  const [presence, setPresence] = useState<{ employeeId: number; name: string; inAt: string; outAt: string }[]>([]);
+  const [pioid, setPioid] = useState("");
+  const [hols, setHols] = useState<{ day: string; name: string }[]>([]);
+  const [hday, setHday] = useState("");
+  const [hname, setHname] = useState("");
+  const [balid, setBalid] = useState("");
+  const [bals, setBals] = useState<{ kind: string; quota: number; taken: number; left: number }[]>([]);
   const [leaves, setLeaves] = useState<{ id: number; name: string; fromDay: string; toDay: string; kind: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
@@ -28,13 +35,44 @@ export function PeopleConsole() {
     Array.isArray(v) ? ((v[0] as Date | undefined) ?? null) : ((v as Date | null) ?? null);
 
   async function load() {
-    const [d, l] = await Promise.all([
+    const [d, l, pr, h] = await Promise.all([
       fetch("/api/people/employees").then((r) => r.json()).catch(() => null),
       fetch("/api/people/ops?leaves=pending").then((r) => r.json()).catch(() => null),
+      fetch("/api/people/ops?presence=1").then((r) => r.json()).catch(() => null),
+      fetch("/api/people/ops?holidays=1").then((r) => r.json()).catch(() => null),
     ]);
     if (d?.employees) setEmps(d.employees);
     if (l?.leaves) setLeaves(l.leaves);
+    if (pr?.presence) setPresence(pr.presence);
+    if (h?.holidays) setHols(h.holidays);
     setLoaded(true);
+  }
+
+  async function punch(kind: "checkin" | "checkout") {
+    if (!pioid) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [kind]: Number(pioid) }),
+    });
+    const dd = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `${kind === "checkin" ? "Checked in" : "Checked out"} ✓` : (dd.error ?? "failed"));
+    if (res.ok) { setPioid(""); void load(); }
+  }
+
+  async function showBalances() {
+    if (!balid) return;
+    const d = await fetch(`/api/people/ops?balances=${encodeURIComponent(balid)}`).then((r) => r.json()).catch(() => null);
+    if (d?.balances) setBals(d.balances);
+  }
+
+  async function addHoliday() {
+    if (!hday || !hname.trim()) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ holiday: hday, name: hname.trim() }),
+    });
+    setMsg(res.ok ? "Holiday saved ✓" : "failed");
+    if (res.ok) { setHday(""); setHname(""); void load(); }
   }
 
   useEffect(() => { void load(); }, []);
@@ -111,7 +149,55 @@ export function PeopleConsole() {
         )}
       </AdminCard>
       <AdminCard>
+        <p className="font-bold">Today — presence ({presence.length})</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={pioid} onChange={(e) => setPioid(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void punch("checkin")}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Check in</button>
+          <button onClick={() => void punch("checkout")}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Check out</button>
+        </div>
+        {presence.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {presence.map((x, i) => (
+              <li key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span className="flex items-center gap-2"><AvatarInitials name={x.name || "?"} size="sm" />{x.name || `#${x.employeeId}`}</span>
+                <span className="text-xs text-zinc-500">{x.inAt.slice(11, 16) || "—"} → {x.outAt.slice(11, 16) || "open"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Holidays ({hols.length})</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input type="date" value={hday} onChange={(e) => setHday(e.target.value)} aria-label="Holiday date"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={hname} onChange={(e) => setHname(e.target.value)} placeholder="Diwali" maxLength={120}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addHoliday()} disabled={!hday || !hname.trim()}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add holiday"><Plus size={20} /></button>
+        </div>
+        {hols.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5 text-sm">
+            {hols.map((h) => <li key={h.day} className="rounded-full border border-black/15 px-3 py-1.5 dark:border-white/20">{h.day.slice(5)} · {h.name}</li>)}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
         <p className="font-bold">Leave requests ({leaves.length} pending)</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={balid} onChange={(e) => setBalid(maskInt(e.target.value))} placeholder="Emp id → balances" inputMode="numeric"
+            className="min-h-[44px] w-36 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void showBalances()} disabled={!balid}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Balances</button>
+          {bals.length > 0 && (
+            <span className="flex flex-wrap items-center gap-1.5 text-xs">
+              {bals.map((b) => <span key={b.kind} className="rounded-full bg-black/5 px-2 py-1 dark:bg-white/10">{b.kind}: {b.left}/{b.quota}</span>)}
+            </span>
+          )}
+        </div>
         <div className="mt-2 flex flex-wrap items-end gap-1.5">
           <input value={lvid} onChange={(e) => setLvid(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
             className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
