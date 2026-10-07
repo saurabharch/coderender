@@ -36,6 +36,9 @@ export async function POST(req: Request) {
         op: z.literal("sale"), lines: z.array(line).min(1).max(50),
         customerId: z.number().int().optional(), method: z.enum(["cash", "upi", "card"]).optional(),
         cashIn: z.number().min(0).max(100000000).optional(),
+        payments: z.array(z.object({
+          method: z.enum(["cash", "upi", "card"]), amount: z.number().min(1).max(100000000),
+        })).min(1).max(4).optional(),
         discountPaise: z.number().min(0).max(100000000).optional(),
         discountPct: z.number().min(0).max(100).optional(),
       }).safeParse(body);

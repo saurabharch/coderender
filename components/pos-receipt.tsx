@@ -51,7 +51,16 @@ export function PosReceipt({ data, tendered, change, onNew }: {
         {o.discount > 0 && <p className="flex justify-between"><span>Discount{o.coupon ? ` (${o.coupon})` : ""}</span><span>−₹{(o.discount / 100).toFixed(0)}</span></p>}
         {o.tax > 0 && <p className="flex justify-between"><span>Tax</span><span>₹{(o.tax / 100).toFixed(0)}</span></p>}
         <p className="flex justify-between text-base font-extrabold"><span>Total</span><span>₹{(o.grand / 100).toFixed(0)}</span></p>
-        <p className="flex justify-between"><span>Paid by {method.toUpperCase()}</span><span>{data.payments[0]?.status ?? "paid"}</span></p>
+        {data.payments.length > 1 ? (
+          <div className="rounded bg-black/5 px-2 py-1 dark:bg-white/10">
+            <p className="font-bold">Split tender</p>
+            {data.payments.map((pm, i) => (
+              <p key={i} className="flex justify-between"><span>{pm.method.toUpperCase()} · {pm.status}</span><span>₹{(pm.amount / 100).toFixed(0)}</span></p>
+            ))}
+          </div>
+        ) : (
+          <p className="flex justify-between"><span>Paid by {method.toUpperCase()}</span><span>{data.payments[0]?.status ?? "paid"}</span></p>
+        )}
         {method === "cash" && tendered > 0 && (
           <>
             <p className="flex justify-between"><span>Tendered</span><span>₹{(tendered / 100).toFixed(0)}</span></p>

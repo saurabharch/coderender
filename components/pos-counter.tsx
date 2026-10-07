@@ -41,6 +41,10 @@ export function PosCounter() {
   const [cardno, setCardno] = useState("");
   const [disval, setDisval] = useState("");
   const [disKind, setDisKind] = useState<"flat" | "pct">("flat");
+  const [splitOn, setSplitOn] = useState(false);
+  const [splits, setSplits] = useState<{ method: "cash" | "upi" | "card"; amt: string }[]>([
+    { method: "upi", amt: "" }, { method: "cash", amt: "" },
+  ]);
   const photoRef = useRef<HTMLInputElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -164,22 +168,75 @@ export function PosCounter() {
 
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const pcs = lines.reduce((s, l) => s + l.qty, 0);
+  const [billGrand, setBillGrand] = useState<number | null>(null);
+  const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!splitOn || lines.length === 0) { setBillGrand(null); return; }
+    if (quoteTimer.current) clearTimeout(quoteTimer.current);
+    quoteTimer.current = setTimeout(async () => {
+      const dis = disval ? (disKind === "pct"
+        ? Math.round((total * Math.min(100, Number(disval) || 0)) / 100)
+        : Math.round(Number(disval) * 100)) : 0;
+      const d = await fetch("/api/shop/orders", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lines: lines.map((l) => ({ productId: l.productId, qty: l.qty })),
+          customerId: customer?.id, ...(dis > 0 ? { manualDiscount: dis } : {}),
+        }),
+      }).then((r) => r.json()).catch(() => null);
+      setBillGrand(typeof d?.grand === "number" ? d.grand : null);
+    }, 400);
+    return () => { if (quoteTimer.current) clearTimeout(quoteTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [splitOn, lines, disval, disKind, customer]);
+  const splitSum = splits.reduce((s, x) => s + Math.round(Number(x.amt || 0) * 100), 0);
+  const splitLeft = total - splitSum;
   const tender = Math.round(Number(tendered) * 100) || 0;
   const change = method === "cash" && tender > 0 ? tender - total : 0;
 
   // Business VPA QR for UPI collection (amount-bound, refreshed per bill).
+  const upiDue = splitOn
+    ? splits.filter((x) => x.method === "upi").reduce((s, x) => s + Math.round(Number(x.amt || 0) * 100), 0)
+    : method === "upi" ? total : 0;
   useEffect(() => {
-    if (method !== "upi" || total <= 0) { setQr(null); return; }
+    if (upiDue <= 0) { setQr(null); return; }
     fetch("/api/pay/link?qr=1").then((r) => r.json()).then((d) => {
       const q = (d?.qrs ?? []).find((x: { upiId: string }) => x.upiId?.includes("@"));
       if (!q) { setQr(null); return; }
-      const p = new URLSearchParams({ pa: q.upiId, pn: (q.name || "Merchant").slice(0, 60), cu: "INR", am: (total / 100).toFixed(2) });
+      const p = new URLSearchParams({ pa: q.upiId, pn: (q.name || "Merchant").slice(0, 60), cu: "INR", am: (upiDue / 100).toFixed(2) });
       setQr({ payload: `upi://pay?${p}`, upiId: q.upiId });
     }).catch(() => setQr(null));
-  }, [method, total]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upiDue, method, splitOn]);
 
   async function complete() {
     if (!lines.length) return;
+    if (splitOn) {
+      const due = billGrand ?? total;
+      if (splitSum !== due) { setMsg(`Split ₹${(splitSum / 100).toFixed(0)} must equal bill ₹${(due / 100).toFixed(0)} — fix or auto-fill.`); return; }
+      const res = await fetch("/api/retail/pos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "sale", lines: lines.map((l) => ({ productId: l.productId, qty: l.qty })),
+          customerId: customer?.id,
+          payments: splits.map((x) => ({ method: x.method, amount: Math.round(Number(x.amt) * 100) })),
+          ...(disval ? (disKind === "pct"
+            ? { discountPct: Math.min(100, Number(disval) || 0) }
+            : { discountPaise: Math.round(Number(disval) * 100) }) : {}),
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const r = await fetch(`/api/retail/receipt?orderId=${d.orderId}`).then((x) => x.json()).catch(() => null);
+        setLastTender(0);
+        setLastChange(0);
+        if (r?.crn) { setReceipt(r); setMsg(""); }
+        else setMsg(`Sold ✓ order #${d.orderId}`);
+        setLines([]); setDisval(""); setCustomer(null);
+        setSplits([{ method: "upi", amt: "" }, { method: "cash", amt: "" }]);
+      } else setMsg(d.error ?? "sale failed");
+      return;
+    }
     const dis = disval
       ? disKind === "pct"
         ? { discountPct: Math.min(100, Number(disval) || 0) }
@@ -321,14 +378,16 @@ export function PosCounter() {
           {lines.length === 0 ? <p className="mt-2 text-sm text-zinc-500">Empty — scan or search to add.</p> : (
             <ul className="mt-2 space-y-1 text-sm">
               {lines.map((l) => (
-                <li key={l.productId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                  <span className="min-w-0 flex-1 truncate">{l.name}</span>
-                  <span className="flex shrink-0 items-center gap-1">
+                <li key={l.productId} className="grid gap-1.5 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                  <span className="flex min-w-0 items-baseline justify-between gap-x-2"><span className="min-w-0 flex-1 truncate font-semibold">{l.name}</span><b className="shrink-0">₹{(l.price * l.qty / 100).toFixed(0)}</b></span>
+                  <span className="flex items-center justify-between gap-1"><span className="flex items-center gap-1">
                     <button aria-label={`Less ${l.name}`} onClick={() => setLines((ls) => ls.map((x) => (x.productId === l.productId ? { ...x, qty: x.qty - 1 } : x)).filter((x) => x.qty > 0))}
                       className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">−</button>
                     <b className="w-6 text-center">{l.qty}</b>
                     <button aria-label={`More ${l.name}`} onClick={() => setLines((ls) => ls.map((x) => (x.productId === l.productId ? { ...x, qty: x.qty + 1 } : x)))}
                       className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 text-lg dark:border-white/20">+</button>
+                    </span>
+                    <span className="text-xs text-zinc-500">₹{(l.price / 100).toFixed(0)} each</span>
                   </span>
                 </li>
               ))}
@@ -356,6 +415,44 @@ export function PosCounter() {
             </select>
           </div>
           <p className="mt-1 text-[11px] text-zinc-500">Manual discounts need the override flag (Settings → Service flags).</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Pay</p>
+            <button onClick={() => setSplitOn((s) => !s)} aria-pressed={splitOn}
+              className={`min-h-[44px] rounded-xl border px-4 text-sm font-semibold ${splitOn ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}>
+              Split tender</button>
+            {splitOn && <span className="text-xs text-zinc-500">Bill ₹{billGrand === null ? "…" : (billGrand / 100).toFixed(0)} · exact, no change</span>}
+          </div>
+          {splitOn ? (
+            <div className="mt-1.5 grid gap-1.5">
+              {splits.map((x, i) => (
+                <div key={i} className="flex flex-wrap gap-1.5">
+                  <select value={x.method} onChange={(e) => setSplits((ss) => ss.map((y, j) => (j === i ? { ...y, method: e.target.value as "cash" | "upi" | "card" } : y)))} aria-label={`Split ${i + 1} method`}
+                    className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+                    <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option>
+                  </select>
+                  <input value={x.amt} onChange={(e) => setSplits((ss) => ss.map((y, j) => (j === i ? { ...y, amt: maskAmount(e.target.value) } : y)))}
+                    placeholder="₹" inputMode="decimal" aria-label={`Split ${i + 1} amount`}
+                    className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                  {splits.length > 1 && (
+                    <button onClick={() => setSplits((ss) => ss.filter((_, j) => j !== i))} aria-label={`Remove split ${i + 1}`}
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 dark:border-white/20">✕</button>
+                  )}
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-1.5">
+                {splits.length < 3 && (
+                  <button onClick={() => setSplits((ss) => [...ss, { method: "card", amt: "" }])}
+                    className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">+ Add split</button>
+                )}
+                <button onClick={() => {
+                  const due = billGrand ?? total;
+                  const rest = due - splits.slice(0, -1).reduce((s, x) => s + Math.round(Number(x.amt || 0) * 100), 0);
+                  setSplits((ss) => ss.map((y, j) => (j === ss.length - 1 ? { ...y, amt: (Math.max(0, rest) / 100).toFixed(0) } : y)));
+                }} className="min-h-[44px] rounded-xl border border-brand/40 px-4 text-sm font-semibold text-brand-deep">Auto-fill remainder</button>
+              </div>
+              <p className="text-right text-sm font-bold">Split ₹{(splitSum / 100).toFixed(0)} / ₹{((billGrand ?? total) / 100).toFixed(0)}</p>
+            </div>
+          ) : (
           <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Payment method">
             {([
               ["cash", "Cash", Banknote], ["upi", "UPI", Smartphone], ["card", "Card", CreditCard],
@@ -364,7 +461,8 @@ export function PosCounter() {
                 className={`flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl border text-sm font-bold ${method === m ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}><Icon size={18} />{label}</button>
             ))}
           </div>
-          {method === "cash" && (
+          )}
+          {!splitOn && method === "cash" && (
             <>
               <input value={tendered} onChange={(e) => setTendered(maskAmount(e.target.value))} placeholder="Cash tendered ₹" inputMode="decimal"
                 className="mt-1.5 min-h-[44px] w-full rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
@@ -375,22 +473,23 @@ export function PosCounter() {
               )}
             </>
           )}
-          {method === "upi" && (
+          {(splitOn ? upiDue > 0 : method === "upi") && (
             qr ? (
               <div className="mt-1.5 grid justify-items-center gap-1 rounded-xl bg-black/5 px-3 py-2 dark:bg-white/10">
                 <QrImg text={qr.payload} size={180} />
                 <p className="font-mono text-xs font-bold">{qr.upiId}</p>
-                <p className="text-sm font-extrabold">Collect ₹{(total / 100).toFixed(0)} — then tap Complete below to confirm</p>
+                <p className="text-sm font-extrabold">Collect ₹{(upiDue / 100).toFixed(0)} — then tap Complete below to confirm</p>
               </div>
             ) : (
               <p className="mt-1.5 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">
                 No business VPA saved — add one in <a href="/admin/billing" className="font-semibold text-brand-deep underline">Billing → UPI QR codes</a>, then collect & tap Complete.</p>
             )
           )}
-          {method === "card" && <p className="mt-1.5 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">Swipe / insert / tap on the terminal, then tap Complete.</p>}
-          <button onClick={() => void complete()} disabled={!lines.length || (method === "cash" && tender > 0 && change < 0)}
+          {!splitOn && method === "card" && <p className="mt-1.5 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">Swipe / insert / tap on the terminal, then tap Complete.</p>}
+          <button onClick={() => void complete()}
+            disabled={!lines.length || (splitOn ? splitSum !== (billGrand ?? total) : (method === "cash" && tender > 0 && change < 0))}
             className="mt-2 min-h-[52px] w-full rounded-xl bg-brand text-base font-bold text-white disabled:opacity-40">
-            Complete · ₹{(total / 100).toFixed(0)}
+            Complete · ₹{((splitOn ? (billGrand ?? total) : total) / 100).toFixed(0)}
           </button>
         </AdminCard>
       </div>

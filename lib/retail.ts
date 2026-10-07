@@ -156,6 +156,7 @@ export function openDrawer(opening: number, by: string): void {
 export async function posSale(input: {
   lines: { productId: number; qty: number }[]; customerId?: number; method?: string; cashIn?: number; by?: string;
   discountPaise?: number; discountPct?: number;
+  payments?: { method?: string; amount?: number }[];
 }): Promise<{ orderId: number; change: number }> {
   retailTables();
   const { createOrder, setOrderStatus, quote } = await import("./commerce");
@@ -165,6 +166,21 @@ export async function posSale(input: {
     const q = quote({ lines: input.lines, customerId: input.customerId, channel: "pos" });
     manualDiscount = Math.round((q.subtotal * Math.min(100, input.discountPct!)) / 100);
   }
+  const METHODS = ["cash", "upi", "card"];
+  // Split tender validates BEFORE anything is written: rows must sum exactly
+  // to the quoted grand total (no change math in split mode).
+  let split: { method: string; amount: number }[] | null = null;
+  if (input.payments && input.payments.length > 0) {
+    split = input.payments.map((p) => ({
+      method: METHODS.includes(p.method ?? "") ? p.method! : "cash",
+      amount: Math.max(0, Math.round(p.amount ?? 0)),
+    })).filter((p) => p.amount > 0);
+    if (split.length === 0) throw new Error("empty split");
+    const q0 = quote({ lines: input.lines, customerId: input.customerId, channel: "pos", manualDiscount });
+    if (split.reduce((s, p) => s + p.amount, 0) !== q0.grand) {
+      throw new Error(`split must equal total ₹${(q0.grand / 100).toFixed(0)}`);
+    }
+  }
   const id = await createOrder({
     customerId: input.customerId, lines: input.lines, channel: "pos",
     notes: `pos by ${input.by ?? "counter"}`, ...(manualDiscount > 0 ? { manualDiscount } : {}),
@@ -173,7 +189,20 @@ export async function posSale(input: {
   const got = (await import("./commerce")).getOrder(id) as { order: { grand: number } } | null;
   if (!got) throw new Error("sale lost");
   const o = got;
-  const method = ["cash", "upi", "card"].includes(input.method ?? "") ? input.method! : "cash";
+  if (split) {
+    // Pre-validated: record each row, drawer takes the cash portion only.
+    for (const p of split) await recordPayment(id, p.amount, p.method, "paid");
+    const cashTotal = split.filter((p) => p.method === "cash").reduce((s, p) => s + p.amount, 0);
+    if (cashTotal > 0) {
+      const d = drawerToday();
+      if (d && d.status === "open") {
+        const { bankMove } = await import("./billing");
+        bankMove(1, "in", cashTotal, `pos#${id}`, "counter sale (split cash)");
+      }
+    }
+    return { orderId: id, change: 0 };
+  }
+  const method = METHODS.includes(input.method ?? "") ? input.method! : "cash";
   await recordPayment(id, o.order.grand, method, "paid");
   if (method === "cash") {
     const d = drawerToday();
