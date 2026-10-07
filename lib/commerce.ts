@@ -23,9 +23,11 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Wishlist (customerId INTEGER NOT NULL, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (customerId, productId))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductView (id INTEGER PRIMARY KEY AUTOINCREMENT, fp TEXT NOT NULL DEFAULT '', customerId INTEGER NOT NULL DEFAULT 0, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS BinLoc (id INTEGER PRIMARY KEY AUTOINCREMENT, warehouseId INTEGER NOT NULL DEFAULT 1, floor TEXT NOT NULL DEFAULT '', rack TEXT NOT NULL DEFAULT '', shelf TEXT NOT NULL DEFAULT '', code TEXT NOT NULL DEFAULT '')`);
-  db.exec(`CREATE TABLE IF NOT EXISTS ProductLot (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, lot TEXT NOT NULL DEFAULT '', mfg TEXT NOT NULL DEFAULT '', exp TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 0, cost INTEGER NOT NULL DEFAULT 0, sell INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ProductLot (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, lot TEXT NOT NULL DEFAULT '', mfg TEXT NOT NULL DEFAULT '', exp TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 0, cost INTEGER NOT NULL DEFAULT 0, sell INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try { db.exec("ALTER TABLE ProductVariant ADD COLUMN active INTEGER NOT NULL DEFAULT 1"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE ProductLot ADD COLUMN cost INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE ProductLot ADD COLUMN sell INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE ProductLot ADD COLUMN active INTEGER NOT NULL DEFAULT 1"); } catch { /* exists */ }
   db.exec(`CREATE TABLE IF NOT EXISTS ProductExt (productId INTEGER PRIMARY KEY, kind TEXT NOT NULL DEFAULT '', payload TEXT NOT NULL DEFAULT '{}', updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE Product ADD COLUMN avail TEXT NOT NULL DEFAULT 'in_stock'"); } catch { /* exists */ }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_lot_product ON ProductLot(productId)`);
@@ -153,7 +155,7 @@ export function listProducts(opts: { q?: string; status?: string; limit?: number
   if (opts.q) { conds.push("(name LIKE ? OR sku LIKE ? OR barcode LIKE ?)"); args.push(`%${opts.q.slice(0, 60)}%`, `%${opts.q.slice(0, 60)}%`, `%${opts.q.slice(0, 60)}%`); }
   if (opts.status) { conds.push("status=?"); args.push(opts.status); }
   const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-  return getDb().prepare(`SELECT p.*, (SELECT COUNT(*) FROM ProductVariant v WHERE v.productId=p.id) vcount FROM Product p ${where} ORDER BY p.id DESC LIMIT ?`).all(...args, Math.min(100, opts.limit ?? 50));
+  return getDb().prepare(`SELECT p.*, (SELECT COUNT(*) FROM ProductVariant v WHERE v.productId=p.id AND v.active=1) vcount FROM Product p ${where} ORDER BY p.id DESC LIMIT ?`).all(...args, Math.min(100, opts.limit ?? 50));
 }
 
 export const BARCODES = ["", "isbn", "imei", "ean", "upc", "custom"];
@@ -229,7 +231,7 @@ export function productByCode(code: string): { productId: number; variantId: num
   if (!c) return null;
   const v = db.prepare(`SELECT v.productId, v.id variantId, p.name || ' / ' || v.name name,
     CASE WHEN v.price > 0 THEN v.price ELSE p.price END price, v.stock, COALESCE(v.barcodeType,'') type FROM ProductVariant v
-    JOIN Product p ON p.id=v.productId WHERE v.barcode=? LIMIT 1`).get(c) as
+    JOIN Product p ON p.id=v.productId WHERE v.barcode=? AND v.active=1 LIMIT 1`).get(c) as
     { productId: number; variantId: number; name: string; price: number; stock: number; type: string } | undefined;
   if (v) {
     const lot = lotPrice(v.productId);
@@ -287,7 +289,7 @@ export function getProductFull(id: number) {
   const p = db.prepare("SELECT * FROM Product WHERE id=?").get(id) as
     { category?: string; [k: string]: unknown } | undefined;
   if (!p) return null;
-  const variants = db.prepare("SELECT * FROM ProductVariant WHERE productId=? ORDER BY id").all(id);
+  const variants = db.prepare("SELECT * FROM ProductVariant WHERE productId=? AND active=1 ORDER BY id").all(id);
   const similar = p.category
     ? db.prepare("SELECT id, name, price, mrp, images FROM Product WHERE category=? AND id!=? AND status='active' ORDER BY id DESC LIMIT 4").all(p.category, id)
     : [];
@@ -315,7 +317,7 @@ export function saveVariant(input: { id?: number; productId: number; name?: stri
 
 export function deleteVariant(id: number, productId: number): void {
   commerceTables();
-  getDb().prepare("DELETE FROM ProductVariant WHERE id=? AND productId=?").run(id, productId);
+  getDb().prepare("UPDATE ProductVariant SET active=0 WHERE id=? AND productId=?").run(id, productId);
 }
 
 // Ratings roll up from approved reviews only.
@@ -399,7 +401,7 @@ export function saveBin(input: { id?: number; warehouseId?: number; floor?: stri
 // ---- batches / lots (mfg + expiry mapped per product) ----
 export function listLots(productId: number) {
   commerceTables();
-  return getDb().prepare("SELECT * FROM ProductLot WHERE productId=? ORDER BY id DESC").all(productId);
+  return getDb().prepare("SELECT * FROM ProductLot WHERE productId=? AND active=1 ORDER BY id DESC").all(productId);
 }
 
 export function findLot(lot: string) {
@@ -408,7 +410,7 @@ export function findLot(lot: string) {
     COALESCE((SELECT SUM(ol.qty) FROM OrderLine ol JOIN ShopOrder o ON o.id=ol.orderId
       WHERE ol.productId=l.productId AND o.status!='cancelled'), 0) sold
     FROM ProductLot l JOIN Product p ON p.id=l.productId
-    WHERE l.lot LIKE ? ORDER BY l.id DESC LIMIT 10`).all(`%${lot.slice(0, 40)}%`);
+    WHERE l.active=1 AND l.lot LIKE ? ORDER BY l.id DESC LIMIT 10`).all(`%${lot.slice(0, 40)}%`);
   return lots;
 }
 
@@ -526,7 +528,7 @@ export function lotPrice(productId: number): { price: number; lot: string } | nu
 
 export function deleteLot(id: number, productId: number): void {
   commerceTables();
-  getDb().prepare("DELETE FROM ProductLot WHERE id=? AND productId=?").run(id, productId);
+  getDb().prepare("UPDATE ProductLot SET active=0 WHERE id=? AND productId=?").run(id, productId);
 }
 
 // ---- channels + tiered prices ----

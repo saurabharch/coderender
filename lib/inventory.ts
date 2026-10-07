@@ -252,7 +252,7 @@ export function produceWorkOrder(id: number, qty: number): { made: number; unitC
 }
 export function fefoLots(productId: number) {
   inventoryTables();
-  return getDb().prepare(`SELECT * FROM ProductLot WHERE productId=? AND qty > 0
+  return getDb().prepare(`SELECT * FROM ProductLot WHERE productId=? AND active=1 AND qty > 0
     ORDER BY CASE WHEN exp='' THEN 1 ELSE 0 END, exp LIMIT 20`).all(productId);
 }
 
@@ -468,7 +468,7 @@ export function lotExpiryTick(days = 30): { productId: number; lot: string; exp:
   const db = getDb();
   const rows = db.prepare(`SELECT l.id, l.productId, l.lot, l.exp, p.name FROM ProductLot l
     JOIN Product p ON p.id=l.productId
-    WHERE l.exp != '' AND date(l.exp) <= date('now', ?) AND date(l.exp) >= date('now','-180 days')
+    WHERE l.active=1 AND l.exp != '' AND date(l.exp) <= date('now', ?) AND date(l.exp) >= date('now','-180 days')
     AND l.id NOT IN (SELECT lotId FROM LotAlert)`).all(`+${Math.max(1, days)} days`) as
     { id: number; productId: number; lot: string; exp: string; name: string }[];
   for (const r of rows) {

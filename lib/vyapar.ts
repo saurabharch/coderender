@@ -248,5 +248,5 @@ export function saveSlide(input: { id?: number; image?: string; title?: string; 
 
 export function deleteSlide(id: number): void {
   vyaparTables();
-  getDb().prepare("DELETE FROM HeroSlide WHERE id=?").run(id);
+  getDb().prepare("UPDATE HeroSlide SET active=0 WHERE id=?").run(id);
 }

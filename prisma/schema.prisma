@@ -1060,6 +1060,7 @@ model ProductVariant {
   stock       Int    @default(0)
   barcode     String @default("")
   barcodeType String @default("")
+  active      Boolean @default(true)
 }
 
 model Wishlist {
@@ -1179,6 +1180,7 @@ model ProductLot {
   qty       Float  @default(0)
   cost      Int    @default(0)
   sell      Int    @default(0)
+  active    Boolean @default(true)
   notes     String @default("")
   createdAt DateTime @default(now())
 
