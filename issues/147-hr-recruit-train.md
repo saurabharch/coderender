@@ -1,8 +1,8 @@
 # Ticket 147-hr-recruit-train (plan 07 slice 8)
 
-Status: doing
+Status: done
 Labels: plan07, hr
 
-- [ ] Candidate pipeline (stages → offer link on hire).
-- [ ] Training records per employee.
-- [ ] API + People UI + live verify + release.
+- [x] Candidate pipeline (stages → offer link on hire).
+- [x] Training records per employee.
+- [x] API + People UI + live verify + release.
