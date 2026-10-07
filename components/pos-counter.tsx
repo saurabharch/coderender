@@ -5,6 +5,8 @@ import { AdminCard, Empty } from "@/components/admin-ui";
 import { CustomerPicker, type Cust } from "@/components/customer-picker";
 import { Banknote, CreditCard, Plus, ScanBarcode, Smartphone } from "lucide-react"
 import { Seg, IconBtn } from "@/components/admin-ux";
+import { PosReceipt, type ReceiptData } from "@/components/pos-receipt";
+import { QrImg } from "@/components/labels";
 import { useLongPress } from "@mantine/hooks";
 import { maskAmount, maskInt, maskPercent } from "@/lib/mask";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
@@ -32,6 +34,10 @@ export function PosCounter() {
   const [method, setMethod] = useState<"cash" | "upi" | "card">("cash");
   const [tendered, setTendered] = useState("");
   const [customer, setCustomer] = useState<Cust | null>(null);
+  const [qr, setQr] = useState<{ payload: string; upiId: string } | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [lastTender, setLastTender] = useState(0);
+  const [lastChange, setLastChange] = useState(0);
   const [cardno, setCardno] = useState("");
   const [disval, setDisval] = useState("");
   const [disKind, setDisKind] = useState<"flat" | "pct">("flat");
@@ -161,6 +167,17 @@ export function PosCounter() {
   const tender = Math.round(Number(tendered) * 100) || 0;
   const change = method === "cash" && tender > 0 ? tender - total : 0;
 
+  // Business VPA QR for UPI collection (amount-bound, refreshed per bill).
+  useEffect(() => {
+    if (method !== "upi" || total <= 0) { setQr(null); return; }
+    fetch("/api/pay/link?qr=1").then((r) => r.json()).then((d) => {
+      const q = (d?.qrs ?? []).find((x: { upiId: string }) => x.upiId?.includes("@"));
+      if (!q) { setQr(null); return; }
+      const p = new URLSearchParams({ pa: q.upiId, pn: (q.name || "Merchant").slice(0, 60), cu: "INR", am: (total / 100).toFixed(2) });
+      setQr({ payload: `upi://pay?${p}`, upiId: q.upiId });
+    }).catch(() => setQr(null));
+  }, [method, total]);
+
   async function complete() {
     if (!lines.length) return;
     const dis = disval
@@ -178,8 +195,16 @@ export function PosCounter() {
     });
     const d = await res.json().catch(() => ({}));
     if (res.ok) {
-      setMsg(`Sold ✓ order #${d.orderId}${d.change ? ` · change ₹${(d.change / 100).toFixed(0)}` : method === "upi" ? " · collect on UPI" : method === "card" ? " · charged on terminal" : ""}`);
-      setLines([]); setTendered(""); setDisval("");
+      const r = await fetch(`/api/retail/receipt?orderId=${d.orderId}`).then((x) => x.json()).catch(() => null);
+      setLastTender(tender);
+      setLastChange(d.change ?? 0);
+      if (r?.crn) {
+        setReceipt(r);
+        setMsg("");
+      } else {
+        setMsg(`Sold ✓ order #${d.orderId}`);
+      }
+      setLines([]); setTendered(""); setDisval(""); setCustomer(null);
     } else setMsg(d.error ?? "sale failed");
   }
 
@@ -222,6 +247,12 @@ export function PosCounter() {
 
   return (
     <div className="grid gap-3 lg:grid-cols-5">
+      {receipt ? (
+        <div className="lg:col-span-5">
+          <PosReceipt data={receipt} tendered={lastTender} change={lastChange} onNew={() => { setReceipt(null); setMsg(""); }} />
+        </div>
+      ) : (
+        <>
       <div className="grid content-start gap-3 lg:col-span-3">
         <AdminCard>
           <p className="font-bold">Add items — scan, code, or search</p>
@@ -344,7 +375,18 @@ export function PosCounter() {
               )}
             </>
           )}
-          {method === "upi" && <p className="mt-1.5 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">Collect on the counter UPI QR, then tap Complete.</p>}
+          {method === "upi" && (
+            qr ? (
+              <div className="mt-1.5 grid justify-items-center gap-1 rounded-xl bg-black/5 px-3 py-2 dark:bg-white/10">
+                <QrImg text={qr.payload} size={180} />
+                <p className="font-mono text-xs font-bold">{qr.upiId}</p>
+                <p className="text-sm font-extrabold">Collect ₹{(total / 100).toFixed(0)} — then tap Complete below to confirm</p>
+              </div>
+            ) : (
+              <p className="mt-1.5 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">
+                No business VPA saved — add one in <a href="/admin/billing" className="font-semibold text-brand-deep underline">Billing → UPI QR codes</a>, then collect & tap Complete.</p>
+            )
+          )}
           {method === "card" && <p className="mt-1.5 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">Swipe / insert / tap on the terminal, then tap Complete.</p>}
           <button onClick={() => void complete()} disabled={!lines.length || (method === "cash" && tender > 0 && change < 0)}
             className="mt-2 min-h-[52px] w-full rounded-xl bg-brand text-base font-bold text-white disabled:opacity-40">
@@ -352,6 +394,8 @@ export function PosCounter() {
           </button>
         </AdminCard>
       </div>
+        </>
+      )}
       {msg && <p className="text-sm text-zinc-500 lg:col-span-5">{msg}</p>}
     </div>
   );

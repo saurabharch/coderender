@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTrackingUrl, isAbandoned, renderMessage, settleDrawer, shipCan } from "@/lib/retail-core";
+import { buildTrackingUrl, isAbandoned, receiptNo, renderMessage, settleDrawer, shipCan } from "@/lib/retail-core";
 
 describe("retail-core", () => {
   it("ages carts into abandoned", () => {
@@ -27,5 +27,10 @@ describe("retail-core", () => {
     expect(buildTrackingUrl("https://x.test/track/{tracking}", "DLV 123")).toBe("https://x.test/track/DLV%20123");
     expect(buildTrackingUrl("https://x.test/home", "DLV123")).toBe(null);
     expect(buildTrackingUrl("https://x.test/track/{tracking}", "  ")).toBe(null);
+  });
+
+  it("numbers cash receipts", () => {
+    expect(receiptNo(25, "2026-10-07 12:00:00")).toBe("CRN-20261007-25");
+    expect(receiptNo(0)).toMatch(/^CRN-\d{8}-0$/);
   });
 });

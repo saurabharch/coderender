@@ -48,6 +48,12 @@ export function buildTrackingUrl(template: string, tracking: string): string | n
   return template.replaceAll("{tracking}", encodeURIComponent(t));
 }
 
+// Cash receipt number: human, sortable, unique per order. CRN-20261007-123.
+export function receiptNo(orderId: number, at = ""): string {
+  const day = (at || new Date().toISOString()).slice(0, 10).replaceAll("-", "");
+  return `CRN-${day}-${Math.max(0, Math.round(orderId))}`;
+}
+
 export function renderMessage(template: string, vars: Record<string, string>): string {
   let out = template.slice(0, 1000);
   for (const [k, v] of Object.entries(vars)) out = out.split(`{{${k}}}`).join(v.slice(0, 200));
