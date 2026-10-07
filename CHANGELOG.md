@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.50.0] - 2026-10-07
+## [0.51.0] - 2026-10-07
+- Couriers + 124 close## [0.50.0] - 2026-10-07
 - Ops pages redesign## [0.49.0] - 2026-10-07
 - Labels studio## [0.48.2] - 2026-10-07
 - Orders crash fix## [0.48.1] - 2026-10-07
