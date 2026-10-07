@@ -3,6 +3,7 @@
 // Money in paise; math lives in commerce-core.
 import { getDb } from "./store";
 import { couponOff, orderCan, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
+import { openProductStock, setProductStock } from "./inventory";
 import { eanFromId } from "./barcode-core";
 import { bankMove } from "./billing";
 import { ledgerPost } from "./finance";
@@ -154,7 +155,7 @@ export function listProducts(opts: { q?: string; status?: string; limit?: number
 export const BARCODES = ["", "isbn", "imei", "ean", "upc", "custom"];
 
 export function saveProduct(input: {
-  id?: number; name: string; sku?: string; kind?: string; price: number; mrp?: number;
+  id?: number; name: string; sku?: string; kind?: string; price?: number; mrp?: number;
   unit?: string; perPack?: number; taxPct?: number; stock?: number; status?: string;
   media?: string[]; seo?: Record<string, string>; attrs?: Record<string, string>;
   category?: string; subcategory?: string; shortDesc?: string; description?: string;
@@ -180,10 +181,17 @@ export function saveProduct(input: {
   const specs = JSON.stringify(input.specs ?? JSON.parse(String(prev?.specs ?? "{}"))).slice(0, 4000);
   const images = JSON.stringify((input.images ?? JSON.parse(String(prev?.images ?? "[]"))).slice(0, 10)).slice(0, 4000);
   const videos = JSON.stringify((input.videos ?? JSON.parse(String(prev?.videos ?? "[]"))).slice(0, 3)).slice(0, 2000);
+  // Ledger-first stock: explicit/create stock routes through inventory moves
+  // (A1). Column keeps the pre-move value so ensureLevel never double-seeds.
+  const explicitStock = input.id && input.stock !== undefined ? Math.max(0, Math.round(input.stock)) : null;
+  const openingQty = !input.id && (input.stock ?? 0) > 0 ? Math.max(0, Math.round(input.stock ?? 0)) : 0;
+  const stockCell = openingQty > 0 ? 0
+    : explicitStock !== null ? Math.max(0, Math.round(Number(prev?.stock ?? 0)))
+    : Math.max(0, Math.round(keep(input.stock, "stock", 0)));
   const vals = [input.name.slice(0, 150), keepStr(input.sku, "sku"), keepStr(input.kind, "kind", "physical"),
-    Math.max(0, Math.round(input.price)), Math.max(0, Math.round(keep(input.mrp, "mrp", 0))),
+    Math.max(0, Math.round(keep(input.price, "price", 0))), Math.max(0, Math.round(keep(input.mrp, "mrp", 0))),
     keepStr(input.unit, "unit", "pc"), Math.max(1, Math.round(keep(input.perPack, "perPack", 1))),
-    Math.max(0, keep(input.taxPct, "taxPct", 0) as number), Math.max(0, Math.round(keep(input.stock, "stock", 0))),
+    Math.max(0, keep(input.taxPct, "taxPct", 0) as number), stockCell,
     keepStr(input.status, "status", "active"), media, seo, attrs,
     keepStr(input.category, "category"), keepStr(input.subcategory, "subcategory"),
     keepStr(input.shortDesc, "shortDesc"), keepStr(input.description, "description"), specs, images, videos,
@@ -194,6 +202,7 @@ export function saveProduct(input: {
     category, subcategory, shortDesc, description, specs, images, videos, barcode, barcodeType, bin, behavior`;
   if (input.id) {
     db.prepare(`UPDATE Product SET ${cols} WHERE id=?`).run(...vals, input.id);
+    if (explicitStock !== null) setProductStock(input.id, explicitStock, "admin edit");
     return input.id;
   }
   const r = db.prepare(`INSERT INTO Product (${names}) VALUES (${vals.map(() => "?").join(",")})`).run(...vals);
@@ -202,6 +211,7 @@ export function saveProduct(input: {
   if (!(input.barcode ?? "").trim()) {
     db.prepare("UPDATE Product SET barcode=?, barcodeType=? WHERE id=?").run(eanFromId(id), "ean", id);
   }
+  if (openingQty > 0) openProductStock(id, openingQty);
   return id;
 }
 

@@ -103,6 +103,33 @@ export function adjustStock(productId: number, delta: number, reason: string, wa
   move(productId, warehouseId, "adjust", delta, reason || "adjust");
 }
 
+// Ledger-first product stock writes (fixes mirror-divergence: Product.stock
+// used to be written directly, bypassing StockMove). Untracked kinds
+// (service/digital/made_to_order) keep the direct mirror write.
+export function setProductStock(productId: number, target: number, ref = "admin edit", warehouseId = 1): void {
+  inventoryTables();
+  const t = Math.max(0, Math.round(target));
+  if (!stockTracked(productId)) {
+    getDb().prepare("UPDATE Product SET stock=? WHERE id=?").run(t, productId);
+    return;
+  }
+  const delta = t - levelOf(productId, warehouseId);
+  if (delta !== 0) adjustStock(productId, delta, ref, warehouseId);
+}
+
+// Opening stock for a newly created product: mirror must read 0 first or
+// ensureLevel seeds the mirror and receiveStock double-counts.
+export function openProductStock(productId: number, qty: number): void {
+  inventoryTables();
+  const q = Math.max(0, Math.round(qty));
+  if (q === 0) return;
+  if (!stockTracked(productId)) {
+    getDb().prepare("UPDATE Product SET stock=? WHERE id=?").run(q, productId);
+    return;
+  }
+  receiveStock(productId, q, 1, 0, "opening");
+}
+
 // FEFO pick list: lots with stock first by earliest expiry.
 export function fefoLots(productId: number) {
   inventoryTables();

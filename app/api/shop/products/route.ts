@@ -28,7 +28,7 @@ export async function GET(req: Request) {
 const schema = z.object({
   id: z.number().int().optional(), name: z.string().min(1).max(150),
   sku: z.string().max(40).optional(), kind: z.enum(["physical", "digital", "service"]).optional(),
-  price: z.number().min(0).max(100000000), mrp: z.number().min(0).max(100000000).optional(),
+  price: z.number().min(0).max(100000000).optional(), mrp: z.number().min(0).max(100000000).optional(),
   unit: z.string().max(10).optional(), perPack: z.number().min(1).max(10000).optional(),
   taxPct: z.number().min(0).max(100).optional(), stock: z.number().min(0).max(1000000).optional(),
   status: z.enum(["active", "draft", "archived"]).optional(),

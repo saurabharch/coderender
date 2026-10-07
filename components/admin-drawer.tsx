@@ -34,7 +34,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     label: "Sell", items: [
       ["Orders", "/admin/orders", ShoppingCart, "sell"],
       ["POS", "/admin/pos", ShoppingCart, "sell"],
-      ["Shop", "/admin/shop", ShoppingCart, "sell"],
+      ["Inventory", "/admin/shop", ShoppingCart, "sell"],
       ["Billing", "/admin/billing", IndianRupee, "billing"],
       ["Retail", "/admin/retail", Megaphone, "retail"],
       ["Stock", "/admin/stock", Package, "stock"],

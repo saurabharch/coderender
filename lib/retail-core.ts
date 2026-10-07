@@ -29,6 +29,25 @@ export function settleDrawer(opening: number, cashIn: number, counted: number): 
 
 export const CAMPAIGN_CHANNELS = ["email", "whatsapp", "push"] as const;
 
+// Courier directory: name + tracking-URL template ({tracking} placeholder).
+// Templates are editable deep-links; unknown couriers fall back to plain text.
+export const DEFAULT_COURIERS: { name: string; url: string }[] = [
+  { name: "Delhivery", url: "https://www.delhivery.com/track/package/{tracking}" },
+  { name: "Ecom Express", url: "https://ecomexpress.in/tracking/?awb_number={tracking}" },
+  { name: "XpressBees", url: "https://www.xpressbees.com/track-shipment?awb={tracking}" },
+  { name: "BlueDart", url: "https://www.bluedart.com/track-dartboard?trackNo={tracking}" },
+  { name: "DTDC", url: "https://www.dtdc.in/tracking/tracking_results.asp?Ttype=awb_no&strCnno={tracking}" },
+  { name: "India Post", url: "https://www.indiapost.gov.in/_layouts/15/DOP.Portal.Tracking/TrackConsignment.aspx" },
+  { name: "Shadowfax", url: "https://shadowfax.in/tracking/?awb={tracking}" },
+];
+
+export function buildTrackingUrl(template: string, tracking: string): string | null {
+  const t = tracking.trim();
+  if (!t) return null;
+  if (!template.includes("{tracking}")) return null;
+  return template.replaceAll("{tracking}", encodeURIComponent(t));
+}
+
 export function renderMessage(template: string, vars: Record<string, string>): string {
   let out = template.slice(0, 1000);
   for (const [k, v] of Object.entries(vars)) out = out.split(`{{${k}}}`).join(v.slice(0, 200));

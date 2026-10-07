@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { DatePickerInput } from "@mantine/dates";
 import { Camera, Copy, Plus, ScanBarcode, Tag } from "lucide-react";
@@ -223,21 +224,50 @@ export function ShopConsole() {
   }
 
   async function capturePhoto(productId: number, file: File | undefined) {    if (!file) return;
+    const src: Blob = file;
     setMsg("Uploading original…");
-    try {
-      // Downscale monster camera files first (upload cap is 2MB).
-      const bmp = await createImageBitmap(file);
-      const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
-      let blob: Blob = file;
-      if (scale < 1) {
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(bmp.width * scale);
-        canvas.height = Math.round(bmp.height * scale);
-        canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-        blob = await new Promise<Blob>((res, rej) =>
-          canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode"))), "image/jpeg", 0.85)) ?? blob;
+    // Low-memory decode ladder: full decode first (best quality), then
+    // single-step decode+scale (much lower peak memory), then tiny.
+    // A 12MP camera frame decodes to ~48MB — that alone OOMs cheap phones.
+    async function decode(maxEdge: number, direct: boolean): Promise<ImageBitmap> {
+      if (direct) {
+        const bmp = await createImageBitmap(src);
+        const scale = Math.min(1, maxEdge / Math.max(bmp.width, bmp.height));
+        if (scale >= 1) return bmp;
+        const small = await createImageBitmap(bmp, {
+          resizeWidth: Math.round(bmp.width * scale),
+          resizeHeight: Math.round(bmp.height * scale),
+          resizeQuality: "high",
+        });
+        bmp.close();
+        return small;
       }
-      bmp.close();
+      // One step: decode already scaled (peak ≈ output size, not sensor size).
+      return await createImageBitmap(src, { resizeWidth: maxEdge, resizeQuality: "high" } as ImageBitmapOptions);
+    }
+    let stage = "reading";
+    try {
+      let bmp: ImageBitmap | null = null;
+      let lastErr: unknown = null;
+      for (const [edge, direct] of [[1280, true], [1280, false], [800, false]] as const) {
+        try {
+          bmp = await decode(edge, direct);
+          break;
+        } catch (e) { lastErr = e; }
+      }
+      if (!bmp) throw lastErr ?? new Error("decode");
+      stage = "encoding";
+      let blob: Blob = file;
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = bmp.width;
+        canvas.height = bmp.height;
+        canvas.getContext("2d")!.drawImage(bmp, 0, 0);
+        blob = await new Promise<Blob>((res, rej) =>
+          canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode"))), "image/jpeg", 0.8)) ?? blob;
+      } finally {
+        bmp.close();
+      }
       // Upload the ORIGINAL immediately — fast, selling never waits.
       const form = new FormData();
       form.append("file", blob, "photo.png");
@@ -268,7 +298,9 @@ export function ShopConsole() {
       }
       void load();
     } catch {
-      setMsg("Photo failed — try again or use an image URL.");
+      setMsg(stage === "reading"
+        ? "Photo too large for this phone (low memory) — lower the camera resolution or pick an existing smaller photo."
+        : "Photo failed — try again or use an image URL.");
     }
     setPhotoid(null);
   }
@@ -426,7 +458,7 @@ export function ShopConsole() {
           <ul className="mt-2 space-y-2 text-sm">
             {products.map((p) => (
               <li key={p.id} className="rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <p className="min-w-0 truncate text-base font-extrabold tracking-tight">#{p.id} {p.name}</p>
+                <p className="min-w-0 truncate text-base font-extrabold tracking-tight"><Link href={`/admin/shop/${p.id}`} className="underline-offset-2 hover:underline">#{p.id} {p.name}</Link></p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500">
                   {p.sku && <span className="font-mono">{p.sku}</span>}
                   {p.category && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{p.category}</span>}

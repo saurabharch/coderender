@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAbandoned, renderMessage, settleDrawer, shipCan } from "@/lib/retail-core";
+import { buildTrackingUrl, isAbandoned, renderMessage, settleDrawer, shipCan } from "@/lib/retail-core";
 
 describe("retail-core", () => {
   it("ages carts into abandoned", () => {
