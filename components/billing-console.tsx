@@ -7,6 +7,7 @@ import { maskAmount, maskUpi } from "@/lib/mask";
 import { Plus } from "lucide-react"
 import { useEffect, useState } from "react";
 import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
+import { ProductPicker } from "@/components/product-picker";
 
 interface Bill { id: number; no: string; type: string; grand: number; status: string }
 interface Acct { id: number; name: string; kind: string; balance: number }
@@ -24,24 +25,44 @@ export function BillingConsole() {
   const [head, setHead] = useState("");
   const [amt, setAmt] = useState("");
   const [upiId, setUpiId] = useState("");
+  interface Sub { id: number; customerId: number; customer: string; productId: number; product: string; qty: number; cycle: string; price: number; status: string; renewsAt: string }
+  const [subs, setSubs] = useState<Sub[]>([]);
+  const [subcid, setSubcid] = useState("");
+  const [subpid, setSubpid] = useState("");
+  const [subqty, setSubqty] = useState("1");
+  const [subcycle, setSubcycle] = useState("monthly");
 
   async function load() {
-    const [b, a, e, p, q] = await Promise.all([
+    const [b, a, e, p, q, s] = await Promise.all([
       fetch("/api/billing/docs").then((r) => r.json()).catch(() => null),
       fetch("/api/billing/accounts").then((r) => r.json()).catch(() => null),
       fetch("/api/billing/money").then((r) => r.json()).catch(() => null),
       fetch("/api/finance?view=pnl").then((r) => r.json()).catch(() => null),
       fetch("/api/pay/link?qr=1").then((r) => r.json()).catch(() => null),
+      fetch("/api/shop/subscriptions").then((r) => r.json()).catch(() => null),
     ]);
     if (b?.bills) setBills(b.bills);
     if (a?.accounts) setAccts(a.accounts);
     if (e?.expenses) setExps(e.expenses);
     if (p && typeof p.sales === "number") setPnl(p);
     if (q?.qrs) setQrs(q.qrs);
+    if (s?.subs) setSubs(s.subs);
     setLoaded(true);
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function subOp(op: string, extra: Record<string, unknown> = {}) {
+    const res = await fetch("/api/shop/subscriptions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op, ...extra }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok
+      ? (d.orderId ? `Billed ✓ order #${d.orderId} (collect via POS/udhari)` : "Subscription updated ✓")
+      : (d.error ?? "failed"));
+    if (res.ok) { setSubcid(""); setSubpid(""); setSubqty("1"); void load(); }
+  }
 
   async function fromOrder() {
     const res = await fetch("/api/billing/docs", {
@@ -126,6 +147,40 @@ export function BillingConsole() {
         {pnl ? (
           <p className="mt-1 text-sm">Sales ₹{(pnl.sales / 100).toFixed(0)} · Expenses ₹{(pnl.expenses / 100).toFixed(0)} · Wages ₹{(pnl.wages / 100).toFixed(0)} · <b>Profit ₹{(pnl.profit / 100).toFixed(0)}</b></p>
         ) : <p className="mt-1 text-sm text-zinc-500">Loading…</p>}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Subscriptions ({subs.length}) <span className="text-xs font-normal text-zinc-500">(recurring — billed nightly, collected manually)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={subcid} onChange={(e) => setSubcid(maskInt(e.target.value))} placeholder="Customer id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <div className="min-w-[140px] flex-1 basis-full sm:basis-0"><ProductPicker value={subpid} placeholder="Plan product…" onPick={(x) => setSubpid(x ? String(x.id) : "")} /></div>
+          <input value={subqty} onChange={(e) => setSubqty(maskAmount(e.target.value))} placeholder="Qty" inputMode="decimal"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <select value={subcycle} onChange={(e) => setSubcycle(e.target.value)} aria-label="Billing cycle"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            <option value="monthly">monthly</option>
+            <option value="yearly">yearly</option>
+          </select>
+          <IconBtn label="Subscribe customer" onClick={() => void subOp("subscribe", { customerId: Number(subcid), productId: Number(subpid), qty: Number(subqty) || 1, cycle: subcycle })} disabled={!subcid || !subpid} tone="brand"><Plus size={20} /></IconBtn>
+        </div>
+        {subs.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {subs.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">#{s.customerId} {s.customer || ""} · {s.product || `#${s.productId}`} × {s.qty} · {s.cycle} · <StatusBadge status={s.status} /></span>
+                <span className="text-xs text-zinc-500">renews {s.renewsAt || "—"}</span>
+                {s.status === "active" && (
+                  <span className="flex gap-1">
+                    <button onClick={() => void subOp("renew", { id: s.id })}
+                      className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Bill now</button>
+                    <button onClick={() => void subOp("cancel", { id: s.id })}
+                      className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Cancel</button>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </AdminCard>
       <AdminCard>
         <p className="font-bold">UPI QR codes ({qrs.length})</p>

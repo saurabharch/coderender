@@ -13,7 +13,7 @@ export function crmTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS LoyaltyTx (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL, delta INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Review (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL DEFAULT 0, customerId INTEGER NOT NULL DEFAULT 0, rating INTEGER NOT NULL DEFAULT 5, title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS LoyaltyCard (cardNo TEXT PRIMARY KEY, customerId INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, issuedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-  for (const c of ["ratingAvg REAL NOT NULL DEFAULT 0", "ratingCount INTEGER NOT NULL DEFAULT 0"]) {
+  db.exec(`CREATE TABLE IF NOT EXISTS CustomerSub (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL, productId INTEGER NOT NULL DEFAULT 0, qty REAL NOT NULL DEFAULT 1, cycle TEXT NOT NULL DEFAULT 'monthly', price INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', startedAt TEXT NOT NULL DEFAULT (datetime('now')), renewsAt TEXT NOT NULL DEFAULT (datetime('now')), lastBilledAt TEXT NOT NULL DEFAULT '')`);  for (const c of ["ratingAvg REAL NOT NULL DEFAULT 0", "ratingCount INTEGER NOT NULL DEFAULT 0"]) {
     try { db.exec(`ALTER TABLE Product ADD COLUMN ${c}`); } catch { /* exists */ }
   }
   try { db.exec("ALTER TABLE Customer ADD COLUMN stage TEXT NOT NULL DEFAULT 'lead'"); } catch { /* exists */ }
@@ -224,5 +224,93 @@ export function attentionFeed(): Attention[] {
     if (Math.abs(pct) >= 10) out.push({ level: pct > 0 ? "green" : "yellow", text: `Today ${pct > 0 ? "+" : ""}${pct}% vs 7-day average`, href: "/admin" });
   }
   if (!out.length) out.push({ level: "green", text: "All clear — nothing needs attention", href: "/admin" });
+  return out;
+}
+
+// ---- subscriptions (recurring billing; collection stays manual) ----
+function nextRenewal(cycle: string, from = ""): string {
+  const base = from ? new Date(`${from}T00:00:00Z`) : new Date();
+  const days = cycle === "yearly" ? 365 : 30;
+  return new Date(base.getTime() + days * 86400_000).toISOString().slice(0, 10);
+}
+
+export function subscribe(input: { customerId: number; productId: number; qty?: number; cycle?: string }): number {
+  crmTables();
+  const db = getDb();
+  const c = db.prepare("SELECT id FROM Customer WHERE id=?").get(input.customerId);
+  if (!c) throw new Error("no customer");
+  const p = db.prepare("SELECT id, price FROM Product WHERE id=? AND status='active'").get(input.productId) as
+    { id: number; price: number } | undefined;
+  if (!p) throw new Error("no product");
+  const cycle = input.cycle === "yearly" ? "yearly" : "monthly";
+  const today = new Date().toISOString().slice(0, 10);
+  return Number(db.prepare(`INSERT INTO CustomerSub
+    (customerId, productId, qty, cycle, price, startedAt, renewsAt) VALUES (?,?,?,?,?,?,?)`)
+    .run(input.customerId, p.id, Math.max(0.001, input.qty ?? 1), cycle, p.price, today, nextRenewal(cycle, today)).lastInsertRowid);
+}
+
+export function listSubs(status = "") {
+  crmTables();
+  const db = getDb();
+  return db.prepare(status
+    ? `SELECT s.*, c.name customer, p.name product FROM CustomerSub s
+       LEFT JOIN Customer c ON c.id=s.customerId LEFT JOIN Product p ON p.id=s.productId
+       WHERE s.status=? ORDER BY s.id DESC LIMIT 50`
+    : `SELECT s.*, c.name customer, p.name product FROM CustomerSub s
+       LEFT JOIN Customer c ON c.id=s.customerId LEFT JOIN Product p ON p.id=s.productId
+       ORDER BY s.id DESC LIMIT 50`).all(...(status ? [status] : []));
+}
+
+export function cancelSub(id: number): void {
+  crmTables();
+  getDb().prepare("UPDATE CustomerSub SET status='cancelled' WHERE id=?").run(id);
+}
+
+function notifyTeam(title: string, body: string): void {
+  try {
+    getDb().prepare("INSERT INTO Notification (title, body, audience) VALUES (?,?,?)").run(title, body.slice(0, 500), "team");
+  } catch { /* notify table missing — billing never breaks */ }
+}
+
+// Bill one subscription now: confirmed order + pending payment + notify.
+// Failures are reported, never thrown — the tick must continue.
+export async function billSub(id: number, today = ""): Promise<number | null> {
+  crmTables();
+  const db = getDb();
+  const s = db.prepare("SELECT * FROM CustomerSub WHERE id=?").get(id) as
+    { id: number; customerId: number; productId: number; qty: number; cycle: string; status: string } | undefined;
+  if (!s || s.status !== "active") return null;
+  const day = today || new Date().toISOString().slice(0, 10);
+  try {
+    const { createOrder, setOrderStatus, getOrder } = await import("./commerce");
+    const { recordPayment } = await import("./finance");
+    const oid = await createOrder({
+      customerId: s.customerId, lines: [{ productId: s.productId, qty: s.qty }],
+      channel: "subscription", notes: `subscription #${s.id}`,
+    });
+    await setOrderStatus(oid, "confirmed");
+    const got = getOrder(oid) as { order: { grand: number } } | null;
+    await recordPayment(oid, got?.order.grand ?? 0, "upi", "pending");
+    db.prepare("UPDATE CustomerSub SET renewsAt=?, lastBilledAt=? WHERE id=?")
+      .run(nextRenewal(s.cycle, day), day, s.id);
+    notifyTeam(`Subscription billed #${s.id}`, `Order #${oid} · collect via POS/udhari`);
+    return oid;
+  } catch (e) {
+    notifyTeam(`Subscription billing failed #${s.id}`, e instanceof Error ? e.message : "failed");
+    return null;
+  }
+}
+
+// Daily tick: bill every due subscription. Returns billed order ids.
+export async function subTick(today = ""): Promise<number[]> {
+  crmTables();
+  const day = today || new Date().toISOString().slice(0, 10);
+  const due = getDb().prepare("SELECT id FROM CustomerSub WHERE status='active' AND renewsAt <= ? ORDER BY id LIMIT 100").all(day) as
+    { id: number }[];
+  const out: number[] = [];
+  for (const d of due) {
+    const oid = await billSub(d.id, day);
+    if (oid) out.push(oid);
+  }
   return out;
 }

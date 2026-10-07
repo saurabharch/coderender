@@ -55,6 +55,19 @@ export function startScheduler() {
   }, 600_000);
   setInterval(async () => {
     try {
+      const nowSub = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      if (nowSub.getHours() === 6 && nowSub.getMinutes() < 10 && getPref("last_sub_day", "") !== nowSub.toISOString().slice(0, 10)) {
+        setPref("last_sub_day", nowSub.toISOString().slice(0, 10));
+        const { subTick } = await import("./crm");
+        const billed = await subTick();
+        if (billed.length) console.log(`[subs] billed orders: ${billed.join(",")}`);
+      }
+    } catch (e) {
+      console.error("[subs]", e);
+    }
+  }, 600_000);
+  setInterval(async () => {
+    try {
       const { slaTick } = await import("./tickets");
       const out = await slaTick();
       if (out.length) console.log(`[sla] ${out.join("; ")}`);
