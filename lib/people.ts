@@ -20,6 +20,13 @@ export function peopleTables(): void {
     ins.run("casual", 12); ins.run("sick", 12); ins.run("earned", 15);
   }
   db.exec(`CREATE TABLE IF NOT EXISTS Holiday (day TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Shift (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, start TEXT NOT NULL DEFAULT '09:00', end TEXT NOT NULL DEFAULT '18:00')`);
+  if ((db.prepare("SELECT COUNT(*) c FROM Shift").get() as { c: number }).c === 0) {
+    const ins = db.prepare("INSERT INTO Shift (name, start, end) VALUES (?,?,?)");
+    ins.run("Morning", "09:00", "18:00"); ins.run("Evening", "14:00", "22:00"); ins.run("Night", "22:00", "06:00");
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS Roster (employeeId INTEGER NOT NULL, day TEXT NOT NULL, shiftId INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (employeeId, day))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS OnboardCheck (employeeId INTEGER NOT NULL, item TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (employeeId, item))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Budget (id INTEGER PRIMARY KEY AUTOINCREMENT, head TEXT NOT NULL, month TEXT NOT NULL DEFAULT '', planned INTEGER NOT NULL DEFAULT 0)`);
 }
 
@@ -157,6 +164,74 @@ export function setLeave(id: number, to: "approved" | "rejected"): void {
   peopleTables();
   if (!["approved", "rejected"].includes(to)) throw new Error("bad status");
   getDb().prepare("UPDATE LeaveReq SET status=? WHERE id=?").run(to, id);
+}
+
+// ---- shifts + roster + onboarding (plan 07 slice 2) ----
+export const ONBOARD_ITEMS = ["Offer letter", "ID proof", "Bank details", "Device issue", "Intro walkthrough", "First task assigned"];
+
+export function listShifts() {
+  peopleTables();
+  return getDb().prepare("SELECT * FROM Shift ORDER BY id").all();
+}
+
+export function saveShift(input: { id?: number; name: string; start?: string; end?: string }): number {
+  peopleTables();
+  const clean = (v: string | undefined, fb: string) =>
+    /^([01]\d|2[0-3]):[0-5]\d$/.test(v ?? "") ? v! : fb;
+  if (input.id) {
+    getDb().prepare("UPDATE Shift SET name=?, start=?, end=? WHERE id=?")
+      .run(input.name.trim().slice(0, 60) || "Shift", clean(input.start, "09:00"), clean(input.end, "18:00"), input.id);
+    return input.id;
+  }
+  return Number(getDb().prepare("INSERT INTO Shift (name, start, end) VALUES (?,?,?)")
+    .run(input.name.trim().slice(0, 60) || "Shift", clean(input.start, "09:00"), clean(input.end, "18:00")).lastInsertRowid);
+}
+
+export function weekRoster(monday: string) {
+  peopleTables();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(monday)) throw new Error("monday like YYYY-MM-DD");
+  const days: string[] = [];
+  const base = new Date(`${monday}T00:00:00Z`).getTime();
+  for (let i = 0; i < 7; i++) days.push(new Date(base + i * 86400_000).toISOString().slice(0, 10));
+  const rows = getDb().prepare(`SELECT employeeId, day, shiftId FROM Roster WHERE day >= ? AND day <= ?`).all(days[0], days[6]) as
+    { employeeId: number; day: string; shiftId: number }[];
+  const map: Record<string, number> = {};
+  for (const r of rows) map[`${r.employeeId}:${r.day}`] = r.shiftId;
+  return { days, map };
+}
+
+export function setRoster(employeeId: number, day: string, shiftId: number): void {
+  peopleTables();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("day like YYYY-MM-DD");
+  if (!shiftId) {
+    getDb().prepare("DELETE FROM Roster WHERE employeeId=? AND day=?").run(employeeId, day);
+    return;
+  }
+  getDb().prepare("INSERT INTO Roster (employeeId, day, shiftId) VALUES (?,?,?) ON CONFLICT(employeeId, day) DO UPDATE SET shiftId=excluded.shiftId")
+    .run(employeeId, day, shiftId);
+}
+
+export function onboardList(employeeId: number): { item: string; done: boolean }[] {
+  peopleTables();
+  const db = getDb();
+  for (const item of ONBOARD_ITEMS) {
+    db.prepare("INSERT INTO OnboardCheck (employeeId, item) VALUES (?,?) ON CONFLICT(employeeId, item) DO NOTHING").run(employeeId, item);
+  }
+  return db.prepare("SELECT item, done FROM OnboardCheck WHERE employeeId=? ORDER BY item").all(employeeId).map((r) => {
+    const row = r as { item: string; done: number };
+    return { item: row.item, done: row.done === 1 };
+  });
+}
+
+export function onboardToggle(employeeId: number, item: string): boolean {
+  peopleTables();
+  const db = getDb();
+  const r = db.prepare("SELECT done FROM OnboardCheck WHERE employeeId=? AND item=?").get(employeeId, item) as
+    { done: number } | undefined;
+  if (!r) throw new Error("no item");
+  const next = r.done ? 0 : 1;
+  db.prepare("UPDATE OnboardCheck SET done=? WHERE employeeId=? AND item=?").run(next, employeeId, item);
+  return next === 1;
 }
 
 // ---- check-in/out + leave balances + holidays (plan 07 daily slice) ----

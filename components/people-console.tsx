@@ -11,7 +11,7 @@ import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 import { NoSsr } from "@/components/no-ssr";
 import { DatePickerInput } from "@mantine/dates";
 
-interface Emp { id: number; name: string; dept: string; designation: string }
+interface Emp { id: number; name: string; dept: string; designation: string; active?: number }
 
 export function PeopleConsole() {
   const [emps, setEmps] = useState<Emp[]>([]);
@@ -22,6 +22,16 @@ export function PeopleConsole() {
   const [hname, setHname] = useState("");
   const [balid, setBalid] = useState("");
   const [bals, setBals] = useState<{ kind: string; quota: number; taken: number; left: number }[]>([]);
+  const [shifts, setShifts] = useState<{ id: number; name: string; start: string; end: string }[]>([]);
+  const [shname, setShname] = useState("");
+  const [rosterDay, setRosterDay] = useState(() => {
+    const d = new Date();
+    const back = (d.getDay() + 6) % 7;
+    return new Date(d.getTime() - back * 86400_000).toISOString().slice(0, 10);
+  });
+  const [roster, setRoster] = useState<{ days: string[]; map: Record<string, number> }>({ days: [], map: {} });
+  const [obid, setObid] = useState("");
+  const [obitems, setObitems] = useState<{ item: string; done: boolean }[]>([]);
   const [leaves, setLeaves] = useState<{ id: number; name: string; fromDay: string; toDay: string; kind: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
@@ -45,6 +55,8 @@ export function PeopleConsole() {
     if (l?.leaves) setLeaves(l.leaves);
     if (pr?.presence) setPresence(pr.presence);
     if (h?.holidays) setHols(h.holidays);
+    const sh = await fetch("/api/people/ops?shifts=1").then((r) => r.json()).catch(() => null);
+    if (sh?.shifts) setShifts(sh.shifts);
     setLoaded(true);
   }
 
@@ -65,6 +77,43 @@ export function PeopleConsole() {
     if (d?.balances) setBals(d.balances);
   }
 
+  async function loadRoster(day: string) {
+    const d = await fetch(`/api/people/ops?roster=${encodeURIComponent(day)}`).then((r) => r.json()).catch(() => null);
+    if (d?.days) setRoster({ days: d.days, map: d.map });
+  }
+
+  async function setShift(empId: number, day: string, shiftId: number) {
+    await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roster: empId, day, shift: shiftId }),
+    });
+    void loadRoster(rosterDay);
+  }
+
+  async function addShift() {
+    if (!shname.trim()) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shift: shname.trim() }),
+    });
+    setMsg(res.ok ? "Shift saved ✓" : "failed");
+    if (res.ok) { setShname(""); void load(); }
+  }
+
+  async function loadOnboard() {
+    if (!obid) return;
+    const d = await fetch(`/api/people/ops?onboard=${encodeURIComponent(obid)}`).then((r) => r.json()).catch(() => null);
+    if (d?.items) setObitems(d.items);
+  }
+
+  async function toggleOnboard(item: string) {
+    await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ onboard: Number(obid), item }),
+    });
+    void loadOnboard();
+  }
+
   async function addHoliday() {
     if (!hday || !hname.trim()) return;
     const res = await fetch("/api/people/ops", {
@@ -76,6 +125,7 @@ export function PeopleConsole() {
   }
 
   useEffect(() => { void load(); }, []);
+  useEffect(() => { void loadRoster(rosterDay); }, [rosterDay]);
 
   async function add() {
     const res = await fetch("/api/people/employees", {
@@ -219,6 +269,62 @@ export function PeopleConsole() {
                   <button onClick={() => void decideLeave(l.id, "approved")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Approve</button>
                   <button onClick={() => void decideLeave(l.id, "rejected")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Reject</button>
                 </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Shifts & roster <span className="text-xs font-normal text-zinc-500">(tap a day, set shifts)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={shname} onChange={(e) => setShname(e.target.value)} placeholder="Shift name (Evening)" maxLength={60}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addShift()} disabled={!shname.trim()}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add shift"><Plus size={20} /></button>
+        </div>
+        <div className="mt-2 flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Roster week">
+          {roster.days.map((d) => (
+            <button key={d} role="tab" aria-selected={d === rosterDay} onClick={() => setRosterDay(d)}
+              className={`min-h-[44px] min-w-[52px] shrink-0 rounded-xl border text-xs font-bold ${d === rosterDay ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}>
+              {d.slice(5)}<br />{["M", "T", "W", "T", "F", "S", "S"][new Date(`${d}T00:00:00Z`).getUTCDay() === 0 ? 6 : new Date(`${d}T00:00:00Z`).getUTCDay() - 1]}
+            </button>
+          ))}
+        </div>
+        <ul className="mt-2 space-y-1 text-sm">
+          {emps.filter((e) => e.active !== 0).map((e) => (
+            <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <span className="flex min-w-0 items-center gap-2"><AvatarInitials name={e.name} size="sm" /><span className="truncate">{e.name}</span></span>
+              <select value={roster.map[`${e.id}:${rosterDay}`] ?? 0}
+                onChange={(ev) => void setShift(e.id, rosterDay, Number(ev.target.value))}
+                aria-label={`Shift for ${e.name} on ${rosterDay}`}
+                className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+                <option value={0}>Off</option>
+                {shifts.map((s) => <option key={s.id} value={s.id}>{s.name} {s.start}-{s.end}</option>)}
+              </select>
+            </li>
+          ))}
+          {emps.length === 0 && <li className="text-zinc-500">No staff yet.</li>}
+        </ul>
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Onboarding <span className="text-xs font-normal text-zinc-500">(first-week checklist)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={obid} onChange={(e) => setObid(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void loadOnboard()} disabled={!obid}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Checklist</button>
+          {obitems.length > 0 && (
+            <span className="text-xs text-zinc-500">{obitems.filter((x) => x.done).length}/{obitems.length} done</span>
+          )}
+        </div>
+        {obitems.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {obitems.map((x) => (
+              <li key={x.item}>
+                <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border border-black/10 px-3 dark:border-white/10">
+                  <input type="checkbox" checked={x.done} onChange={() => void toggleOnboard(x.item)} className="h-5 w-5" />
+                  <span className={x.done ? "text-zinc-400 line-through" : ""}>{x.item}</span>
+                </label>
               </li>
             ))}
           </ul>

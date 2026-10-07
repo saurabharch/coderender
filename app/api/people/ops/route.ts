@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { checkIn, checkOut, deleteHoliday, getRun, leaveBalances, listHolidays, listLeaves, listRuns, logTime, markAttendance, monthAttendance, openRun, payRun, requestLeave, saveHoliday, setLeave, todayPresence, weekHours } from "@/lib/people";
+import { checkIn, checkOut, deleteHoliday, getRun, leaveBalances, listHolidays, listLeaves, listRuns, listShifts, logTime, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, requestLeave, saveHoliday, saveShift, setLeave, setRoster, todayPresence, weekRoster, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
@@ -29,6 +29,15 @@ export async function GET(req: Request) {
   }
   if (url.searchParams.get("holidays") !== null) {
     return NextResponse.json({ holidays: listHolidays() });
+  }
+  if (url.searchParams.get("shifts") !== null) {
+    return NextResponse.json({ shifts: listShifts() });
+  }
+  if (url.searchParams.get("roster") !== null) {
+    return NextResponse.json(weekRoster(url.searchParams.get("roster") || new Date().toISOString().slice(0, 10)));
+  }
+  if (url.searchParams.get("onboard") !== null) {
+    return NextResponse.json({ items: onboardList(Number(url.searchParams.get("onboard") || 0)) });
   }
   return NextResponse.json({ runs: listRuns() });
 }
@@ -97,6 +106,26 @@ export async function POST(req: Request) {
     if (body?.holidayDel) {
       deleteHoliday(String(body.holidayDel).slice(0, 10));
       return NextResponse.json({ ok: true });
+    }
+    if (typeof body?.shift === "string") {
+      const parsed = z.object({
+        shift: z.string().min(1).max(60), start: z.string().max(5).optional(), end: z.string().max(5).optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad shift" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: saveShift({ name: parsed.data.shift, start: parsed.data.start, end: parsed.data.end }) });
+    }
+    if (body?.roster) {
+      const parsed = z.object({
+        roster: z.number().int(), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), shift: z.number().int().min(0).max(1000),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad roster" }, { status: 422 });
+      setRoster(parsed.data.roster, parsed.data.day, parsed.data.shift);
+      return NextResponse.json({ ok: true });
+    }
+    if (body?.onboard) {
+      const parsed = z.object({ onboard: z.number().int(), item: z.string().min(1).max(120) }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad item" }, { status: 422 });
+      return NextResponse.json({ ok: true, done: onboardToggle(parsed.data.onboard, parsed.data.item) });
     }
     if (body?.time) {
       const parsed = z.object({
