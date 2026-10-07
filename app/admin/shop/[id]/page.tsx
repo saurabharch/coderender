@@ -9,6 +9,7 @@ import { AdminCard, Empty, PageHead } from "@/components/admin-ui";
 import { StatusBadge } from "@/components/admin-ux";
 import { NoSsr } from "@/components/no-ssr";
 import { Sparkline } from "@mantine/charts";
+import { BundleEditor } from "@/components/bundle-editor";
 
 const TABS = [
   ["overview", "Overview"],
@@ -290,6 +291,10 @@ export default async function ProductDetailPage({ params, searchParams }: {
           </ul>
         </AdminCard>
       )}
+      <AdminCard>
+        <p className="font-bold">Kit <span className="text-xs font-normal text-zinc-500">(bundle components — stock moves at parts)</span></p>
+        <div className="mt-2"><BundleEditor bundleId={pid} /></div>
+      </AdminCard>
       <p className="mt-3"><Link href="/admin/shop" className="font-semibold text-brand-deep underline">← All products</Link></p>
     </>
   );

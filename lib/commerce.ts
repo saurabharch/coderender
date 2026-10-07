@@ -29,6 +29,7 @@ export function commerceTables(): void {
   try { db.exec("ALTER TABLE Product ADD COLUMN avail TEXT NOT NULL DEFAULT 'in_stock'"); } catch { /* exists */ }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_lot_product ON ProductLot(productId)`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductChannel (productId INTEGER NOT NULL, channel TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, onlinePrice INTEGER NOT NULL DEFAULT 0, minQty REAL NOT NULL DEFAULT 0, maxQty REAL NOT NULL DEFAULT 0, PRIMARY KEY (productId, channel))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS BundleItem (bundleId INTEGER NOT NULL, productId INTEGER NOT NULL, qty REAL NOT NULL DEFAULT 1, PRIMARY KEY (bundleId, productId))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductPrice (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, variantId INTEGER NOT NULL DEFAULT 0, priceType TEXT NOT NULL DEFAULT 'retail', amount INTEGER NOT NULL DEFAULT 0, minQty REAL NOT NULL DEFAULT 0, startsAt TEXT NOT NULL DEFAULT '', endsAt TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_price_product ON ProductPrice(productId, priceType)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_product_barcode ON Product(barcode)`);
@@ -410,6 +411,77 @@ export function findLot(lot: string) {
   return lots;
 }
 
+// Bundle kits (plan §19/48): a sellable set priced on its own line while
+// stock is enforced and moved at the components. One level only.
+export function listBundle(bundleId: number) {
+  commerceTables();
+  return getDb().prepare(`SELECT b.productId, b.qty, p.name FROM BundleItem b
+    JOIN Product p ON p.id=b.productId WHERE b.bundleId=? ORDER BY b.productId`).all(bundleId);
+}
+
+export function bundleOf(productId: number): { productId: number; qty: number }[] {
+  commerceTables();
+  return getDb().prepare("SELECT productId, qty FROM BundleItem WHERE bundleId=?").all(productId) as
+    { productId: number; qty: number }[];
+}
+
+export function saveBundleItem(bundleId: number, productId: number, qty: number): number {
+  commerceTables();
+  const db = getDb();
+  if (bundleId === productId) throw new Error("a kit cannot contain itself");
+  if (!db.prepare("SELECT id FROM Product WHERE id=?").get(bundleId)) throw new Error("no kit product");
+  if (!db.prepare("SELECT id FROM Product WHERE id=?").get(productId)) throw new Error("no component");
+  // One level: components cannot be kits themselves.
+  const nested = db.prepare("SELECT 1 FROM BundleItem WHERE bundleId=? LIMIT 1").get(productId);
+  if (nested) throw new Error("nested kits are not supported — pick a plain product");
+  const q = Math.max(0.001, qty);
+  db.prepare("INSERT INTO BundleItem (bundleId, productId, qty) VALUES (?,?,?) ON CONFLICT(bundleId, productId) DO UPDATE SET qty=excluded.qty")
+    .run(bundleId, productId, q);
+  return bundleId;
+}
+
+export function deleteBundleItem(bundleId: number, productId: number): void {
+  commerceTables();
+  getDb().prepare("DELETE FROM BundleItem WHERE bundleId=? AND productId=?").run(bundleId, productId);
+}
+
+// Kits a product's stock can assemble (floor of each component ratio).
+export function bundleAvailability(bundleId: number): number | null {
+  commerceTables();
+  const db = getDb();
+  const comps = db.prepare("SELECT productId, qty FROM BundleItem WHERE bundleId=?").all(bundleId) as
+    { productId: number; qty: number }[];
+  if (comps.length === 0) return null;
+  let kits = Infinity;
+  for (const c of comps) {
+    const s = db.prepare("SELECT stock FROM Product WHERE id=?").get(c.productId) as { stock: number } | undefined;
+    kits = Math.min(kits, Math.floor((s?.stock ?? 0) / Math.max(0.001, c.qty)));
+  }
+  return Math.max(0, Math.floor(kits));
+}
+
+// Explode order lines to physical stock moves (bundle → components × qty).
+// Money lines are untouched — callers use this for validate/reserve/issue only.
+export function explodeStockLines(lines: { productId: number; qty: number }[]): { productId: number; qty: number }[] {
+  commerceTables();
+  const db = getDb();
+  const out: { productId: number; qty: number }[] = [];
+  for (const l of lines) {
+    const comps = db.prepare("SELECT productId, qty FROM BundleItem WHERE bundleId=?").all(l.productId) as
+      { productId: number; qty: number }[];
+    if (comps.length === 0) {
+      out.push(l);
+      continue;
+    }
+    for (const c of comps) {
+      const ex = out.find((x) => x.productId === c.productId);
+      if (ex) ex.qty += c.qty * l.qty;
+      else out.push({ productId: c.productId, qty: c.qty * l.qty });
+    }
+  }
+  return out;
+}
+
 // Lifetime sold qty (confirmed pipeline) — powers batch/product sold counters.
 export function soldQty(productId: number): number {
   commerceTables();
@@ -577,14 +649,20 @@ export async function createOrder(input: {
       input.customerId ?? 0, "draft", q.subtotal, q.discount, q.taxTotal, q.grand,
       q.coupon ?? "", (input.channel ?? "admin").slice(0, 20), (input.notes ?? "").slice(0, 500)).lastInsertRowid);
     const lineIns = db.prepare("INSERT INTO OrderLine (orderId, productId, name, qty, price, total) VALUES (?,?,?,?,?,?)");
-    let held = 0;
     for (const l of q.lines) {
-      const p = db.prepare("SELECT name, stock, kind FROM Product WHERE id=?").get(l.productId) as
-        { name: string; stock: number; kind: string };
-      if (p.kind === "physical" && p.stock < l.qty) throw new Error(`${p.name}: only ${p.stock} in stock`);
+      const p = db.prepare("SELECT name FROM Product WHERE id=?").get(l.productId) as
+        { name: string } | undefined;
+      if (!p) throw new Error(`product ${l.productId} unavailable`);
       lineIns.run(orderId, l.productId, p.name.slice(0, 150), l.qty, l.price, l.price * l.qty);
+    }
+    // Stock truth lives at components: kits explode before check + hold.
+    let held = 0;
+    for (const m of explodeStockLines(q.lines.map((l) => ({ productId: l.productId, qty: l.qty })))) {
+      const p = db.prepare("SELECT name, stock, kind FROM Product WHERE id=?").get(m.productId) as
+        { name: string; stock: number; kind: string };
+      if (p.kind === "physical" && p.stock < m.qty) throw new Error(`${p.name}: only ${p.stock} in stock`);
       if (p.kind === "physical") {
-        reserveStock(l.productId, l.qty, `order#${orderId}-reserve`);
+        reserveStock(m.productId, m.qty, `order#${orderId}-reserve`);
         held++;
       }
     }
@@ -660,7 +738,8 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
       // Reserve → release → issue: the hold converts into the real decrement
       // inside the same transaction. Legacy drafts without holds issue as before.
       const { issueStock, consumeFefo } = await import("./inventory");
-      for (const l of db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[]) {
+      const issueLines = explodeStockLines(db.prepare("SELECT productId, qty FROM OrderLine WHERE orderId=?").all(id) as { productId: number; qty: number }[]);
+      for (const l of issueLines) {
         const p = db.prepare("SELECT kind FROM Product WHERE id=?").get(l.productId) as { kind: string } | undefined;
         if (p?.kind === "physical") {
           const held = reservedFor(id, l.productId);
@@ -681,7 +760,8 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
         { productId: number; qty: number; kind: string }[];
       // Free any outstanding draft holds first (legacy orders hold nothing → no-op).
       let freed = false;
-      for (const l of lines) {
+      const freeLines = explodeStockLines(lines.map((l) => ({ productId: l.productId, qty: l.qty })));
+      for (const l of freeLines) {
         const held = reservedFor(id, l.productId);
         if (held > 0) {
           releaseStock(l.productId, held, `order#${id}-release`);
