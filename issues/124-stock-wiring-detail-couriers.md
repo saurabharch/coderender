@@ -1,6 +1,6 @@
 # Ticket 124-stock-wiring + product detail + couriers
 
-Status: doing
+Status: done
 Labels: correctness, product
 
 Analysis (verified in code, not guessed):
@@ -13,10 +13,10 @@ Analysis (verified in code, not guessed):
 - Noted limits: variant stock has no ledger (product-level moves only);
   cart lines are JSON (parsed in JS, bounded).
 
-- [ ] inventory: setProductStock + openProductStock; commerce.saveProduct
+- [x] inventory: setProductStock + openProductStock; commerce.saveProduct
       routes create/edit stock through them (untracked kinds write mirror).
-- [ ] Live coherence tests: create→level+opening move; edit→adjust move;
+- [x] Live coherence tests: create→level+opening move; edit→adjust move;
       sale→mirror==level (re-proven).
-- [ ] Product detail route shop/[id] with tabs (overview/sales/stock/engagement).
-- [ ] Courier directory + tracking-URL links on shipments.
-- [ ] Chain green + live verify + release.
+- [x] Product detail route shop/[id] with tabs (overview/sales/stock/engagement).
+- [x] Courier directory + tracking-URL links on shipments.
+- [x] Chain green + live verify + release.

@@ -22,4 +22,10 @@ describe("retail-core", () => {
     expect(shipCan("rto", "shipped")).toBe(true);
     expect(renderMessage("Hi {{name}}, {{coupon}}", { name: "Asha", coupon: "D10" })).toBe("Hi Asha, D10");
   });
+
+  it("builds courier tracking urls", () => {
+    expect(buildTrackingUrl("https://x.test/track/{tracking}", "DLV 123")).toBe("https://x.test/track/DLV%20123");
+    expect(buildTrackingUrl("https://x.test/home", "DLV123")).toBe(null);
+    expect(buildTrackingUrl("https://x.test/track/{tracking}", "  ")).toBe(null);
+  });
 });

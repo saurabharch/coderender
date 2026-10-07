@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createShipment, listShipments, listZones, saveZone, setShipStatus } from "@/lib/retail";
+import { createShipment, deleteCourier, listCouriers, listShipments, listZones, saveCourier, saveZone, setShipStatus } from "@/lib/retail";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?status= | ?zones=1
@@ -9,6 +9,7 @@ export async function GET(req: Request) {
   if (deny) return deny;
   const url = new URL(req.url);
   if (url.searchParams.get("zones")) return NextResponse.json({ zones: listZones() });
+  if (url.searchParams.get("couriers")) return NextResponse.json({ couriers: listCouriers() });
   return NextResponse.json({ shipments: listShipments(url.searchParams.get("status") || "") });
 }
 
@@ -18,6 +19,20 @@ export async function POST(req: Request) {
   if (deny) return deny;
   const body = await req.json().catch(() => null);
   try {
+    if (body?.what === "courier") {
+      const parsed = z.object({
+        what: z.literal("courier"), id: z.number().int().optional(),
+        name: z.string().min(1).max(60), url: z.string().max(300).optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad courier" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: saveCourier(parsed.data) });
+    }
+    if (body?.what === "courier-del") {
+      const parsed = z.object({ what: z.literal("courier-del"), id: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad del" }, { status: 422 });
+      deleteCourier(parsed.data.id);
+      return NextResponse.json({ ok: true });
+    }
     if (body?.what === "zone") {
       const parsed = z.object({
         what: z.literal("zone"), id: z.number().int().optional(), name: z.string().min(1).max(60),

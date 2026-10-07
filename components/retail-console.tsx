@@ -1,7 +1,8 @@
 "use client";
 
-import { CopyBtn, StatusBadge } from "@/components/admin-ux";
+import { CopyBtn, IconBtn, StatusBadge } from "@/components/admin-ux";
 import { maskInt } from "@/lib/mask";
+import { buildTrackingUrl } from "@/lib/retail-core";
 
 import { useEffect, useState } from "react";
 import { Phone, Plus } from "lucide-react"
@@ -23,20 +24,25 @@ export function RetailConsole() {
   const [drawer, setDrawer] = useState<{ status: string; opening: number } | null>(null);
   const [shoid, setShoid] = useState("");
   const [shcourier, setShcourier] = useState("");
+  const [couriers, setCouriers] = useState<{ id: number; name: string; url: string }[]>([]);
+  const [coname, setConame] = useState("");
+  const [courl, setCourl] = useState("");
   const [spid, setSpid] = useState("");
   const [sqty, setSqty] = useState("1");
   const [smethod, setSmethod] = useState("cash");
   const [scash, setScash] = useState("");
 
   async function load() {
-    const [c, s, d, dr] = await Promise.all([
+    const [c, s, d, dr, co] = await Promise.all([
       fetch("/api/retail/campaigns").then((r) => r.json()).catch(() => null),
       fetch("/api/retail/ship").then((r) => r.json()).catch(() => null),
       fetch("/api/shop/credit").then((r) => r.json()).catch(() => null),
       fetch("/api/retail/pos").then((r) => r.json()).catch(() => null),
+      fetch("/api/retail/ship?couriers=1").then((r) => r.json()).catch(() => null),
     ]);
     if (c?.campaigns) setCamps(c.campaigns);
     if (s?.shipments) setShips(s.shipments);
+    if (co?.couriers) setCouriers(co.couriers);
     if (d?.dues) setDues(d.dues);
     if (dr) setDrawer(dr.drawer);
     setLoaded(true);
@@ -60,6 +66,28 @@ export function RetailConsole() {
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? `Launched ✓ sent ${d.sent}` : (d.error ?? "failed"));
     void load();
+  }
+
+  async function addCourier() {
+    const res = await fetch("/api/retail/ship", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ what: "courier", name: coname.trim(), url: courl.trim() }),
+    });
+    setMsg(res.ok ? "Courier saved ✓" : "failed");
+    if (res.ok) { setConame(""); setCourl(""); void load(); }
+  }
+
+  async function delCourier(id: number) {
+    await fetch("/api/retail/ship", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ what: "courier-del", id }),
+    });
+    void load();
+  }
+
+  function trackUrl(courier: string, tracking: string): string | null {
+    const c = couriers.find((x) => x.name.toLowerCase() === courier.trim().toLowerCase());
+    return c ? buildTrackingUrl(c.url, tracking) : null;
   }
 
   async function open() {
@@ -212,6 +240,27 @@ export function RetailConsole() {
         )}
       </AdminCard>
       <AdminCard>
+        <p className="font-bold">Delivery partners ({couriers.length}) <span className="text-xs font-normal text-zinc-500">(tracking links)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={coname} onChange={(e) => setConame(e.target.value)} placeholder="Courier name" maxLength={60}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={courl} onChange={(e) => setCourl(e.target.value)} placeholder="Tracking URL (…{tracking}…)" maxLength={300}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-xs dark:border-white/20" />
+          <IconBtn label="Add courier" onClick={() => void addCourier()} disabled={!coname.trim()} tone="brand"><Plus size={20} /></IconBtn>
+        </div>
+        {couriers.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {couriers.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span className="min-w-0 truncate">{c.name} <span className="font-mono text-xs text-zinc-500">{c.url || "no template"}</span></span>
+                <button onClick={() => void delCourier(c.id)} aria-label={`Remove ${c.name}`}
+                  className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
         <p className="font-bold">Shipments ({ships.length})</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={shoid} onChange={(e) => setShoid(maskInt(e.target.value))} placeholder="Order id" inputMode="numeric"
@@ -225,7 +274,8 @@ export function RetailConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {ships.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span className="flex min-w-0 flex-wrap items-center gap-1.5">#{s.id} · order #{s.orderId} · {s.courier || "—"} {s.tracking || ""} {s.tracking ? <CopyBtn value={s.tracking} label="tracking id" /> : null}</span>
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">#{s.id} · order #{s.orderId} · {s.courier || "—"} {s.tracking || ""} {s.tracking ? <CopyBtn value={s.tracking} label="tracking id" /> : null}
+                  {s.tracking && trackUrl(s.courier, s.tracking) ? <a href={trackUrl(s.courier, s.tracking)!} target="_blank" rel="noreferrer" className="font-semibold text-brand-deep underline">Track ↗</a> : null}</span>
                 <span className="flex items-center gap-1">
                   <StatusBadge status={s.status} />
                   {(s.status === "created" ? ["packed"] : s.status === "packed" ? ["shipped"] : s.status === "shipped" ? ["delivered", "rto"] : [] as string[]).map((to) => (

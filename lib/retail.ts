@@ -1,7 +1,7 @@
 // Retail: campaigns + abandoned carts, POS drawer/sales/settlement, shipments.
 // Sends through notify/providers ledgers; orders through commerce — no parallel pipes.
 import { getDb } from "./store";
-import { isAbandoned, renderMessage, settleDrawer, shipCan } from "./retail-core";
+import { DEFAULT_COURIERS, isAbandoned, renderMessage, settleDrawer, shipCan } from "./retail-core";
 
 export function retailTables(): void {
   const db = getDb();
@@ -11,9 +11,14 @@ export function retailTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS DrawerDay (id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL UNIQUE, openedBy TEXT NOT NULL DEFAULT '', opening INTEGER NOT NULL DEFAULT 0, counted INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', closedAt TEXT NOT NULL DEFAULT '')`);
   db.exec(`CREATE TABLE IF NOT EXISTS Shipment (id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER NOT NULL, courier TEXT NOT NULL DEFAULT '', tracking TEXT NOT NULL DEFAULT '', zone TEXT NOT NULL DEFAULT '', charge INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'created', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ShipZone (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, charge INTEGER NOT NULL DEFAULT 0, eta TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Courier (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, url TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
   if ((db.prepare("SELECT COUNT(*) c FROM ShipZone").get() as { c: number }).c === 0) {
     const ins = db.prepare("INSERT INTO ShipZone (name, charge, eta) VALUES (?,?,?)");
     ins.run("Local", 0, "same day"); ins.run("City", 4900, "1-2 days"); ins.run("National", 9900, "3-5 days");
+  }
+  if ((db.prepare("SELECT COUNT(*) c FROM Courier").get() as { c: number }).c === 0) {
+    const ins = db.prepare("INSERT INTO Courier (name, url) VALUES (?,?)");
+    for (const c of DEFAULT_COURIERS) ins.run(c.name, c.url);
   }
 }
 
@@ -234,4 +239,30 @@ export function setShipStatus(id: number, to: string): void {
   if (!s) throw new Error("no shipment");
   if (!shipCan(s.status, to)) throw new Error(`${s.status} → ${to} not allowed`);
   db.prepare("UPDATE Shipment SET status=? WHERE id=?").run(to, id);
+}
+
+// Courier directory: tracking deep-links per partner, editable in Retail.
+export function listCouriers() {
+  retailTables();
+  return getDb().prepare("SELECT * FROM Courier WHERE active=1 ORDER BY name").all() as
+    { id: number; name: string; url: string }[];
+}
+
+export function saveCourier(input: { id?: number; name: string; url?: string }): number {
+  retailTables();
+  const db = getDb();
+  const name = input.name.trim().slice(0, 60);
+  if (!name) throw new Error("name required");
+  const url = (input.url ?? "").trim().slice(0, 300);
+  if (input.id) {
+    db.prepare("UPDATE Courier SET name=?, url=? WHERE id=?").run(name, url, input.id);
+    return input.id;
+  }
+  return Number(db.prepare("INSERT INTO Courier (name, url) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET url=excluded.url")
+    .run(name, url).lastInsertRowid);
+}
+
+export function deleteCourier(id: number): void {
+  retailTables();
+  getDb().prepare("DELETE FROM Courier WHERE id=?").run(id);
 }
