@@ -103,6 +103,50 @@ export function getRun(id: number) {
   return { run, lines: db.prepare(`SELECT l.*, e.name FROM PayrollLine l LEFT JOIN Employee e ON e.id=l.employeeId WHERE l.runId=?`).all(id) };
 }
 
+export function payslip(runId: number, employeeId: number) {
+  peopleTables();
+  const db = getDb();
+  const run = db.prepare("SELECT * FROM PayrollRun WHERE id=?").get(runId) as
+    { id: number; month: string; status: string } | undefined;
+  if (!run) throw new Error("no run");
+  const line = db.prepare(`SELECT l.*, e.name, e.designation, e.dept FROM PayrollLine l
+    LEFT JOIN Employee e ON e.id=l.employeeId WHERE l.runId=? AND l.employeeId=?`).get(runId, employeeId) as
+    { employeeId: number; name: string; designation: string; dept: string; base: number; allowances: number; deductions: number; loanCut: number; net: number } | undefined;
+  if (!line) throw new Error("no slip for employee");
+  const ytd = db.prepare(`SELECT COALESCE(SUM(l.net),0) s, COUNT(*) n FROM PayrollLine l
+    JOIN PayrollRun r ON r.id=l.runId
+    WHERE l.employeeId=? AND substr(r.month,1,4)=substr(?,1,4)`).get(employeeId, run.month) as { s: number; n: number };
+  const loan = db.prepare("SELECT balance, installment FROM EmpLoan WHERE employeeId=? AND status='open' ORDER BY id LIMIT 1").get(employeeId) as
+    { balance: number; installment: number } | undefined;
+  return { run, line, ytd, loan: loan ?? null };
+}
+
+// Headcount + monthly attendance % + payroll register (owner registers).
+export function hrReports(month: string) {
+  peopleTables();
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("month like YYYY-MM");
+  const db = getDb();
+  const emps = db.prepare("SELECT id, name, dept FROM Employee WHERE active=1").all() as
+    { id: number; name: string; dept: string }[];
+  const runs = db.prepare("SELECT id, status FROM PayrollRun WHERE month=?").all(month) as
+    { id: number; status: string }[];
+  const totals = runs.length
+    ? (db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(net),0) s FROM PayrollLine WHERE runId IN
+        (SELECT id FROM PayrollRun WHERE month=?)`).get(month) as { n: number; s: number })
+    : { n: 0, s: 0 };
+  const att = emps.map((e) => {
+    const m = monthAttendance(e.id, month) as { marks: number; present?: number };
+    const present = (m as Record<string, number>).present ?? m.marks;
+    return { id: e.id, name: e.name, dept: e.dept, days: m.marks, present };
+  });
+  return {
+    headcount: emps.length,
+    byDept: emps.reduce<Record<string, number>>((a, e) => ({ ...a, [e.dept || "—"]: (a[e.dept || "—"] ?? 0) + 1 }), {}),
+    payroll: { runs: runs.map((r) => r.status), lines: totals.n, total: totals.s },
+    attendance: att,
+  };
+}
+
 export function listRuns() {
   peopleTables();
   return getDb().prepare("SELECT * FROM PayrollRun ORDER BY month DESC LIMIT 24").all();

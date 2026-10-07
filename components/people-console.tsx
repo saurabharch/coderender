@@ -38,6 +38,11 @@ export function PeopleConsole() {
   const [examt, setExamt] = useState("");
   const [otid, setOtid] = useState("");
   const [ot, setOt] = useState<{ logged: number; rostered: number; overtime: number } | null>(null);
+  const [repmonth, setRepmonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [rep, setRep] = useState<{ headcount: number; byDept: Record<string, number>; payroll: { runs: string[]; lines: number; total: number }; attendance: { id: number; name: string; dept: string; days: number; present: number }[] } | null>(null);
+  const [slrun, setSlrun] = useState("");
+  const [slemp, setSlemp] = useState("");
+  const [slip, setSlip] = useState<{ run: { month: string; status: string }; line: { name: string; designation: string; dept: string; base: number; allowances: number; deductions: number; loanCut: number; net: number }; ytd: { s: number; n: number }; loan: { balance: number; installment: number } | null } | null>(null);
   const [desigs, setDesigs] = useState<{ title: string; grade: string }[]>([]);
   const [dtitle, setDtitle] = useState("");
   const [offers, setOffers] = useState<{ id: number; name: string; designation: string; ctc: number; joining: string; status: string }[]>([]);
@@ -170,6 +175,18 @@ export function PeopleConsole() {
       body: JSON.stringify({ clear: Number(lcid), key, done }),
     });
     void loadLifecycle();
+  }
+
+  async function loadReport() {
+    const d = await fetch(`/api/people/ops?hrreport=${encodeURIComponent(repmonth)}`).then((r) => r.json()).catch(() => null);
+    if (d && typeof d.headcount === "number") setRep(d);
+  }
+
+  async function loadSlip() {
+    if (!slrun || !slemp) return;
+    const d = await fetch(`/api/people/ops?payslip=${encodeURIComponent(slrun)}&emp=${encodeURIComponent(slemp)}`).then((r) => r.json()).catch(() => null);
+    if (d?.line) setSlip(d);
+    else setMsg("No slip for that run/employee.");
   }
 
   async function load() {
@@ -651,6 +668,68 @@ export function PeopleConsole() {
                 }} className="min-h-[44px] rounded-xl bg-brand px-4 text-xs font-bold text-white">Close exit</button>
               )}
             </div>
+          </div>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Reports <span className="text-xs font-normal text-zinc-500">(registers)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={repmonth} onChange={(e) => setRepmonth(e.target.value)} placeholder="YYYY-MM" maxLength={7}
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" />
+          <button onClick={() => void loadReport()}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Load registers</button>
+        </div>
+        {rep && (
+          <div className="mt-2 grid gap-2 text-sm">
+            <p>Headcount <b>{rep.headcount}</b> · {Object.entries(rep.byDept).map(([k, v]) => `${k} ${v}`).join(" · ")}</p>
+            <p>Payroll: {rep.payroll.runs.length > 0 ? rep.payroll.runs.join(", ") : "no run"} · {rep.payroll.lines} lines · <b>₹{(rep.payroll.total / 100).toFixed(0)}</b></p>
+            <ul className="space-y-1">
+              {rep.attendance.map((a) => (
+                <li key={a.id} className="flex flex-wrap justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                  <span>{a.name} <span className="text-xs text-zinc-500">{a.dept || ""}</span></span>
+                  <span className="text-xs">{a.present}/{a.days} days</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Payslip</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <select value={slrun} onChange={(e) => setSlrun(e.target.value)} aria-label="Payroll run"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            <option value="">Run…</option>
+            {runs.map((r) => <option key={r.id} value={r.id}>{r.month} ({r.status})</option>)}
+          </select>
+          <input value={slemp} onChange={(e) => setSlemp(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void loadSlip()} disabled={!slrun || !slemp}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">View</button>
+        </div>
+        {slip && (
+          <div id="hr-payslip" className="mx-auto mt-2 max-w-sm rounded-2xl border border-black/10 bg-white p-4 text-sm text-black">
+            <style>{`@media print {
+              @page { margin: 0; }
+              body { background: #fff !important; }
+              body * { visibility: hidden; }
+              #hr-payslip, #hr-payslip * { visibility: visible; }
+              #hr-payslip { position: absolute; inset: 0 auto auto 0; width: 72mm; border: none; margin: 0; }
+              nav[aria-label="Admin"] { display: none !important; }
+            }`}</style>
+            <p className="text-center text-base font-extrabold">Payslip · {slip.run.month}</p>
+            <p className="text-center text-xs text-zinc-600">{slip.line.name} · {slip.line.designation || ""} · {slip.line.dept || ""}</p>
+            <hr className="my-2 border-dashed border-black/20" />
+            <div className="space-y-0.5 font-mono text-xs">
+              <p className="flex justify-between"><span>Base</span><span>₹{(slip.line.base / 100).toFixed(0)}</span></p>
+              <p className="flex justify-between"><span>Allowances</span><span>₹{(slip.line.allowances / 100).toFixed(0)}</span></p>
+              <p className="flex justify-between"><span>Deductions</span><span>−₹{(slip.line.deductions / 100).toFixed(0)}</span></p>
+              {slip.line.loanCut > 0 && <p className="flex justify-between"><span>Loan slice</span><span>−₹{(slip.line.loanCut / 100).toFixed(0)}</span></p>}
+              <p className="flex justify-between text-base font-extrabold"><span>Net</span><span>₹{(slip.line.net / 100).toFixed(0)}</span></p>
+              <p className="flex justify-between text-zinc-600"><span>YTD ({slip.run.month.slice(0, 4)})</span><span>₹{(slip.ytd.s / 100).toFixed(0)} · {slip.ytd.n} runs</span></p>
+              {slip.loan && <p className="flex justify-between text-zinc-600"><span>Loan balance</span><span>₹{(slip.loan.balance / 100).toFixed(0)}</span></p>}
+            </div>
+            <button onClick={() => window.print()} className="mt-3 min-h-[48px] w-full rounded-xl bg-black text-sm font-bold text-white print:hidden">Print slip</button>
           </div>
         )}
       </AdminCard>

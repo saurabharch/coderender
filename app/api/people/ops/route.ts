@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { applyStructure, checkIn, checkOut, closeExit, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, listRuns, listShifts, listStructures, logEmpEvent, logTime, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, requestLeave, saveDesignation, saveHoliday, saveShift, saveStructure, setClearance, setExpense, setLeave, setOffer, setRoster, setRunStatus, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
+import { applyStructure, checkIn, checkOut, closeExit, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, hrReports, listRuns, listShifts, listStructures, logEmpEvent, logTime, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, payslip, requestLeave, saveDesignation, saveHoliday, saveShift, saveStructure, setClearance, setExpense, setLeave, setOffer, setRoster, setRunStatus, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
@@ -57,6 +57,20 @@ export async function GET(req: Request) {
   }
   if (url.searchParams.get("runs") !== null) {
     return NextResponse.json({ runs: listRuns() });
+  }
+  if (url.searchParams.get("payslip") !== null && url.searchParams.get("emp")) {
+    try {
+      return NextResponse.json(payslip(Number(url.searchParams.get("payslip") || 0), Number(url.searchParams.get("emp") || 0)));
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+    }
+  }
+  if (url.searchParams.get("hrreport") !== null) {
+    try {
+      return NextResponse.json(hrReports(url.searchParams.get("hrreport") || new Date().toISOString().slice(0, 7)));
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+    }
   }
   if (url.searchParams.get("overtime") !== null) {
     return NextResponse.json(weekOvertime(Number(url.searchParams.get("overtime") || 0), url.searchParams.get("from") || new Date().toISOString().slice(0, 10)));
