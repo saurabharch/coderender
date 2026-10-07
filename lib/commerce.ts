@@ -3,7 +3,7 @@
 // Money in paise; math lives in commerce-core.
 import { getDb } from "./store";
 import { couponOff, orderCan, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
-import { openProductStock, setProductStock } from "./inventory";
+import { fefoLots, openProductStock, setProductStock } from "./inventory";
 import { eanFromId } from "./barcode-core";
 import { bankMove } from "./billing";
 import { ledgerPost } from "./finance";
@@ -22,7 +22,9 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Wishlist (customerId INTEGER NOT NULL, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (customerId, productId))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductView (id INTEGER PRIMARY KEY AUTOINCREMENT, fp TEXT NOT NULL DEFAULT '', customerId INTEGER NOT NULL DEFAULT 0, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS BinLoc (id INTEGER PRIMARY KEY AUTOINCREMENT, warehouseId INTEGER NOT NULL DEFAULT 1, floor TEXT NOT NULL DEFAULT '', rack TEXT NOT NULL DEFAULT '', shelf TEXT NOT NULL DEFAULT '', code TEXT NOT NULL DEFAULT '')`);
-  db.exec(`CREATE TABLE IF NOT EXISTS ProductLot (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, lot TEXT NOT NULL DEFAULT '', mfg TEXT NOT NULL DEFAULT '', exp TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ProductLot (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, lot TEXT NOT NULL DEFAULT '', mfg TEXT NOT NULL DEFAULT '', exp TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 0, cost INTEGER NOT NULL DEFAULT 0, sell INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try { db.exec("ALTER TABLE ProductLot ADD COLUMN cost INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE ProductLot ADD COLUMN sell INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   db.exec(`CREATE TABLE IF NOT EXISTS ProductExt (productId INTEGER PRIMARY KEY, kind TEXT NOT NULL DEFAULT '', payload TEXT NOT NULL DEFAULT '{}', updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE Product ADD COLUMN avail TEXT NOT NULL DEFAULT 'in_stock'"); } catch { /* exists */ }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_lot_product ON ProductLot(productId)`);
@@ -216,6 +218,8 @@ export function saveProduct(input: {
 }
 
 // Scan lookup: exact barcode (product or variant), then SKU fallback.
+// Price is batch-aware (FEFO lot sell wins) so the counter shows the real
+// sell price even when the base price is 0 (batch-priced inventory).
 export function productByCode(code: string): { productId: number; variantId: number; name: string; price: number; stock: number; type: string } | null {
   commerceTables();
   const db = getDb();
@@ -225,10 +229,15 @@ export function productByCode(code: string): { productId: number; variantId: num
     CASE WHEN v.price > 0 THEN v.price ELSE p.price END price, v.stock, COALESCE(v.barcodeType,'') type FROM ProductVariant v
     JOIN Product p ON p.id=v.productId WHERE v.barcode=? LIMIT 1`).get(c) as
     { productId: number; variantId: number; name: string; price: number; stock: number; type: string } | undefined;
-  if (v) return v;
+  if (v) {
+    const lot = lotPrice(v.productId);
+    return lot ? { ...v, price: lot.price } : v;
+  }
   const p = db.prepare("SELECT id productId, 0 variantId, name, price, stock, COALESCE(barcodeType,'SKU') type FROM Product WHERE (barcode=? OR sku=?) AND status='active' LIMIT 1").get(c, c) as
     { productId: number; variantId: number; name: string; price: number; stock: number; type: string } | undefined;
-  return p ?? null;
+  if (!p) return null;
+  const lot = lotPrice(p.productId);
+  return lot ? { ...p, price: lot.price } : p;
 }
 
 // ---- extensions (rental / digital / subscription / event stubs) ----
@@ -408,19 +417,32 @@ export function soldQty(productId: number): number {
     WHERE ol.productId=? AND o.status!='cancelled'`).get(productId) as { s: number }).s;
 }
 
-export function saveLot(input: { id?: number; productId: number; lot?: string; mfg?: string; exp?: string; qty?: number; notes?: string }): number {
+export function saveLot(input: { id?: number; productId: number; lot?: string; mfg?: string; exp?: string; qty?: number; cost?: number; sell?: number; notes?: string }): number {
   commerceTables();
   const db = getDb();
   if (!db.prepare("SELECT id FROM Product WHERE id=?").get(input.productId)) throw new Error("no product");
+  const cost = Math.max(0, Math.round(input.cost ?? 0));
+  const sell = Math.max(0, Math.round(input.sell ?? 0));
   if (input.id) {
-    db.prepare("UPDATE ProductLot SET lot=?, mfg=?, exp=?, qty=?, notes=? WHERE id=? AND productId=?")
+    db.prepare("UPDATE ProductLot SET lot=?, mfg=?, exp=?, qty=?, cost=?, sell=?, notes=? WHERE id=? AND productId=?")
       .run((input.lot ?? "").slice(0, 40), (input.mfg ?? "").slice(0, 10), (input.exp ?? "").slice(0, 10),
-        Math.max(0, input.qty ?? 0), (input.notes ?? "").slice(0, 200), input.id, input.productId);
+        Math.max(0, input.qty ?? 0), cost, sell, (input.notes ?? "").slice(0, 200), input.id, input.productId);
     return input.id;
   }
-  return Number(db.prepare("INSERT INTO ProductLot (productId, lot, mfg, exp, qty, notes) VALUES (?,?,?,?,?,?)")
+  return Number(db.prepare("INSERT INTO ProductLot (productId, lot, mfg, exp, qty, cost, sell, notes) VALUES (?,?,?,?,?,?,?,?)")
     .run(input.productId, (input.lot ?? "").slice(0, 40), (input.mfg ?? "").slice(0, 10), (input.exp ?? "").slice(0, 10),
-      Math.max(0, input.qty ?? 0), (input.notes ?? "").slice(0, 200)).lastInsertRowid);
+      Math.max(0, input.qty ?? 0), cost, sell, (input.notes ?? "").slice(0, 200)).lastInsertRowid);
+}
+
+// Batch sell price: FEFO-first lot with stock and a set sell price. Empty
+// (0) means the lot carries no price — tiers/base decide below.
+export function lotPrice(productId: number): { price: number; lot: string } | null {
+  commerceTables();
+  try {
+    const lots = fefoLots(productId) as { lot: string; sell?: number }[];
+    const hit = lots.find((l) => Number(l.sell ?? 0) > 0);
+    return hit ? { price: Number(hit.sell), lot: hit.lot } : null;
+  } catch { return null; }
 }
 
 export function deleteLot(id: number, productId: number): void {
@@ -489,6 +511,9 @@ export function priceFor(productId: number, opts: { channel?: string; qty?: numb
   const db = getDb();
   const p = db.prepare("SELECT price FROM Product WHERE id=?").get(productId) as { price: number } | undefined;
   if (!p) throw new Error("no product");
+  // Batch sell price wins (FEFO lot) — price lives on the lot, then tiers, then base.
+  const lot = lotPrice(productId);
+  if (lot) return { price: lot.price, source: `batch:${lot.lot || "lot"}` };
   const rows = db.prepare("SELECT priceType, amount, minQty, startsAt, endsAt, active FROM ProductPrice WHERE productId=? AND active=1").all(productId) as unknown as PriceRow[];
   return resolvePrice(p.price, rows, opts);
 }

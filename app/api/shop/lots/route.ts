@@ -23,6 +23,7 @@ export async function POST(req: Request) {
     id: z.number().int().optional(), productId: z.number().int(),
     lot: z.string().max(40).optional(), mfg: z.string().max(10).optional(),
     exp: z.string().max(10).optional(), qty: z.number().min(0).max(1000000).optional(),
+    cost: z.number().min(0).max(100000000).optional(), sell: z.number().min(0).max(100000000).optional(),
     notes: z.string().max(200).optional(),
   }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad lot" }, { status: 422 });

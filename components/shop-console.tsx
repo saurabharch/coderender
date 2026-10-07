@@ -23,7 +23,6 @@ export function ShopConsole() {
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [barcode, setBarcode] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
@@ -35,8 +34,15 @@ export function ShopConsole() {
   const [vname, setVname] = useState("");
   const [vsize, setVsize] = useState("");
   const [vcolor, setVcolor] = useState("");
-  const [vprice, setVprice] = useState("");
   const [vunit, setVunit] = useState("pc");
+  const [vtype, setVtype] = useState("weight");
+  const [vval, setVval] = useState("");
+  const [variety, setVariety] = useState(false);
+  const [mtype, setMtype] = useState("weight");
+  const [mval, setMval] = useState("");
+  const [munit, setMunit] = useState("pc");
+  const [mcolor, setMcolor] = useState("");
+  const [msize, setMsize] = useState("");
   const [ccode, setCcode] = useState("");
   const [ckind, setCkind] = useState("pct");
   const [cval, setCval] = useState("");
@@ -56,11 +62,13 @@ export function ShopConsole() {
   const [slides, setSlides] = useState<{ id: number; title: string; anim: string; active: number }[]>([]);
   const [stitle, setStitle] = useState("");
   const [sanim, setSanim] = useState("slide");
-  const [lots, setLots] = useState<{ id: number; lot: string; mfg: string; exp: string }[]>([]);
+  const [lots, setLots] = useState<{ id: number; lot: string; mfg: string; exp: string; qty: number; cost: number; sell: number }[]>([]);
   const [lotpid, setLotpid] = useState("");
   const [lotno, setLotno] = useState("");
   const [lotmfg, setLotmfg] = useState<Date | null>(null);
   const [lotexp, setLotexp] = useState<Date | null>(null);
+  const [lotcost, setLotcost] = useState("");
+  const [lotsell, setLotsell] = useState("");
   const [lotq, setLotq] = useState("");
   const [lotscan, setLotscan] = useState(false);
   const [lotfound, setLotfound] = useState<{ id: number; lot: string; mfg: string; exp: string; pname: string; pid: number; barcode: string; images: string; stock: number; sold: number }[]>([]);
@@ -86,17 +94,31 @@ export function ShopConsole() {
 
   useEffect(() => { void load(); }, []);
 
+  const MEASURE_TYPES = ["weight", "volume", "length", "count", "pack"];
+
   async function addProduct() {
-    const paise = toPaise(price);
-    if (paise === null) { setMsg("Price: numbers with up to 2 decimals."); return; }
     if (!stock || Number(stock) < 1 || !Number.isInteger(Number(stock))) { setMsg("Stock: whole numbers from 1."); return; }
     const res = await fetch("/api/shop/products", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price: paise, stock: Math.round(Number(stock)), ...(barcode.trim() ? { barcode: barcode.trim() } : {}),
+      body: JSON.stringify({ name, stock: Math.round(Number(stock)), ...(barcode.trim() ? { barcode: barcode.trim() } : {}),
       ...(imgurls.trim() ? { images: imgurls.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10) } : {}) }),
     });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { setMsg("Add failed"); return; }
+    // First measurement variant rides along (price lives on the batch).
+    const vattrs = { kind: mtype, ...(mval.trim() ? { value: mval.trim() } : {}), unit: munit,
+      ...(mcolor.trim() ? { color: mcolor.trim() } : {}), ...(msize.trim() ? { size: msize.trim() } : {}) };
+    if (mval.trim() || mcolor.trim() || msize.trim()) {
+      await fetch("/api/shop/products", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: d.id,
+          name: `${mval.trim()} ${munit}`.trim() || "Standard",
+          attrs: vattrs,
+        }),
+      }).catch(() => null);
+    }
+    setVpid(String(d.id));
     // Pending capture (camera button below): upload + attach + queue bg job.
     if (pending) {
       try {
@@ -121,29 +143,24 @@ export function ShopConsole() {
     } else {
       setMsg("Product added ✓ (auto-barcode when left blank)");
     }
-    setName(""); setPrice(""); setStock(""); setBarcode(""); setImgurls(""); void load();
-  }
-
-  // Paise conversion that rejects >2 decimals (amounts are float ≤ 2dp).
-  function toPaise(v: string): number | null {
-    if (!/^\d+(\.\d{1,2})?$/.test(v.trim())) return null;
-    return Math.round(Number(v) * 100);
+    setName(""); setStock(""); setBarcode(""); setImgurls(""); setMval(""); setMcolor(""); setMsize(""); void load();
   }
 
   async function addVariant() {
-    const paise = toPaise(vprice);
-    if (paise === null) { setMsg("Price: numbers with up to 2 decimals."); return; }
+    if (!vpid) { setMsg("Pick the product first (auto-filled on add)."); return; }
     const res = await fetch("/api/shop/products", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        productId: Number(vpid), name: vname,
-        attrs: { ...(vsize ? { size: vsize } : {}), ...(vcolor ? { color: vcolor } : {}), unit: vunit },
-        price: paise,
+        productId: Number(vpid),
+        name: vname.trim() || `${vval.trim()} ${vunit}`.trim() || "Standard",
+        attrs: { kind: vtype, ...(vval.trim() ? { value: vval.trim() } : {}), unit: vunit,
+          ...(variety && vcolor.trim() ? { color: vcolor.trim() } : {}),
+          ...(variety && vsize.trim() ? { size: vsize.trim() } : {}) },
       }),
     });
     const d = await res.json().catch(() => ({}));
-    setMsg(res.ok ? "Variant added ✓" : (d.error ?? "failed"));
-    if (res.ok) { setVpid(""); setVname(""); setVsize(""); setVcolor(""); setVprice(""); setVunit("pc"); }
+    setMsg(res.ok ? "Variant added ✓ (price goes on the batch)" : (d.error ?? "failed"));
+    if (res.ok) { setVname(""); setVsize(""); setVcolor(""); setVval(""); setVunit("pc"); setVtype("weight"); setVariety(false); void load(); }
   }
 
   async function addCoupon() {
@@ -365,11 +382,12 @@ export function ShopConsole() {
   async function addLot() {
     const res = await fetch("/api/shop/lots", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId: Number(lotpid), lot: lotno, mfg: day(lotmfg), exp: day(lotexp) }),
+      body: JSON.stringify({ productId: Number(lotpid), lot: lotno, mfg: day(lotmfg), exp: day(lotexp),
+        cost: Math.round(Number(lotcost || 0) * 100), sell: Math.round(Number(lotsell || 0) * 100) }),
     });
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? "Batch saved ✓" : (d.error ?? "failed"));
-    if (res.ok) { setLotno(""); setLotmfg(null); setLotexp(null); void loadLots(); }
+    if (res.ok) { setLotno(""); setLotmfg(null); setLotexp(null); setLotcost(""); setLotsell(""); void loadLots(); }
   }
 
   async function searchLot() {
@@ -404,15 +422,29 @@ export function ShopConsole() {
   return (
     <div className="grid gap-3">
       <AdminCard>
-        <p className="font-bold">Add product <span className="text-xs font-normal text-zinc-500">(₹ price, stock count)</span></p>
+        <p className="font-bold">Add product <span className="text-xs font-normal text-zinc-500">(measure + stock — price goes on the batch)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" maxLength={150}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={price} onChange={(e) => setPrice(maskAmount(e.target.value))} placeholder="₹" inputMode="decimal"
-            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <input value={stock} onChange={(e) => setStock(maskInt(e.target.value))} placeholder="Stock" inputMode="numeric"
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <IconBtn label="Add product" onClick={() => void addProduct()} disabled={!name.trim() || !price} tone="brand"><Plus size={20} /></IconBtn>
+          <select value={mtype} onChange={(e) => setMtype(e.target.value)} aria-label="Measurement type"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            {MEASURE_TYPES.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <input value={mval} onChange={(e) => setMval(e.target.value)} placeholder="Measure (500)" maxLength={20}
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <select value={munit} onChange={(e) => setMunit(e.target.value)} aria-label="Unit"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            {["pc", "kg", "g", "l", "ml", "m", "cm", "box", "dozen", "pack"].map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
+          <input value={mcolor} onChange={(e) => setMcolor(e.target.value)} placeholder="Color?" maxLength={20}
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={msize} onChange={(e) => setMsize(e.target.value)} placeholder="Size?" maxLength={20}
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <IconBtn label="Add product" onClick={() => void addProduct()} disabled={!name.trim() || !stock} tone="brand"><Plus size={20} /></IconBtn>
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <input ref={addPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" aria-label="Capture product photo"
@@ -550,6 +582,10 @@ export function ShopConsole() {
         <div className="mt-1.5 flex flex-wrap items-end gap-1.5">
           <input value={lotno} onChange={(e) => setLotno(maskBarcode(e.target.value))} placeholder="Batch no" maxLength={40}
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={lotcost} onChange={(e) => setLotcost(maskAmount(e.target.value))} placeholder="Cost ₹" inputMode="decimal"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={lotsell} onChange={(e) => setLotsell(maskAmount(e.target.value))} placeholder="Sell ₹" inputMode="decimal"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <NoSsr fallback={<p className="text-sm text-zinc-500">Loading date pickers…</p>}>
           <DatePickerInput value={lotmfg} onChange={(v) => setLotmfg(Array.isArray(v) ? (v[0] as Date ?? null) : (v as Date | null))} label="MFG" valueFormat="YYYY-MM"
             className="w-28 sm:w-32" styles={{ input: { minHeight: 44, borderRadius: 12 } }} />
@@ -562,7 +598,7 @@ export function ShopConsole() {
           <ul className="mt-2 space-y-1 text-sm">
             {lots.map((l) => (
               <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span className="flex min-w-0 flex-wrap items-center gap-1.5">{l.lot || `#${l.id}`} · MFG {l.mfg || "—"} · EXP {l.exp || "—"}
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">{l.lot || `#${l.id}`} · MFG {l.mfg || "—"} · EXP {l.exp || "—"} · cost ₹{((l.cost ?? 0) / 100).toFixed(0)} · sell ₹{((l.sell ?? 0) / 100).toFixed(0)}
                   {l.exp ? <StatusBadge status={l.exp < new Date().toISOString().slice(0, 7) ? "expired" : "active"} /> : null}</span>
                 {l.lot ? <CopyBtn value={l.lot} label="batch number" /> : null}
               </li>
@@ -656,15 +692,14 @@ export function ShopConsole() {
         )}
       </AdminCard>
       <AdminCard>
-        <p className="font-bold">Add variant <span className="text-xs font-normal text-zinc-500">(size / color + own price)</span></p>
+        <p className="font-bold">Add variant <span className="text-xs font-normal text-zinc-500">(measure only — no price, no picking: uses last added product)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <div className="min-w-[140px] flex-1 basis-full sm:basis-0"><ProductPicker value={vpid} shortcut="F4" onPick={(x) => setVpid(x ? String(x.id) : "")} placeholder="Product for variant…" /></div>          <input value={vname} onChange={(e) => setVname(e.target.value)} placeholder="Variant name" maxLength={120}
-            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={vsize} onChange={(e) => setVsize(e.target.value)} placeholder="Size" maxLength={20}
-            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={vcolor} onChange={(e) => setVcolor(e.target.value)} placeholder="Color" maxLength={20}
-            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-          <input value={vprice} onChange={(e) => setVprice(maskAmount(e.target.value))} placeholder="₹ (2 decimals)" inputMode="decimal"
+          <div className="min-w-[140px] flex-1 basis-full sm:basis-0"><ProductPicker value={vpid} shortcut="F4" onPick={(x) => setVpid(x ? String(x.id) : "")} placeholder="Product for variant…" /></div>
+          <select value={vtype} onChange={(e) => setVtype(e.target.value)} aria-label="Measurement type"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
+            {MEASURE_TYPES.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <input value={vval} onChange={(e) => setVval(e.target.value)} placeholder="Value (500)" maxLength={20}
             className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <select value={vunit} onChange={(e) => setVunit(e.target.value)} aria-label="Variant unit"
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-2 text-sm dark:border-white/20">
@@ -672,7 +707,21 @@ export function ShopConsole() {
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
-          <IconBtn label="Add variant" onClick={() => void addVariant()} disabled={!vpid || !vprice} tone="brand"><Plus size={20} /></IconBtn>
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl border border-black/15 px-3 text-sm dark:border-white/20">
+            <input type="checkbox" checked={variety} onChange={(e) => setVariety(e.target.checked)} className="h-5 w-5" />
+            variety?
+          </label>
+          {variety && (
+            <>
+              <input value={vcolor} onChange={(e) => setVcolor(e.target.value)} placeholder="Color" maxLength={20}
+                className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <input value={vsize} onChange={(e) => setVsize(e.target.value)} placeholder="Size" maxLength={20}
+                className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            </>
+          )}
+          <input value={vname} onChange={(e) => setVname(e.target.value)} placeholder="Name (auto)" maxLength={120}
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <IconBtn label="Add variant" onClick={() => void addVariant()} disabled={!vpid} tone="brand"><Plus size={20} /></IconBtn>
         </div>
       </AdminCard>
       {msg && <p className="text-sm text-zinc-500">{msg}</p>}

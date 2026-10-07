@@ -1176,6 +1176,8 @@ model ProductLot {
   mfg       String @default("")
   exp       String @default("")
   qty       Float  @default(0)
+  cost      Int    @default(0)
+  sell      Int    @default(0)
   notes     String @default("")
   createdAt DateTime @default(now())
 
