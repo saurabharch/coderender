@@ -24,6 +24,8 @@ export function peopleTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS PerfCycle (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, period TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS PerfGoal (id INTEGER PRIMARY KEY AUTOINCREMENT, cycleId INTEGER NOT NULL, employeeId INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '', weight INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE TABLE IF NOT EXISTS PerfReview (id INTEGER PRIMARY KEY AUTOINCREMENT, cycleId INTEGER NOT NULL, employeeId INTEGER NOT NULL, rating INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', UNIQUE(cycleId, employeeId))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Candidate (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', designation TEXT NOT NULL DEFAULT '', stage TEXT NOT NULL DEFAULT 'applied', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Training (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, course TEXT NOT NULL DEFAULT '', onDay TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'planned')`);
   db.exec(`CREATE TABLE IF NOT EXISTS Designation (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL UNIQUE, grade TEXT NOT NULL DEFAULT '', minPay INTEGER NOT NULL DEFAULT 0, maxPay INTEGER NOT NULL DEFAULT 0)`);
   db.exec(`CREATE TABLE IF NOT EXISTS JobOffer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', designation TEXT NOT NULL DEFAULT '', ctc INTEGER NOT NULL DEFAULT 0, joining TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'offered', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS EmpEvent (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
@@ -482,6 +484,64 @@ export function fullFinal(employeeId: number): { earnedLeft: number; leaveValue:
     openLoans,
     unpaidExpenses,
   };
+}
+
+// ---- recruitment + training (plan 07 slice 8) ----
+const CANDIDATE_FLOW = ["applied", "screening", "interview", "offered", "hired", "declined"] as const;
+
+export function addCandidate(name: string, phone = "", designation = ""): number {
+  peopleTables();
+  if (!name.trim()) throw new Error("name required");
+  return Number(getDb().prepare("INSERT INTO Candidate (name, phone, designation) VALUES (?,?,?)")
+    .run(name.trim().slice(0, 120), phone.replace(/\D/g, "").slice(-10), designation.slice(0, 80)).lastInsertRowid);
+}
+
+export function listCandidates(stage = "") {
+  peopleTables();
+  return getDb().prepare(stage
+    ? "SELECT * FROM Candidate WHERE stage=? ORDER BY id DESC LIMIT 50"
+    : "SELECT * FROM Candidate ORDER BY id DESC LIMIT 50").all(...(isStage(stage) ? [stage] : []));
+}
+
+function isStage(s: string): boolean { return (CANDIDATE_FLOW as readonly string[]).includes(s); }
+
+export function moveCandidate(id: number, to: string): number | null {
+  peopleTables();
+  if (!isStage(to)) throw new Error("bad stage");
+  const db = getDb();
+  const c = db.prepare("SELECT * FROM Candidate WHERE id=?").get(id) as
+    { name: string; phone: string; designation: string; stage: string } | undefined;
+  if (!c) throw new Error("no candidate");
+  const order = (CANDIDATE_FLOW as readonly string[]).indexOf(c.stage);
+  const next = (CANDIDATE_FLOW as readonly string[]).indexOf(to);
+  // Forward flow only (declined is terminal from anywhere except hired).
+  if (c.stage === "hired") throw new Error("already hired");
+  if (to !== "declined" && next !== order + 1) throw new Error(`${c.stage} → ${to} not allowed`);
+  if (to === "declined" && c.stage === "hired") throw new Error("already hired");
+  db.prepare("UPDATE Candidate SET stage=? WHERE id=?").run(to, id);
+  if (to !== "offered") return null;
+  // Offered → job offer row (hire decision stays explicit in Offers).
+  return makeOffer({ name: c.name, designation: c.designation });
+}
+
+export function logTraining(employeeId: number, course: string, onDay: string, status = "planned"): number {
+  peopleTables();
+  if (!course.trim()) throw new Error("course required");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(onDay)) throw new Error("day like YYYY-MM-DD");
+  if (!["planned", "done"].includes(status)) throw new Error("bad status");
+  if (!getDb().prepare("SELECT id FROM Employee WHERE id=?").get(employeeId)) throw new Error("no employee");
+  return Number(getDb().prepare("INSERT INTO Training (employeeId, course, onDay, status) VALUES (?,?,?,?)")
+    .run(employeeId, course.trim().slice(0, 120), onDay, status).lastInsertRowid);
+}
+
+export function listTraining(employeeId: number) {
+  peopleTables();
+  return getDb().prepare("SELECT * FROM Training WHERE employeeId=? ORDER BY onDay DESC LIMIT 30").all(employeeId);
+}
+
+export function completeTraining(id: number): void {
+  peopleTables();
+  getDb().prepare("UPDATE Training SET status='done' WHERE id=?").run(id);
 }
 
 // ---- performance cycles (plan 07 slice 7) ----

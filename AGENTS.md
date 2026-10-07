@@ -50,7 +50,7 @@ contradicts a green build, `pm2 stop`, `rm -rf .next`, rebuild, start.
 
 ## Skills (local `./skills` + matt-skills at `~/matt-skills/`)
 
-- Project (`opencode.json` `skills: ["./skills"]`): `bb-market-research`, `bb-creator-intelligence`, `bb-gtm-30-day`, `bb-gap-analysis`, `bb-services-offers`, `bb-workflow-automation` — vendored from `~/downloads/BBuilder`. Global: `grill-with-docs`, `grill-me`, `tdd`, `diagnosing-bugs`, `code-review`, `research`, `implement`, `to-spec`, `to-tickets`, `handoff`, `writing-for-agents`.
+- Project (`opencode.json` `skills: ["./skills"]`): `bb-market-research`, `bb-creator-intelligence`, `bb-gtm-30-day`, `bb-gap-analysis`, `bb-services-offers`, `bb-workflow-automation` — vendored from `~/downloads/BBuilder`. Engineering + productivity skills (`implement`, `tdd`, `code-review`, `research`, `to-spec`, `to-tickets`, `wayfinder`, `grill-with-docs`, `diagnosing-bugs`, …) — vendored from `~/matt-skills/skills/{engineering,productivity}`. Mantine skills (`mantine-combobox`, `mantine-form`, `mantine-custom-components`) — vendored from `mantinedev/skills`. Global: `grill-with-docs`, `grill-me`, `tdd`, `diagnosing-bugs`, `code-review`, `research`, `implement`, `to-spec`, `to-tickets`, `handoff`, `writing-for-agents`.
 - If a skill is missing: check folder-name ID, `description` present, `skill` permission allow, no duplicate ID shadowing. Validate with `python3 scripts/validate_skills.py`.
 - Order for new work: `grill-with-docs` (reference breakdown + CONTEXT terms) → `to-spec` → `to-tickets` → `prototype` (if UI question) → `implement` + `tdd` → `code-review`.
 

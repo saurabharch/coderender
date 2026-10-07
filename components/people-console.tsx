@@ -44,6 +44,12 @@ export function PeopleConsole() {
   const [slemp, setSlemp] = useState("");
   const [slip, setSlip] = useState<{ run: { month: string; status: string }; line: { name: string; designation: string; dept: string; base: number; allowances: number; deductions: number; loanCut: number; net: number }; ytd: { s: number; n: number }; loan: { balance: number; installment: number } | null } | null>(null);
   const [desigs, setDesigs] = useState<{ title: string; grade: string }[]>([]);
+  const [cands, setCands] = useState<{ id: number; name: string; designation: string; stage: string }[]>([]);
+  const [caname, setCaname] = useState("");
+  const [trid, setTrid] = useState("");
+  const [trainings, setTrainings] = useState<{ id: number; course: string; onDay: string; status: string }[]>([]);
+  const [trcourse, setTrcourse] = useState("");
+  const [trday, setTrday] = useState("");
   const [dtitle, setDtitle] = useState("");
   const [offers, setOffers] = useState<{ id: number; name: string; designation: string; ctc: number; joining: string; status: string }[]>([]);
   const [ofname, setOfname] = useState("");
@@ -97,6 +103,47 @@ export function PeopleConsole() {
     if (!otid) return;
     const d = await fetch(`/api/people/ops?overtime=${encodeURIComponent(otid)}`).then((r) => r.json()).catch(() => null);
     if (d && typeof d.overtime === "number") setOt(d);
+  }
+
+  async function loadCands() {
+    const d = await fetch("/api/people/ops?candidates=").then((r) => r.json()).catch(() => null);
+    if (d?.candidates) setCands(d.candidates);
+  }
+
+  async function addCandidate() {
+    if (!caname.trim()) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidate: caname.trim() }),
+    });
+    setMsg(res.ok ? "Candidate added ✓" : "failed");
+    if (res.ok) { setCaname(""); void loadCands(); }
+  }
+
+  async function moveCand(id: number, to: string) {
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candMove: id, to }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? (d.offerId ? `Offer #${d.offerId} created ✓ (hire in Offers)` : `${to} ✓`) : (d.error ?? "failed"));
+    if (res.ok) { void loadCands(); void loadMeta(); }
+  }
+
+  async function loadTrainings() {
+    if (!trid) return;
+    const d = await fetch(`/api/people/ops?trainings=${encodeURIComponent(trid)}`).then((r) => r.json()).catch(() => null);
+    if (d?.trainings) setTrainings(d.trainings);
+  }
+
+  async function logCourse() {
+    if (!trid || !trcourse.trim() || !trday) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ training: Number(trid), course: trcourse.trim(), day: trday }),
+    });
+    setMsg(res.ok ? "Training logged ✓" : "failed");
+    if (res.ok) { setTrcourse(""); void loadTrainings(); }
   }
 
   async function loadMeta() {
@@ -255,6 +302,7 @@ export function PeopleConsole() {
     const sh = await fetch("/api/people/ops?shifts=1").then((r) => r.json()).catch(() => null);
     if (sh?.shifts) setShifts(sh.shifts);
     void loadCycles();
+    void loadCands();
     setLoaded(true);
   }
 
@@ -620,6 +668,56 @@ export function PeopleConsole() {
             className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Check</button>
           {ot && <span className="flex items-center gap-1.5 text-sm">logged <b>{ot.logged}h</b> · rostered <b>{ot.rostered}h</b> · <b className={ot.overtime > 0 ? "text-amber-600" : ""}>{ot.overtime}h OT</b></span>}
         </div>
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Hiring pipeline <span className="text-xs font-normal text-zinc-500">(applied → hired; offer auto-created)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={caname} onChange={(e) => setCaname(e.target.value)} placeholder="Candidate name" maxLength={120}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void addCandidate()} disabled={!caname.trim()}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Add candidate"><Plus size={20} /></button>
+        </div>
+        {cands.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {cands.slice(0, 10).map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>{c.name} {c.designation ? <span className="text-xs text-zinc-500">· {c.designation}</span> : null} · <StatusBadge status={c.stage} /></span>
+                {c.stage !== "hired" && c.stage !== "declined" && (
+                  <span className="flex gap-1">
+                    <button onClick={() => void moveCand(c.id, c.stage === "applied" ? "screening" : c.stage === "screening" ? "interview" : c.stage === "interview" ? "offered" : "hired")}
+                      className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Advance →</button>
+                    <button onClick={() => void moveCand(c.id, "declined")}
+                      className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Decline</button>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Training</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={trid} onChange={(e) => setTrid(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={trcourse} onChange={(e) => setTrcourse(e.target.value)} placeholder="Course (GST filing)" maxLength={120}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input type="date" value={trday} onChange={(e) => setTrday(e.target.value)} aria-label="Training date"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void logCourse()} disabled={!trid || !trcourse.trim() || !trday}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="Log training"><Plus size={20} /></button>
+          <button onClick={() => void loadTrainings()} disabled={!trid}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">View</button>
+        </div>
+        {trainings.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {trainings.map((x) => (
+              <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>{x.course} · {x.onDay} · <StatusBadge status={x.status === "done" ? "done" : "booked"} /></span>
+              </li>
+            ))}
+          </ul>
+        )}
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Designations ({desigs.length})</p>

@@ -116,7 +116,8 @@ const TONE: Record<string, string> = {
   proposed: "yellow", confirmed: "blue", cancelled: "gray",
   created: "gray", packed: "blue", shipped: "orange", delivered: "green", rto: "red",
   open: "green", closed: "gray", launched: "teal", submitted: "blue", approved: "teal",
-  rejected: "red",
+  rejected: "red", screening: "blue", interview: "orange", offered: "blue", hired: "green",
+  declined: "red", booked: "blue", applied: "gray",
   offered: "blue", withdrawn: "gray", hired: "green",
 };
 

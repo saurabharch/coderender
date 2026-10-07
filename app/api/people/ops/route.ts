@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { addGoal, applyStructure, checkIn, checkOut, closeExit, closeCycle, completeReview, createCycle, cycleDetail, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, hrReports, listRuns, listShifts, listStructures, logEmpEvent, logTime, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, payslip, requestLeave, saveDesignation, submitReview, saveHoliday, saveShift, saveStructure, setClearance, setExpense, setLeave, setOffer, setRoster, setRunStatus, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
+import { addGoal, addCandidate, applyStructure, checkIn, checkOut, closeExit, closeCycle, completeReview, createCycle, cycleDetail, deleteHoliday, empTimeline, exitCase, fileExit, fileExpense, fullFinal, getRun, leaveBalances, listDesignations, listExpenses, listHolidays, listLeaves, listOffers, hrReports, listRuns, listShifts, listStructures, completeTraining, listCandidates, listTraining, logEmpEvent, logTime, logTraining, makeOffer, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, payslip, requestLeave, saveDesignation, submitReview, saveHoliday, saveShift, saveStructure, setClearance, setExpense, moveCandidate, setLeave, setOffer, setRoster, setRunStatus, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
@@ -78,6 +78,12 @@ export async function GET(req: Request) {
   }
   if (url.searchParams.get("cycle") !== null) {
     return NextResponse.json(cycleDetail(Number(url.searchParams.get("cycle") || 0)));
+  }
+  if (url.searchParams.get("candidates") !== null) {
+    return NextResponse.json({ candidates: listCandidates(url.searchParams.get("candidates") || "") });
+  }
+  if (url.searchParams.get("trainings") !== null) {
+    return NextResponse.json({ trainings: listTraining(Number(url.searchParams.get("trainings") || 0)) });
   }
   if (url.searchParams.get("overtime") !== null) {
     return NextResponse.json(weekOvertime(Number(url.searchParams.get("overtime") || 0), url.searchParams.get("from") || new Date().toISOString().slice(0, 10)));
@@ -214,7 +220,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
       }
     }
-    if (body?.designation) {
+    if (typeof body?.designation === "string" && !body?.candidate) {
       const parsed = z.object({ designation: z.string().min(1).max(80), grade: z.string().max(20).optional() }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad designation" }, { status: 422 });
       saveDesignation(parsed.data.designation, parsed.data.grade ?? "");
@@ -321,6 +327,37 @@ export async function POST(req: Request) {
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
       }
+    }
+    if (body?.candidate) {
+      const parsed = z.object({
+        candidate: z.string().min(1).max(120), phone: z.string().max(20).optional(), designation: z.string().max(80).optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad candidate" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: addCandidate(parsed.data.candidate, parsed.data.phone ?? "", parsed.data.designation ?? "") });
+    }
+    if (body?.candMove) {
+      const parsed = z.object({ candMove: z.number().int(), to: z.string().max(20) }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad move" }, { status: 422 });
+      try {
+        return NextResponse.json({ ok: true, offerId: moveCandidate(parsed.data.candMove, parsed.data.to) });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.training) {
+      const parsed = z.object({
+        training: z.number().int(), course: z.string().min(1).max(120), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad training" }, { status: 422 });
+      try {
+        return NextResponse.json({ ok: true, id: logTraining(parsed.data.training, parsed.data.course, parsed.data.day) });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.trainingDone) {
+      completeTraining(Number(body.trainingDone));
+      return NextResponse.json({ ok: true });
     }
     if (body?.time) {
       const parsed = z.object({
