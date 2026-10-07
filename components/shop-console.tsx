@@ -38,6 +38,12 @@ export function ShopConsole() {
   const [vtype, setVtype] = useState("weight");
   const [vval, setVval] = useState("");
   const [variety, setVariety] = useState(false);
+  const [matrix, setMatrix] = useState(false);
+  const [mcolors, setMcolors] = useState("");
+  const [msizes, setMsizes] = useState("");
+  const [excluded, setExcluded] = useState<string[]>([]);
+  const [existing, setExisting] = useState<string[]>([]);
+  const [generating, setGenerating] = useState(false);
   const [mtype, setMtype] = useState("weight");
   const [mval, setMval] = useState("");
   const [munit, setMunit] = useState("pc");
@@ -161,6 +167,46 @@ export function ShopConsole() {
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? "Variant added ✓ (price goes on the batch)" : (d.error ?? "failed"));
     if (res.ok) { setVname(""); setVsize(""); setVcolor(""); setVval(""); setVunit("pc"); setVtype("weight"); setVariety(false); void load(); }
+  }
+
+  const comboKey = (c: string, s: string) => `${c} / ${s}`;
+  const combos = (() => {
+    const cs = mcolors.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 10);
+    const ss = msizes.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 10);
+    return cs.flatMap((c) => ss.map((s) => ({ c, s }))).slice(0, 50);
+  })();
+  const skuFor = (c: string, s: string) => {
+    const clean = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) || "X";
+    return `P${vpid || 0}-${clean(c)}-${clean(s)}`;
+  };
+
+  async function previewMatrix() {
+    if (!vpid) { setMsg("Pick the product first (auto-filled on add)."); return; }
+    const d = await fetch(`/api/shop/products?id=${encodeURIComponent(vpid)}`).then((r) => r.json()).catch(() => null);
+    const have = new Set(((d?.variants ?? []) as { name: string }[]).map((v) => v.name));
+    setExisting([...have]);
+    setExcluded(combos.filter((k) => have.has(comboKey(k.c, k.s))).map((k) => comboKey(k.c, k.s)));
+  }
+
+  async function generateMatrix() {
+    const todo = combos.filter((k) => !excluded.includes(comboKey(k.c, k.s)));
+    if (!vpid || todo.length === 0) { setMsg("Nothing to generate — check boxes."); return; }
+    setGenerating(true);
+    let n = 0;
+    for (const k of todo) {
+      const res = await fetch("/api/shop/products", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: Number(vpid), name: comboKey(k.c, k.s), sku: skuFor(k.c, k.s),
+          attrs: { kind: vtype, unit: vunit, color: k.c, size: k.s },
+        }),
+      }).catch(() => null);
+      if (res && (res as Response).ok) n++;
+      setMsg(`Matrix ${n}/${todo.length}…`);
+    }
+    setGenerating(false);
+    setMsg(`Matrix done ✓ ${n} variants`);
+    void load();
   }
 
   async function addCoupon() {
@@ -723,6 +769,45 @@ export function ShopConsole() {
             className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <IconBtn label="Add variant" onClick={() => void addVariant()} disabled={!vpid} tone="brand"><Plus size={20} /></IconBtn>
         </div>
+        <button onClick={() => setMatrix((m) => !m)} aria-expanded={matrix}
+          className="mt-1.5 flex min-h-[44px] items-center gap-1.5 text-sm font-semibold text-brand-deep">
+          {matrix ? "▾" : "▸"} Matrix: color × size in one go
+        </button>
+        {matrix && (
+          <div className="mt-1.5 grid gap-1.5 rounded-xl border border-black/10 p-2 dark:border-white/10">
+            <div className="flex flex-wrap gap-1.5">
+              <input value={mcolors} onChange={(e) => setMcolors(e.target.value)} placeholder="Colors: Red, Blue" maxLength={200}
+                className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <input value={msizes} onChange={(e) => setMsizes(e.target.value)} placeholder="Sizes: S, M, L" maxLength={200}
+                className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <button onClick={() => void previewMatrix()} disabled={!vpid || combos.length === 0}
+                className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">
+                Preview {combos.length > 0 ? `(${combos.length})` : ""}</button>
+            </div>
+            {combos.length > 0 && (
+              <ul className="grid max-h-44 gap-0.5 overflow-y-auto overscroll-contain">
+                {combos.map((k) => {
+                  const key = comboKey(k.c, k.s);
+                  const off = excluded.includes(key);
+                  return (
+                    <li key={key}>
+                      <label className="flex min-h-[40px] cursor-pointer items-center gap-2 rounded-lg px-2 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+                        <input type="checkbox" checked={!off}
+                          onChange={() => setExcluded((xs) => (off ? xs.filter((x) => x !== key) : [...xs, key]))}
+                          className="h-5 w-5" />
+                        <span className={off ? "text-zinc-400 line-through" : ""}>{key}</span>
+                        <span className="ml-auto font-mono text-xs text-zinc-500">{skuFor(k.c, k.s)}{existing.includes(key) ? " · exists" : ""}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <button onClick={() => void generateMatrix()} disabled={!vpid || generating || combos.filter((k) => !excluded.includes(comboKey(k.c, k.s))).length === 0}
+              className="min-h-[48px] rounded-xl bg-brand text-sm font-bold text-white disabled:opacity-40">
+              {generating ? "Generating…" : `Generate ${combos.filter((k) => !excluded.includes(comboKey(k.c, k.s))).length} variants`}</button>
+          </div>
+        )}
       </AdminCard>
       {msg && <p className="text-sm text-zinc-500">{msg}</p>}
     </div>
