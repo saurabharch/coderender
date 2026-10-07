@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { checkIn, checkOut, deleteHoliday, getRun, leaveBalances, listHolidays, listLeaves, listRuns, listShifts, logTime, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, requestLeave, saveHoliday, saveShift, setLeave, setRoster, todayPresence, weekRoster, weekHours } from "@/lib/people";
+import { checkIn, checkOut, deleteHoliday, fileExpense, getRun, leaveBalances, listExpenses, listHolidays, listLeaves, listRuns, listShifts, logTime, markAttendance, monthAttendance, onboardList, onboardToggle, openRun, payRun, requestLeave, saveHoliday, saveShift, setExpense, setLeave, setRoster, todayPresence, weekOvertime, weekRoster, weekHours } from "@/lib/people";
 import { shopGate } from "@/lib/shop-auth";
 
 // GET ?run= | ?runs=1 | ?attend=&month= | ?week=&from=
@@ -29,6 +29,12 @@ export async function GET(req: Request) {
   }
   if (url.searchParams.get("holidays") !== null) {
     return NextResponse.json({ holidays: listHolidays() });
+  }
+  if (url.searchParams.get("expenses") !== null) {
+    return NextResponse.json({ expenses: listExpenses(url.searchParams.get("expenses") || "") });
+  }
+  if (url.searchParams.get("overtime") !== null) {
+    return NextResponse.json(weekOvertime(Number(url.searchParams.get("overtime") || 0), url.searchParams.get("from") || new Date().toISOString().slice(0, 10)));
   }
   if (url.searchParams.get("shifts") !== null) {
     return NextResponse.json({ shifts: listShifts() });
@@ -126,6 +132,23 @@ export async function POST(req: Request) {
       const parsed = z.object({ onboard: z.number().int(), item: z.string().min(1).max(120) }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad item" }, { status: 422 });
       return NextResponse.json({ ok: true, done: onboardToggle(parsed.data.onboard, parsed.data.item) });
+    }
+    if (body?.expense) {
+      const parsed = z.object({
+        expense: z.number().int(), head: z.string().min(1).max(120), amount: z.number().min(1).max(100000000),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad expense" }, { status: 422 });
+      return NextResponse.json({ ok: true, id: fileExpense(parsed.data.expense, parsed.data.head, parsed.data.amount) });
+    }
+    if (body?.expenseTo) {
+      const parsed = z.object({ expenseTo: z.string().min(1).max(20), expenseId: z.number().int() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad transition" }, { status: 422 });
+      try {
+        setExpense(parsed.data.expenseId, parsed.data.expenseTo);
+        return NextResponse.json({ ok: true });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
     }
     if (body?.time) {
       const parsed = z.object({

@@ -1,7 +1,7 @@
 "use client";
 
-import { AvatarInitials, IconBtn } from "@/components/admin-ux";
-import { maskInt } from "@/lib/mask";
+import { AvatarInitials, IconBtn, StatusBadge } from "@/components/admin-ux";
+import { maskAmount, maskInt } from "@/lib/mask";
 
 import { maskYearMonth } from "@/lib/mask";
 
@@ -32,6 +32,12 @@ export function PeopleConsole() {
   const [roster, setRoster] = useState<{ days: string[]; map: Record<string, number> }>({ days: [], map: {} });
   const [obid, setObid] = useState("");
   const [obitems, setObitems] = useState<{ item: string; done: boolean }[]>([]);
+  const [exps, setExps] = useState<{ id: number; employeeId: number; name: string; head: string; amount: number; status: string }[]>([]);
+  const [exid, setExid] = useState("");
+  const [exhead, setExhead] = useState("");
+  const [examt, setExamt] = useState("");
+  const [otid, setOtid] = useState("");
+  const [ot, setOt] = useState<{ logged: number; rostered: number; overtime: number } | null>(null);
   const [leaves, setLeaves] = useState<{ id: number; name: string; fromDay: string; toDay: string; kind: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
@@ -43,6 +49,37 @@ export function PeopleConsole() {
   const [lto, setLto] = useState<Date | null>(null);
   const asDate = (v: unknown): Date | null =>
     Array.isArray(v) ? ((v[0] as Date | undefined) ?? null) : ((v as Date | null) ?? null);
+
+  async function loadExpenses() {
+    const d = await fetch("/api/people/ops?expenses=").then((r) => r.json()).catch(() => null);
+    if (d?.expenses) setExps(d.expenses);
+  }
+
+  async function fileClaim() {
+    if (!exid || !examt) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expense: Number(exid), head: exhead.trim() || "Expense", amount: Math.round(Number(examt) * 100) }),
+    });
+    setMsg(res.ok ? "Claim filed ✓ (submit for approval)" : "failed");
+    if (res.ok) { setExid(""); setExhead(""); setExamt(""); void loadExpenses(); }
+  }
+
+  async function moveExpense(id: number, to: string) {
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expenseTo: to, expenseId: id }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `${to} ✓` : (d.error ?? "failed"));
+    if (res.ok) void loadExpenses();
+  }
+
+  async function showOvertime() {
+    if (!otid) return;
+    const d = await fetch(`/api/people/ops?overtime=${encodeURIComponent(otid)}`).then((r) => r.json()).catch(() => null);
+    if (d && typeof d.overtime === "number") setOt(d);
+  }
 
   async function load() {
     const [d, l, pr, h] = await Promise.all([
@@ -329,6 +366,48 @@ export function PeopleConsole() {
             ))}
           </ul>
         )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Expenses ({exps.filter((x) => x.status === "submitted").length} awaiting approval)</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={exid} onChange={(e) => setExid(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={exhead} onChange={(e) => setExhead(e.target.value)} placeholder="Head (fuel…)" maxLength={120}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={examt} onChange={(e) => setExamt(maskAmount(e.target.value))} placeholder="₹" inputMode="decimal"
+            className="min-h-[44px] w-24 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void fileClaim()} disabled={!exid || !examt}
+            className="flex min-h-[44px] min-w-[52px] items-center justify-center rounded-xl bg-brand px-4 text-white disabled:opacity-40" aria-label="File expense"><Plus size={20} /></button>
+        </div>
+        {exps.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {exps.slice(0, 10).map((x) => (
+              <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>#{x.employeeId} {x.name || ""} · {x.head} · ₹{(x.amount / 100).toFixed(0)} · <StatusBadge status={x.status} /></span>
+                <span className="flex gap-1">
+                  {x.status === "draft" && <button onClick={() => void moveExpense(x.id, "submitted")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Submit</button>}
+                  {x.status === "submitted" && (
+                    <>
+                      <button onClick={() => void moveExpense(x.id, "approved")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Approve</button>
+                      <button onClick={() => void moveExpense(x.id, "rejected")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs dark:border-white/20">Reject</button>
+                    </>
+                  )}
+                  {x.status === "approved" && <button onClick={() => void moveExpense(x.id, "paid")} className="min-h-[44px] rounded-xl bg-brand px-3 text-xs font-bold text-white">Pay</button>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Overtime <span className="text-xs font-normal text-zinc-500">(logged vs rostered, this week)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={otid} onChange={(e) => setOtid(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void showOvertime()} disabled={!otid}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20 disabled:opacity-40">Check</button>
+          {ot && <span className="flex items-center gap-1.5 text-sm">logged <b>{ot.logged}h</b> · rostered <b>{ot.rostered}h</b> · <b className={ot.overtime > 0 ? "text-amber-600" : ""}>{ot.overtime}h OT</b></span>}
+        </div>
       </AdminCard>
       <AdminCard>
         <p className="font-bold">Payroll</p>

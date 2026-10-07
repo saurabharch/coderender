@@ -20,6 +20,7 @@ export function peopleTables(): void {
     ins.run("casual", 12); ins.run("sick", 12); ins.run("earned", 15);
   }
   db.exec(`CREATE TABLE IF NOT EXISTS Holiday (day TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '')`);
+  db.exec(`CREATE TABLE IF NOT EXISTS HrExpense (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, head TEXT NOT NULL DEFAULT '', amount INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Shift (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, start TEXT NOT NULL DEFAULT '09:00', end TEXT NOT NULL DEFAULT '18:00')`);
   if ((db.prepare("SELECT COUNT(*) c FROM Shift").get() as { c: number }).c === 0) {
     const ins = db.prepare("INSERT INTO Shift (name, start, end) VALUES (?,?,?)");
@@ -232,6 +233,58 @@ export function onboardToggle(employeeId: number, item: string): boolean {
   const next = r.done ? 0 : 1;
   db.prepare("UPDATE OnboardCheck SET done=? WHERE employeeId=? AND item=?").run(next, employeeId, item);
   return next === 1;
+}
+
+// ---- expenses + overtime (plan 07 slice 3) ----
+const EXPENSE_FLOW = ["draft", "submitted", "approved", "rejected", "paid"] as const;
+
+export function fileExpense(employeeId: number, head: string, amount: number): number {
+  peopleTables();
+  if (Math.round(amount) <= 0) throw new Error("amount must be positive");
+  if (!head.trim()) throw new Error("head required");
+  return Number(getDb().prepare("INSERT INTO HrExpense (employeeId, head, amount) VALUES (?,?,?)")
+    .run(employeeId, head.trim().slice(0, 120), Math.round(amount)).lastInsertRowid);
+}
+
+export function listExpenses(status = "") {
+  peopleTables();
+  return getDb().prepare(status
+    ? `SELECT x.*, e.name FROM HrExpense x LEFT JOIN Employee e ON e.id=x.employeeId WHERE x.status=? ORDER BY x.id DESC LIMIT 50`
+    : `SELECT x.*, e.name FROM HrExpense x LEFT JOIN Employee e ON e.id=x.employeeId ORDER BY x.id DESC LIMIT 50`)
+    .all(...(status ? [status] : []));
+}
+
+export function setExpense(id: number, to: string): void {
+  peopleTables();
+  if (!EXPENSE_FLOW.includes(to as (typeof EXPENSE_FLOW)[number])) throw new Error("bad status");
+  const cur = getDb().prepare("SELECT status FROM HrExpense WHERE id=?").get(id) as { status: string } | undefined;
+  if (!cur) throw new Error("no expense");
+  // Terminal states are final; paid flows through approve first.
+  if (cur.status === "paid" || cur.status === "rejected") throw new Error(`${cur.status} is final`);
+  if (to === "paid" && cur.status !== "approved") throw new Error("approve before paying");
+  if (to === "approved" && cur.status !== "submitted") throw new Error("submit before approving");
+  getDb().prepare("UPDATE HrExpense SET status=? WHERE id=?").run(to, id);
+}
+
+// Overtime: logged week hours minus rostered shift hours (shifts without an
+// end-after-start span count their nominal length; missing roster = 0 baseline).
+export function weekOvertime(employeeId: number, monday: string): { logged: number; rostered: number; overtime: number } {
+  peopleTables();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(monday)) throw new Error("monday like YYYY-MM-DD");
+  const logged = weekHours(employeeId, monday);
+  const db = getDb();
+  const rows = db.prepare(`SELECT s.start, s.end FROM Roster r JOIN Shift s ON s.id=r.shiftId
+    WHERE r.employeeId=? AND r.day >= ? AND r.day < date(?,'+7 days')`).all(employeeId, monday, monday) as
+    { start: string; end: string }[];
+  const span = (a: string, b: string) => {
+    const t = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + (m || 0); };
+    if (!/^\d{2}:\d{2}$/.test(a) || !/^\d{2}:\d{2}$/.test(b)) return 0;
+    let d = t(b) - t(a);
+    if (d <= 0) d += 24 * 60; // night shifts cross midnight
+    return d / 60;
+  };
+  const rostered = rows.reduce((s, r) => s + span(r.start, r.end), 0);
+  return { logged, rostered, overtime: Math.max(0, Math.round((logged - rostered) * 10) / 10) };
 }
 
 // ---- check-in/out + leave balances + holidays (plan 07 daily slice) ----
