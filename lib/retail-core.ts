@@ -54,6 +54,11 @@ export function receiptNo(orderId: number, at = ""): string {
   return `CRN-${day}-${Math.max(0, Math.round(orderId))}`;
 }
 
+// Idempotency keys for offline replay + double-tap protection.
+export function newIkey(): string {
+  return crypto.randomUUID().replaceAll("-", "").slice(0, 24);
+}
+
 export function renderMessage(template: string, vars: Record<string, string>): string {
   let out = template.slice(0, 1000);
   for (const [k, v] of Object.entries(vars)) out = out.split(`{{${k}}}`).join(v.slice(0, 200));

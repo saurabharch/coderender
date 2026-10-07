@@ -155,10 +155,16 @@ export function openDrawer(opening: number, by: string): void {
 
 export async function posSale(input: {
   lines: { productId: number; qty: number }[]; customerId?: number; method?: string; cashIn?: number; by?: string;
-  discountPaise?: number; discountPct?: number;
+  discountPaise?: number; discountPct?: number; ikey?: string;
   payments?: { method?: string; amount?: number }[];
-}): Promise<{ orderId: number; change: number }> {
+}): Promise<{ orderId: number; change: number; deduped?: boolean }> {
   retailTables();
+  const key = (input.ikey ?? "").slice(0, 80);
+  if (key) {
+    const prior = getDb().prepare("SELECT id FROM ShopOrder WHERE ikey=? AND ikey!=''").get(key) as
+      { id: number } | undefined;
+    if (prior) return { orderId: prior.id, change: 0, deduped: true };
+  }
   const { createOrder, setOrderStatus, quote } = await import("./commerce");
   const { recordPayment } = await import("./finance");
   let manualDiscount = Math.max(0, Math.round(input.discountPaise ?? 0));
@@ -184,6 +190,7 @@ export async function posSale(input: {
   const id = await createOrder({
     customerId: input.customerId, lines: input.lines, channel: "pos",
     notes: `pos by ${input.by ?? "counter"}`, ...(manualDiscount > 0 ? { manualDiscount } : {}),
+    ...(key ? { ikey: key } : {}),
   });
   await setOrderStatus(id, "confirmed");
   const got = (await import("./commerce")).getOrder(id) as { order: { grand: number } } | null;

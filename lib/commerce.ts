@@ -16,7 +16,8 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Customer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', cgroup TEXT NOT NULL DEFAULT 'retail', tags TEXT NOT NULL DEFAULT '', credit INTEGER NOT NULL DEFAULT 0, balance INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS Product (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sku TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'physical', price INTEGER NOT NULL DEFAULT 0, mrp INTEGER NOT NULL DEFAULT 0, unit TEXT NOT NULL DEFAULT 'pc', perPack INTEGER NOT NULL DEFAULT 1, taxPct REAL NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', media TEXT NOT NULL DEFAULT '[]', seo TEXT NOT NULL DEFAULT '{}', attrs TEXT NOT NULL DEFAULT '{}', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ShopOrder (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', subtotal INTEGER NOT NULL DEFAULT 0, discount INTEGER NOT NULL DEFAULT 0, tax INTEGER NOT NULL DEFAULT 0, grand INTEGER NOT NULL DEFAULT 0, coupon TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT 'admin', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-  db.exec(`CREATE TABLE IF NOT EXISTS OrderLine (id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER NOT NULL, productId INTEGER NOT NULL DEFAULT 0, name TEXT NOT NULL, qty REAL NOT NULL DEFAULT 1, price INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0)`);
+  try { db.exec("ALTER TABLE ShopOrder ADD COLUMN ikey TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_order_ikey ON ShopOrder(ikey) WHERE ikey != ''"); } catch { /* exists */ }  db.exec(`CREATE TABLE IF NOT EXISTS OrderLine (id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER NOT NULL, productId INTEGER NOT NULL DEFAULT 0, name TEXT NOT NULL, qty REAL NOT NULL DEFAULT 1, price INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0)`);
   db.exec(`CREATE TABLE IF NOT EXISTS OrderEvent (id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductVariant (id INTEGER PRIMARY KEY AUTOINCREMENT, productId INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '', sku TEXT NOT NULL DEFAULT '', attrs TEXT NOT NULL DEFAULT '{}', price INTEGER NOT NULL DEFAULT 0, mrp INTEGER NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0, barcode TEXT NOT NULL DEFAULT '', barcodeType TEXT NOT NULL DEFAULT '')`);
   db.exec(`CREATE TABLE IF NOT EXISTS Wishlist (customerId INTEGER NOT NULL, productId INTEGER NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (customerId, productId))`);
@@ -630,7 +631,7 @@ export function quote(input: { lines: { productId: number; qty: number }[]; coup
 
 export async function createOrder(input: {
   customerId?: number; lines: { productId: number; qty: number }[]; coupon?: string;
-  inter?: boolean; channel?: string; notes?: string; manualDiscount?: number;
+  inter?: boolean; channel?: string; notes?: string; manualDiscount?: number; ikey?: string;
 }): Promise<number> {
   commerceTables();
   const db = getDb();
@@ -644,10 +645,11 @@ export async function createOrder(input: {
   // a failed reserve can never leave a half-built draft behind.
   db.exec("BEGIN");
   try {
-    const orderId = Number(db.prepare(`INSERT INTO ShopOrder (customerId, status, subtotal, discount, tax, grand, coupon, channel, notes)
-      VALUES (?,?,?,?,?,?,?,?,?)`).run(
+    const orderId = Number(db.prepare(`INSERT INTO ShopOrder (customerId, status, subtotal, discount, tax, grand, coupon, channel, notes, ikey)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
       input.customerId ?? 0, "draft", q.subtotal, q.discount, q.taxTotal, q.grand,
-      q.coupon ?? "", (input.channel ?? "admin").slice(0, 20), (input.notes ?? "").slice(0, 500)).lastInsertRowid);
+      q.coupon ?? "", (input.channel ?? "admin").slice(0, 20), (input.notes ?? "").slice(0, 500),
+      (input.ikey ?? "").slice(0, 80)).lastInsertRowid);
     const lineIns = db.prepare("INSERT INTO OrderLine (orderId, productId, name, qty, price, total) VALUES (?,?,?,?,?,?)");
     for (const l of q.lines) {
       const p = db.prepare("SELECT name FROM Product WHERE id=?").get(l.productId) as

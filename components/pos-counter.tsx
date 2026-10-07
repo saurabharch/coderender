@@ -9,6 +9,7 @@ import { PosReceipt, type ReceiptData } from "@/components/pos-receipt";
 import { QrImg } from "@/components/labels";
 import { useLongPress } from "@mantine/hooks";
 import { maskAmount, maskInt, maskPercent } from "@/lib/mask";
+import { newIkey } from "@/lib/retail-core";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { modals } from "@mantine/modals";
 
@@ -42,6 +43,16 @@ export function PosCounter() {
   const [disval, setDisval] = useState("");
   const [disKind, setDisKind] = useState<"flat" | "pct">("flat");
   const [splitOn, setSplitOn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  interface OutOp { ikey: string; body: Record<string, unknown>; at: string }
+  const [outbox, setOutbox] = useState<OutOp[]>([]);
+  const [dead, setDead] = useState<(OutOp & { error: string })[]>([]);
+  const readBox = (k: string): OutOp[] => {
+    try {
+      const v = JSON.parse(window.localStorage.getItem(k) || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch { return []; }
+  };
   const [splits, setSplits] = useState<{ method: "cash" | "upi" | "card"; amt: string }[]>([
     { method: "upi", amt: "" }, { method: "cash", amt: "" },
   ]);
@@ -147,7 +158,12 @@ export function PosCounter() {
         setMsg(`${tray.length} item${tray.length === 1 ? "" : "s"} from scanner ✓ — tender below`);
       }
     } catch { /* corrupt tray never breaks the counter */ }
+    setOutbox(readBox("cr_outbox"));
+    setDead(readBox("cr_outbox_dead") as (OutOp & { error: string })[]);
+    const onOnline = () => { void syncOutbox(); };
+    window.addEventListener("online", onOnline);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => window.removeEventListener("online", onOnline);
   }, []);
 
   // F2 search · F3 scan · ESC closes dialogs. Never hijacks text inputs.
@@ -209,60 +225,86 @@ export function PosCounter() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upiDue, method, splitOn]);
 
-  async function complete() {
-    if (!lines.length) return;
-    if (splitOn) {
-      const due = billGrand ?? total;
-      if (splitSum !== due) { setMsg(`Split ₹${(splitSum / 100).toFixed(0)} must equal bill ₹${(due / 100).toFixed(0)} — fix or auto-fill.`); return; }
+  async function postSale(body: Record<string, unknown>): Promise<{ ok: boolean; orderId: number; change: number; deduped?: boolean; error?: string }> {
+    try {
       const res = await fetch("/api/retail/pos", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          op: "sale", lines: lines.map((l) => ({ productId: l.productId, qty: l.qty })),
-          customerId: customer?.id,
-          payments: splits.map((x) => ({ method: x.method, amount: Math.round(Number(x.amt) * 100) })),
-          ...(disval ? (disKind === "pct"
-            ? { discountPct: Math.min(100, Number(disval) || 0) }
-            : { discountPaise: Math.round(Number(disval) * 100) }) : {}),
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
       const d = await res.json().catch(() => ({}));
-      if (res.ok) {
-        const r = await fetch(`/api/retail/receipt?orderId=${d.orderId}`).then((x) => x.json()).catch(() => null);
-        setLastTender(0);
-        setLastChange(0);
-        if (r?.crn) { setReceipt(r); setMsg(""); }
-        else setMsg(`Sold ✓ order #${d.orderId}`);
-        setLines([]); setDisval(""); setCustomer(null);
-        setSplits([{ method: "upi", amt: "" }, { method: "cash", amt: "" }]);
-      } else setMsg(d.error ?? "sale failed");
-      return;
+      if (!res.ok) return { ok: false, orderId: 0, change: 0, error: d.error ?? "sale failed" };
+      return { ok: true, orderId: d.orderId, change: d.change ?? 0, deduped: d.deduped };
+    } catch {
+      return { ok: false, orderId: 0, change: 0, error: "offline" };
     }
-    const dis = disval
-      ? disKind === "pct"
-        ? { discountPct: Math.min(100, Number(disval) || 0) }
-        : { discountPaise: Math.round(Number(disval) * 100) }
-      : {};
-    const res = await fetch("/api/retail/pos", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        op: "sale", lines: lines.map((l) => ({ productId: l.productId, qty: l.qty })),
-        customerId: customer?.id,
-        method, cashIn: method === "cash" && tender > 0 ? tender : 0, ...dis,
-      }),
-    });
-    const d = await res.json().catch(() => ({}));
-    if (res.ok) {
-      const r = await fetch(`/api/retail/receipt?orderId=${d.orderId}`).then((x) => x.json()).catch(() => null);
-      setLastTender(tender);
-      setLastChange(d.change ?? 0);
-      if (r?.crn) {
-        setReceipt(r);
-        setMsg("");
-      } else {
-        setMsg(`Sold ✓ order #${d.orderId}`);
+  }
+
+  async function settleSold(orderId: number, wasSplit: boolean) {
+    const r = await fetch(`/api/retail/receipt?orderId=${orderId}`).then((x) => x.json()).catch(() => null);
+    if (wasSplit) { setLastTender(0); setLastChange(0); }
+    if (r?.crn) { setReceipt(r); setMsg(""); }
+    else setMsg(`Sold ✓ order #${orderId}`);
+    setLines([]); setTendered(""); setDisval(""); setCustomer(null);
+    setSplits([{ method: "upi", amt: "" }, { method: "cash", amt: "" }]);
+  }
+
+  function queueOffline(body: Record<string, unknown>) {
+    const op: OutOp = { ikey: String(body.ikey), body, at: new Date().toISOString() };
+    const next = [...readBox("cr_outbox"), op].slice(-20);
+    try { window.localStorage.setItem("cr_outbox", JSON.stringify(next)); } catch { /* full */ }
+    setOutbox(next);
+    setMsg("Offline — sale queued ✓ will sync automatically");
+  }
+
+  async function syncOutbox() {
+    const ops = readBox("cr_outbox");
+    if (ops.length === 0) { setOutbox([]); return; }
+    let ok = 0;
+    const left: OutOp[] = [];
+    const buried: (OutOp & { error: string })[] = readBox("cr_outbox_dead") as (OutOp & { error: string })[];
+    for (const op of ops) {
+      const r = await postSale(op.body);
+      if (r.ok) { ok++; }
+      else if (r.error === "offline") { left.push(op); break; }
+      else { buried.push({ ...op, error: r.error ?? "failed" }); }
+    }
+    try {
+      window.localStorage.setItem("cr_outbox", JSON.stringify(left));
+      window.localStorage.setItem("cr_outbox_dead", JSON.stringify(buried.slice(-20)));
+    } catch { /* ignore */ }
+    setOutbox(left);
+    setDead(buried.slice(-20));
+    setMsg(ok > 0 ? `Synced ${ok} queued sale${ok === 1 ? "" : "s"} ✓` : (left.length > 0 ? "Still offline — kept queued." : "Nothing synced."));
+    if (ok > 0) void loadHeld();
+  }
+
+  async function complete() {
+    if (!lines.length || busy) return;
+    setBusy(true);
+    try {
+      const dis = disval
+        ? disKind === "pct"
+          ? { discountPct: Math.min(100, Number(disval) || 0) }
+          : { discountPaise: Math.round(Number(disval) * 100) }
+        : {};
+      const base = {
+        op: "sale", ikey: newIkey(),
+        lines: lines.map((l) => ({ productId: l.productId, qty: l.qty })),
+        customerId: customer?.id, ...dis,
+      };
+      const body: Record<string, unknown> = splitOn
+        ? { ...base, payments: splits.map((x) => ({ method: x.method, amount: Math.round(Number(x.amt) * 100) })) }
+        : { ...base, method, cashIn: method === "cash" && tender > 0 ? tender : 0 };
+      if (splitOn) {
+        const due = billGrand ?? total;
+        if (splitSum !== due) { setMsg(`Split ₹${(splitSum / 100).toFixed(0)} must equal bill ₹${(due / 100).toFixed(0)} — fix or auto-fill.`); return; }
       }
-      setLines([]); setTendered(""); setDisval(""); setCustomer(null);
-    } else setMsg(d.error ?? "sale failed");
+      const r = await postSale(body);
+      if (!r.ok && r.error === "offline") { queueOffline(body); return; }
+      if (!r.ok) { setMsg(r.error ?? "sale failed"); return; }
+      await settleSold(r.orderId, splitOn);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function lookupCard() {
@@ -370,6 +412,31 @@ export function PosCounter() {
       <div className="grid content-start gap-3 lg:col-span-2">
         <AdminCard className="lg:sticky lg:top-24">
           {flash ? <p role="status" className="rounded-xl bg-emerald-500/15 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">Added {flash} ✓</p> : null}
+          {outbox.length > 0 && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+              <p className="flex flex-wrap items-center justify-between gap-2 font-bold">
+                <span>Offline — {outbox.length} sale{outbox.length === 1 ? "" : "s"} queued</span>
+                <button onClick={() => void syncOutbox()} className="min-h-[44px] rounded-xl bg-brand px-4 text-white">Sync now</button>
+              </p>
+            </div>
+          )}
+          {dead.length > 0 && (
+            <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm">
+              <p className="font-bold">Sync conflicts ({dead.length}) — review, then discard or re-ring:</p>
+              <ul className="mt-1 space-y-1 font-mono text-xs">
+                {dead.map((d, i) => (
+                  <li key={i} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate">{d.error}</span>
+                    <button onClick={() => {
+                      const next = dead.filter((_, j) => j !== i);
+                      try { window.localStorage.setItem("cr_outbox_dead", JSON.stringify(next)); } catch { /* ignore */ }
+                      setDead(next);
+                    }} aria-label="Discard conflict" className="min-h-[44px] rounded-xl border border-black/15 px-3 dark:border-white/20">Discard</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <p className="flex items-center justify-between font-bold">Bill
             {lines.length > 0 && (
               <button onClick={() => void hold()} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Hold</button>
@@ -487,9 +554,9 @@ export function PosCounter() {
           )}
           {!splitOn && method === "card" && <p className="mt-1.5 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">Swipe / insert / tap on the terminal, then tap Complete.</p>}
           <button onClick={() => void complete()}
-            disabled={!lines.length || (splitOn ? splitSum !== (billGrand ?? total) : (method === "cash" && tender > 0 && change < 0))}
+            disabled={busy || !lines.length || (splitOn ? splitSum !== (billGrand ?? total) : (method === "cash" && tender > 0 && change < 0))}
             className="mt-2 min-h-[52px] w-full rounded-xl bg-brand text-base font-bold text-white disabled:opacity-40">
-            Complete · ₹{((splitOn ? (billGrand ?? total) : total) / 100).toFixed(0)}
+            {busy ? "Working…" : `Complete · ₹${((splitOn ? (billGrand ?? total) : total) / 100).toFixed(0)}`}
           </button>
         </AdminCard>
       </div>

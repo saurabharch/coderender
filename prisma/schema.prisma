@@ -676,6 +676,7 @@ model ShopOrder {
   coupon     String @default("")
   channel    String @default("admin")
   branchId   Int    @default(1)
+  ikey       String @default("")
   notes      String @default("")
   createdAt  DateTime @default(now())
 }
