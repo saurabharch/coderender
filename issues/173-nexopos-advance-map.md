@@ -41,7 +41,7 @@ green and CI green.
 ## Children
 
 - [Double-entry ledger adoption](174-double-entry-ledger.md) — done
-- [Receivables aging, terms, write-off](175-receivables-aging.md) — blocked by double-entry decision
+- [Receivables aging, terms, write-off](175-receivables-aging.md) — done (terms/overdue/statement/write-off live-proved)
 - [GST depth: HSN, composition, versioned rules](176-gst-depth.md) — frontier
 - [CSV import pipeline](177-csv-import-pipeline.md) — frontier
 - [Quote versioning and acceptance](178-quote-versioning.md) — frontier

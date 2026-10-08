@@ -14,6 +14,8 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS TaxRate (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, pct REAL NOT NULL DEFAULT 0, inter INTEGER NOT NULL DEFAULT 0, inclusive INTEGER NOT NULL DEFAULT 1, active INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE TABLE IF NOT EXISTS Coupon (code TEXT PRIMARY KEY, kind TEXT NOT NULL DEFAULT 'flat', value INTEGER NOT NULL DEFAULT 0, maxOff INTEGER NOT NULL DEFAULT 0, minOrder INTEGER NOT NULL DEFAULT 0, startsAt TEXT NOT NULL DEFAULT '', endsAt TEXT NOT NULL DEFAULT '', maxUses INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE TABLE IF NOT EXISTS Customer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', cgroup TEXT NOT NULL DEFAULT 'retail', tags TEXT NOT NULL DEFAULT '', credit INTEGER NOT NULL DEFAULT 0, balance INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try { db.exec("ALTER TABLE Customer ADD COLUMN termsDays INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE Customer ADD COLUMN balanceSince TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
   db.exec(`CREATE TABLE IF NOT EXISTS Product (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sku TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'physical', price INTEGER NOT NULL DEFAULT 0, mrp INTEGER NOT NULL DEFAULT 0, unit TEXT NOT NULL DEFAULT 'pc', perPack INTEGER NOT NULL DEFAULT 1, taxPct REAL NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', media TEXT NOT NULL DEFAULT '[]', seo TEXT NOT NULL DEFAULT '{}', attrs TEXT NOT NULL DEFAULT '{}', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ShopOrder (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', subtotal INTEGER NOT NULL DEFAULT 0, discount INTEGER NOT NULL DEFAULT 0, tax INTEGER NOT NULL DEFAULT 0, grand INTEGER NOT NULL DEFAULT 0, coupon TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT 'admin', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE ShopOrder ADD COLUMN ikey TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
@@ -818,7 +820,7 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
 // ---- udhari (credit ledger on the customer row) ----
 export function udhariList() {
   commerceTables();
-  return getDb().prepare("SELECT id, name, phone, balance FROM Customer WHERE balance > 0 ORDER BY balance DESC LIMIT 100").all();
+  return getDb().prepare("SELECT id, name, phone, balance, termsDays, balanceSince FROM Customer WHERE balance > 0 ORDER BY balance DESC LIMIT 100").all();
 }
 
 // Credit sale: confirmed order + balance grows. Atomic with the order.
@@ -838,7 +840,7 @@ export async function creditSale(input: { customerId: number; lines: { productId
     throw new Error(`credit limit exceeded`);
   }
   await setOrderStatus(id, "confirmed");
-  db.prepare("UPDATE Customer SET balance = balance + ? WHERE id=?").run(o.grand, input.customerId);
+  db.prepare("UPDATE Customer SET balance = balance + ?, balanceSince = CASE WHEN balance <= 0 THEN datetime('now') ELSE balanceSince END WHERE id=?").run(o.grand, input.customerId);
   logCustomerSafe(input.customerId, `udhari + order #${id}`);
   return id;
 }
@@ -859,7 +861,7 @@ export function collectUdhari(customerId: number, amount: number, method = "cash
   if (take <= 0) throw new Error("nothing due");
   db.exec("BEGIN");
   try {
-    db.prepare("UPDATE Customer SET balance = balance - ? WHERE id=?").run(take, customerId);
+    db.prepare("UPDATE Customer SET balance = balance - ?, balanceSince = CASE WHEN balance - ? <= 0 THEN '' ELSE balanceSince END WHERE id=?").run(take, take, customerId);
     bankMove(accountId, "in", take, `udhari#${customerId}`, method);
     ledgerPost({ kind: "payment", refId: customerId, amount: take, memo: `udhari collect (${method})` });
     db.exec("COMMIT");
@@ -868,6 +870,49 @@ export function collectUdhari(customerId: number, amount: number, method = "cash
     throw e;
   }
   logCustomerSafe(customerId, `udhari collect (${method})`);
+  return { left: c.balance - take };
+}
+
+// Payment terms per customer (days, 0 = due on sale). Team-settable.
+export async function setCustomerTerms(customerId: number, days: number): Promise<void> {
+  commerceTables();
+  const { parseTermsDays } = await import("./credit-core");
+  getDb().prepare("UPDATE Customer SET termsDays=? WHERE id=?").run(parseTermsDays(days), customerId);
+  logCustomerSafe(customerId, `terms ${parseTermsDays(days)}d`);
+}
+
+// Statement: profile + credit orders + timeline events (read-only).
+export async function udhariStatement(customerId: number) {
+  commerceTables();
+  const db = getDb();
+  const customer = db.prepare("SELECT id, name, phone, balance, credit, termsDays, balanceSince FROM Customer WHERE id=?").get(customerId);
+  if (!customer) throw new Error("no customer");
+  const orders = db.prepare("SELECT id, grand, status, channel, notes, createdAt FROM ShopOrder WHERE customerId=? AND channel='credit' ORDER BY id DESC LIMIT 50").all(customerId);
+  const { timeline } = await import("./crm");
+  return { customer, orders, events: timeline(customerId) };
+}
+
+// Owner-only bad-debt write-off: balance shrinks, adjust leg posts, audited.
+export async function writeOffUdhari(customerId: number, amount: number, actor: string, reason: string): Promise<{ left: number }> {
+  commerceTables();
+  const db = getDb();
+  const c = db.prepare("SELECT balance FROM Customer WHERE id=?").get(customerId) as { balance: number } | undefined;
+  if (!c) throw new Error("no customer");
+  const take = Math.min(Math.max(1, Math.round(amount)), c.balance);
+  if (take <= 0) throw new Error("nothing due");
+  const why = reason.trim().slice(0, 200) || "bad debt";
+  db.exec("BEGIN");
+  try {
+    db.prepare("UPDATE Customer SET balance = balance - ?, balanceSince = CASE WHEN balance - ? <= 0 THEN '' ELSE balanceSince END WHERE id=?").run(take, take, customerId);
+    ledgerPost({ kind: "adjust", refId: customerId, amount: take, memo: `write-off: ${why}` });
+    db.exec("COMMIT");
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch { /* already out */ }
+    throw e;
+  }
+  logCustomerSafe(customerId, `write-off (${why}) by ${actor}`);
+  const { audit } = await import("./scale");
+  audit(actor, "udhari.writeoff", String(customerId), `${take} (${why})`);
   return { left: c.balance - take };
 }
 

@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { collectUdhari, creditSale, udhariList } from "@/lib/commerce";
+import { collectUdhari, creditSale, setCustomerTerms, udhariList, udhariStatement, writeOffUdhari } from "@/lib/commerce";
 import { shopGate } from "@/lib/shop-auth";
+import { sessionUser } from "@/lib/auth";
 
-// GET → balances due. POST {op: sale|collect, ...}.
+// GET → balances due. GET ?statement=<customerId> → statement.
 export async function GET(req: Request) {
   const deny = await shopGate(req, false);
   if (deny) return deny;
+  const id = Number(new URL(req.url).searchParams.get("statement") || 0);
+  if (id) {
+    try {
+      return NextResponse.json({ ok: true, ...(await udhariStatement(id)) });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 404 });
+    }
+  }
   return NextResponse.json({ dues: udhariList() });
 }
 
@@ -23,6 +32,19 @@ export async function POST(req: Request) {
       }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad credit sale" }, { status: 422 });
       return NextResponse.json({ ok: true, id: await creditSale(parsed.data) });
+    }
+    if (body?.op === "terms") {
+      const p2 = z.object({ op: z.literal("terms"), customerId: z.number().int(), days: z.number().min(0).max(365) }).safeParse(body);
+      if (!p2.success) return NextResponse.json({ error: "bad terms" }, { status: 422 });
+      await setCustomerTerms(p2.data.customerId, p2.data.days);
+      return NextResponse.json({ ok: true });
+    }
+    if (body?.op === "writeoff") {
+      const me = await sessionUser();
+      if (!me || me.role !== "owner") return NextResponse.json({ error: "owner only" }, { status: 403 });
+      const p3 = z.object({ op: z.literal("writeoff"), customerId: z.number().int(), amount: z.number().min(1).max(100000000), reason: z.string().max(200).optional() }).safeParse(body);
+      if (!p3.success) return NextResponse.json({ error: "bad writeoff" }, { status: 422 });
+      return NextResponse.json({ ok: true, ...(await writeOffUdhari(p3.data.customerId, p3.data.amount, me.email, p3.data.reason ?? "")) });
     }
     const parsed = z.object({
       op: z.literal("collect"), customerId: z.number().int(),

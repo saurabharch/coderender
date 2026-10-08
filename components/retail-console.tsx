@@ -3,6 +3,7 @@
 import { CopyBtn, IconBtn, StatusBadge } from "@/components/admin-ux";
 import { maskInt } from "@/lib/mask";
 import { buildTrackingUrl } from "@/lib/retail-core";
+import { ageStatus } from "@/lib/credit-core";
 
 import { useEffect, useState } from "react";
 import { Phone, Plus } from "lucide-react"
@@ -10,7 +11,7 @@ import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 
 interface Campaign { id: number; name: string; channel: string; segment: string; status: string }
 interface Shipment { id: number; orderId: number; courier: string; tracking: string; status: string }
-interface Due { id: number; name: string; phone: string; balance: number }
+interface Due { id: number; name: string; phone: string; balance: number; termsDays: number; balanceSince: string }
 
 export function RetailConsole({ tab }: { tab: string }) {
   const [camps, setCamps] = useState<Campaign[]>([]);
@@ -155,6 +156,32 @@ export function RetailConsole({ tab }: { tab: string }) {
     if (res.ok) void load();
   }
 
+  async function setTerms(id: number, cur: number) {
+    const days = prompt("Payment terms in days (0 = due on sale)?", String(cur));
+    if (days === null) return;
+    const res = await fetch("/api/shop/credit", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "terms", customerId: id, days: Math.round(Number(days) || 0) }),
+    });
+    const r = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Terms saved ✓" : (r.error ?? "failed"));
+    if (res.ok) void load();
+  }
+
+  async function writeOff(id: number, name: string) {
+    const reason = prompt(`Write off ${name}'s due as bad debt (owner only)? Reason:`);
+    if (!reason) return;
+    const amt = prompt("Write-off amount (₹)?");
+    if (!amt) return;
+    const res = await fetch("/api/shop/credit", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "writeoff", customerId: id, amount: Math.round(Number(amt) * 100), reason }),
+    });
+    const r = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Written off ✓ ₹${(r.left / 100).toFixed(0)} left` : (r.error ?? "failed"));
+    if (res.ok) void load();
+  }
+
   if (!loaded) return <Skeleton lines={5} />;
   return (
     <div className="grid gap-3">      {tab === "counter" && (<>
@@ -199,14 +226,23 @@ export function RetailConsole({ tab }: { tab: string }) {
           <ul className="mt-2 space-y-1 text-sm">
             {dues.map((u) => (
               <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-                <span>{u.name} · <b>₹{(u.balance / 100).toFixed(0)}</b></span>
-                <span className="flex gap-1">
+                <span>{u.name} · <b>₹{(u.balance / 100).toFixed(0)}</b>
+                  {(() => {
+                    const st = ageStatus({ balance: u.balance, balanceSince: u.balanceSince || "", termsDays: u.termsDays || 0 });
+                    return <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${st.overdue ? "bg-red-500/15 text-red-700 dark:text-red-300" : "bg-black/5 text-zinc-500 dark:bg-white/10"}`}>{st.label}{u.termsDays ? ` · ${u.termsDays}d terms` : ""}</span>;
+                  })()}
+                </span>
+                <span className="flex flex-wrap gap-1">
                   {u.phone && (
                     <a href={`tel:${u.phone}`} aria-label={`Call ${u.name}`}
                       className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-brand text-white"><Phone size={17} /></a>
                   )}
                   <button onClick={() => void collect(u.id)}
                     className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Collect</button>
+                  <button onClick={() => void setTerms(u.id, u.termsDays || 0)}
+                    className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Terms</button>
+                  <button onClick={() => void writeOff(u.id, u.name)}
+                    className="min-h-[44px] rounded-xl border border-red-500/40 px-3 text-xs font-semibold text-red-700 dark:text-red-300">Write off</button>
                 </span>
               </li>
             ))}
