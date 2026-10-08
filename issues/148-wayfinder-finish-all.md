@@ -26,7 +26,7 @@ responsive sweep of all admin routes passes.
 
 ## Not yet specified
 
-- HR leftovers: bonus/incentives, payroll exception engine, audit of hire/exit.
+- HR leftovers: exception engine + hire/exit audit verified present in code; only bonuses missing → [Staff bonuses through payroll](179-staff-bonus-payroll.md).
 - Level 2 device render lives in [Responsive sweep level 2](171-responsive-sweep-L2.md) — the map's last frontier item.
 
 ## Out of scope
