@@ -2,7 +2,8 @@
 
 Parent: [Wayfinder map: POS advance on current infra](163-pos-advance-map.md)
 Labels: wayfinder:task
-Status: brief
+Status: done
+Assignee: opencode
 Blocked-by: (none — frontier)
 
 ## Question
@@ -15,3 +16,6 @@ outbox + `ikey` dedup?
 
 - Cache shape + freshness (cached catalog vs live quote math).
 - Conflict honesty: what the cashier sees when offline totals differ.
+
+
+Resolution: pure pos-catalog cache (500 cap) warms from every online scan/search; offline scan/search/quote-estimate/resume fall back to it with honest labels; server re-prices on outbox sync; hold/resume stay online with explicit messages. Live: POS chunk contains new code, quote validation intact, server diff empty. Note: demo DB has zero products, so cache warms on first real lookup.

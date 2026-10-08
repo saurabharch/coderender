@@ -10,6 +10,7 @@ import { QrImg } from "@/components/labels";
 import { useLongPress } from "@mantine/hooks";
 import { maskAmount, maskInt, maskPercent } from "@/lib/mask";
 import { newIkey } from "@/lib/retail-core";
+import { findByCode, mergeCatalog, searchCatalog, type CatItem } from "@/lib/pos-catalog";
 import { WasmScanDialog } from "@/components/wasm-scan-dialog";
 import { modals } from "@mantine/modals";
 
@@ -56,6 +57,37 @@ export function PosCounter() {
   const [splits, setSplits] = useState<{ method: "cash" | "upi" | "card"; amt: string }[]>([
     { method: "upi", amt: "" }, { method: "cash", amt: "" },
   ]);
+  // Offline catalog: last-seen products, refreshed on every successful online
+  // lookup. Scan/search fall back here without network; the server re-prices
+  // authoritatively when the queued sale syncs.
+  const [catalog, setCatalog] = useState<CatItem[]>([]);
+  const [offline, setOffline] = useState(false);
+  const [estQuote, setEstQuote] = useState(false);
+  const readCatalog = (): CatItem[] => {
+    try {
+      const v = JSON.parse(window.localStorage.getItem("cr_catalog") || "[]");
+      return Array.isArray(v) ? v.filter((x) => Number(x?.id) > 0) : [];
+    } catch { return []; }
+  };
+  function remember(raw: unknown) {
+    const items = (Array.isArray(raw) ? raw : [raw])
+      .map((x) => {
+        const o = x as { productId?: number; id?: number; name?: string; price?: number; code?: string };
+        return {
+          id: Number(o.productId ?? o.id) || 0,
+          name: String(o.name ?? "Item").slice(0, 120),
+          price: Math.max(0, Math.round(Number(o.price) || 0)),
+          code: typeof o.code === "string" ? o.code.slice(0, 40) : undefined,
+        };
+      })
+      .filter((x) => x.id > 0);
+    if (!items.length) return;
+    setCatalog((prev) => {
+      const next = mergeCatalog(prev, items);
+      try { window.localStorage.setItem("cr_catalog", JSON.stringify(next)); } catch { /* full */ }
+      return next;
+    });
+  }
   const photoRef = useRef<HTMLInputElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -64,6 +96,7 @@ export function PosCounter() {
     if (!c) return;
     const d = await fetch(`/api/shop/scan?code=${encodeURIComponent(c)}`).then((r) => r.json()).catch(() => null);
     if (d?.ok) {
+      remember({ ...d, code: c });
       // Weighted barcodes carry the quantity (kg) in the code itself.
       if (typeof d.weightKg === "number" && d.weightKg > 0) {
         addLine(d.productId, `${d.name} (${d.weightKg}kg)`, d.price);
@@ -76,6 +109,20 @@ export function PosCounter() {
       try { navigator.vibrate?.(60); } catch { /* ignore */ }
       setTimeout(() => setFlash((f) => (f === d.name ? "" : f)), 1800);
       setCode("");
+      return;
+    }
+    if (d === null) {
+      // No network: fall back to the cached catalog (server re-prices on sync).
+      const hit = findByCode(catalog, c);
+      if (hit) {
+        addLine(hit.id, hit.name, hit.price);
+        setMsg(`Added ${hit.name} ✓ (offline catalog — price confirmed on sync)`);
+        setFlash(hit.name);
+        setTimeout(() => setFlash((f) => (f === hit.name ? "" : f)), 1800);
+        setCode("");
+        return;
+      }
+      setMsg("Offline — unknown code. Connect once to cache it, or quick-add when back online.");
       return;
     }
     // Unknown code → fast-add dialog (name + price + stock, then into cart).
@@ -116,7 +163,16 @@ export function PosCounter() {
     if (v.trim().length < 2) { setFound([]); return; }
     searchTimer.current = setTimeout(async () => {
       const d = await fetch(`/api/shop/products?q=${encodeURIComponent(v.trim())}`).then((r) => r.json()).catch(() => null);
-      setFound((d?.products ?? []).slice(0, 8));
+      if (d === null) {
+        // Offline: search the cached catalog instead of showing nothing.
+        const hits = searchCatalog(catalog, v.trim()).map((c) => ({ id: c.id, name: c.name, price: c.price, stock: -1 }));
+        setFound(hits);
+        if (hits.length) setMsg("Offline catalog results — stock + price confirmed on sync.");
+        return;
+      }
+      const products = (d?.products ?? []).slice(0, 8);
+      remember(products);
+      setFound(products);
     }, 300);
   }
 
@@ -160,9 +216,13 @@ export function PosCounter() {
     } catch { /* corrupt tray never breaks the counter */ }
     setOutbox(readBox("cr_outbox"));
     setDead(readBox("cr_outbox_dead") as (OutOp & { error: string })[]);
-    const onOnline = () => { void syncOutbox(); };
+    setCatalog(readCatalog());
+    const onOnline = () => { setOffline(false); void syncOutbox(); };
+    const onOffline = () => setOffline(true);
+    try { setOffline(!window.navigator.onLine); } catch { /* assume online */ }
     window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
     // Mount-only: resubscribing per render would leak listeners.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -188,7 +248,7 @@ export function PosCounter() {
   const [billGrand, setBillGrand] = useState<number | null>(null);
   const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!splitOn || lines.length === 0) { setBillGrand(null); return; }
+    if (!splitOn || lines.length === 0) { setBillGrand(null); setEstQuote(false); return; }
     if (quoteTimer.current) clearTimeout(quoteTimer.current);
     quoteTimer.current = setTimeout(async () => {
       const dis = disval ? (disKind === "pct"
@@ -201,7 +261,12 @@ export function PosCounter() {
           customerId: customer?.id, ...(dis > 0 ? { manualDiscount: dis } : {}),
         }),
       }).then((r) => r.json()).catch(() => null);
-      setBillGrand(typeof d?.grand === "number" ? d.grand : null);
+      if (typeof d?.grand === "number") { setBillGrand(d.grand); setEstQuote(false); }
+      else if (d === null) {
+        // Offline: client-side estimate (no tax engine); server totals win on sync.
+        setBillGrand(Math.max(0, total - dis));
+        setEstQuote(true);
+      } else setBillGrand(null);
     }, 400);
     return () => { if (quoteTimer.current) clearTimeout(quoteTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -319,26 +384,41 @@ export function PosCounter() {
 
   async function hold() {
     if (!lines.length) return;
-    const res = await fetch("/api/retail/pos", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "hold", lines: lines.map((l) => ({ productId: l.productId, qty: l.qty })) }),
-    });
+    let res: Response | null = null;
+    try {
+      res = await fetch("/api/retail/pos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "hold", lines: lines.map((l) => ({ productId: l.productId, qty: l.qty })) }),
+      });
+    } catch { res = null; }
+    if (res === null) { setMsg("Hold needs network — your cart stays here and the sale can still queue offline."); return; }
     const d = await res.json().catch(() => ({}));
     if (res.ok) { setMsg(`Held as #${d.id} ✓`); setLines([]); void loadHeld(); }
     else setMsg(d.error ?? "hold failed");
   }
 
   async function resume(id: number) {
-    const res = await fetch("/api/retail/pos", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "resume", id }),
-    });
+    let res: Response | null = null;
+    try {
+      res = await fetch("/api/retail/pos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "resume", id }),
+      });
+    } catch { res = null; }
+    if (res === null) { setMsg("Resume needs network — held carts live on the server."); return; }
     const d = await res.json().catch(() => ({}));
     if (!res.ok || !d.lines) { setMsg(d.error ?? "resume failed"); return; }
     const fresh: Line[] = [];
     for (const l of d.lines as { productId: number; qty: number }[]) {
       const p = await fetch(`/api/shop/products?id=${l.productId}`).then((r) => r.json()).catch(() => null);
-      if (p?.product) fresh.push({ productId: l.productId, name: p.product.name, price: p.product.price, qty: l.qty });
+      if (p?.product) {
+        remember(p.product);
+        fresh.push({ productId: l.productId, name: p.product.name, price: p.product.price, qty: l.qty });
+      } else {
+        // Offline resume: name/price from the cached catalog when present.
+        const hit = catalog.find((c) => c.id === l.productId);
+        if (hit) fresh.push({ productId: l.productId, name: hit.name, price: hit.price, qty: l.qty });
+      }
     }
     setLines(fresh);
     setMsg(fresh.length ? `Resumed #${id} ✓` : "Held items no longer available");
@@ -355,7 +435,7 @@ export function PosCounter() {
         <>
       <div className="grid content-start gap-3 lg:col-span-3">
         <AdminCard>
-          <p className="font-bold">Add items — scan, code, or search</p>
+          <p className="font-bold">Add items — scan, code, or search {offline && <span className="ml-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">offline catalog</span>}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <input ref={codeRef} value={code} onChange={(e) => setCode(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void addCode(code); }}
@@ -381,7 +461,7 @@ export function PosCounter() {
             <ul className="mt-1.5 space-y-1">
               {found.map((f) => (
                 <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
-                  <span className="min-w-0 flex-1 truncate">{f.name} · ₹{(f.price / 100).toFixed(0)} · {f.stock} in stock</span>
+                  <span className="min-w-0 flex-1 truncate">{f.name} · ₹{(f.price / 100).toFixed(0)} · {f.stock < 0 ? "stock on sync" : `${f.stock} in stock`}</span>
                   <IconBtn label="Add to bill" hint="Add to bill (hold for 5)" tone="brand"
                     onClick={() => { if (swallowed.current) { swallowed.current = false; return; } addLine(f.id, f.name, f.price); setFound([]); setQ(""); }}
                     extra={{
@@ -488,7 +568,7 @@ export function PosCounter() {
             <button onClick={() => setSplitOn((s) => !s)} aria-pressed={splitOn}
               className={`min-h-[44px] rounded-xl border px-4 text-sm font-semibold ${splitOn ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}>
               Split tender</button>
-            {splitOn && <span className="text-xs text-zinc-500">Bill ₹{billGrand === null ? "…" : (billGrand / 100).toFixed(0)} · exact, no change</span>}
+            {splitOn && <span className="text-xs text-zinc-500">Bill ₹{billGrand === null ? "…" : (billGrand / 100).toFixed(0)}{estQuote ? " (offline estimate)" : ""} · exact, no change</span>}
           </div>
           {splitOn ? (
             <div className="mt-1.5 grid gap-1.5">
