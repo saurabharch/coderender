@@ -1,7 +1,7 @@
 # Wayfinder map: NexoPOS advancement on current infra
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -25,12 +25,16 @@ green and CI green.
 ## Decisions so far
 
 - [Double-entry ledger adoption](174-double-entry-ledger.md): books already balanced, proven live; legs math extracted pure + tested.
+- [Receivables aging, terms, write-off](175-receivables-aging.md): terms/overdue/statement/owner write-off live-proved.
+- [GST depth: HSN, composition, versioned rules](176-gst-depth.md): HSN/composition/rate windows live-proved.
+- [CSV import pipeline](177-csv-import-pipeline.md): preview UI + batch rollback live-proved.
+- [Quote versioning and acceptance](178-quote-versioning.md): versions immutable, accept mints linked order.
 
 ## Not yet specified
 
-- Slice order past receivables (GST depth vs import vs quotes).
 - Restaurant/KOT, LAN/print bridge, native shells, Typesense, ABAC, gateway
-  reconciliation, portals, forecasting — fog until the ledger decision lands.
+  reconciliation, portals, forecasting — future maps, in dependency order
+  after quotes if the owner calls for them.
 
 ## Out of scope
 
