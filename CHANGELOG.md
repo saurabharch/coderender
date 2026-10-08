@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.72.1] - 2026-10-08
+## [0.73.0] - 2026-10-08
+- Blog analytics## [0.72.1] - 2026-10-08
 - UI sweep## [0.72.0] - 2026-10-08
 - Audit + exceptions## [0.71.0] - 2026-10-08
 - Recruit train## [0.70.0] - 2026-10-08
