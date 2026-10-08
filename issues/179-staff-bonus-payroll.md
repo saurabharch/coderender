@@ -2,7 +2,8 @@
 
 Parent: [Wayfinder map: finish plans, todos, phases, tasks, issues; responsive UI everywhere](148-wayfinder-finish-all.md)
 Labels: wayfinder:task
-Status: brief
+Status: done
+Assignee: opencode
 Blocked-by: (none — frontier)
 
 ## Question
@@ -24,3 +25,16 @@ new dated bonus rows picked up by `openRun`, or ad-hoc payroll adjustments?
 - Bonus rows dated (month-scoped) with reason + actor; runs stay
   re-runnable without double-paying (idempotent pickup).
 - Net math stays pure and tested; payslip shows the bonus line.
+
+## Resolution
+
+Dated bonus rows picked up idempotently by the run:
+- `Bonus` table + `PayrollLine.bonus` column; pure `netPay` gains optional
+  bonus (tested, still floored at zero).
+- Award-then-run and run-then-award agree (open runs get patched lines);
+  paid runs refuse with "award next month".
+- API award (owner/manager/hr only) + month bonus list + console award form
+  + payslip bonus line.
+Live proof on probe employee: 50000 award → run line net 3050000; second
+25000 award patched the open run → 3075000; payslip shows the bonus line.
+All probe rows cleaned.

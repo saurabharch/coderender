@@ -7,6 +7,11 @@ describe("people-core", () => {
     expect(netPay({ base: 1000, allowances: 0, deductions: 5000, loanCut: 0 })).toBe(0);
   });
 
+  it("adds bonus into net, still floored", () => {
+    expect(netPay({ base: 1000, allowances: 0, deductions: 0, loanCut: 0, bonus: 250 })).toBe(1250);
+    expect(netPay({ base: 0, allowances: 0, deductions: 5000, loanCut: 0, bonus: 100 })).toBe(0);
+  });
+
   it("slices loans fairly", () => {
     expect(loanCut(10000, 3000)).toBe(3000);
     expect(loanCut(2000, 3000)).toBe(2000);

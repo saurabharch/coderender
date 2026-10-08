@@ -62,6 +62,10 @@ export async function GET(req: Request) {
   if (url.searchParams.get("exceptions") !== null) {
     return NextResponse.json({ exceptions: runExceptions(Number(url.searchParams.get("exceptions") || 0)) });
   }
+  if (url.searchParams.get("bonuses") !== null) {
+    const { listBonuses } = await import("@/lib/people");
+    return NextResponse.json({ bonuses: listBonuses(url.searchParams.get("bonuses") || "") });
+  }
   if (url.searchParams.get("payslip") !== null && url.searchParams.get("emp")) {
     try {
       return NextResponse.json(payslip(Number(url.searchParams.get("payslip") || 0), Number(url.searchParams.get("emp") || 0)));
@@ -226,6 +230,30 @@ export async function POST(req: Request) {
           audit(me?.email ?? "api", "hire", `#${employeeId}`, `offer #${parsed.data.offerId} accepted`);
         }
         return NextResponse.json({ ok: true, employeeId });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.bonus) {
+      const parsed = z.object({
+        bonus: z.object({
+          employeeId: z.number().int(), month: z.string().regex(/^\d{4}-\d{2}$/),
+          amount: z.number().min(1).max(100000000), reason: z.string().max(200).optional(),
+        }),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad bonus" }, { status: 422 });
+      const me = await sessionUser();
+      if (!me || !["owner", "manager", "hr"].includes(me.role)) {
+        return NextResponse.json({ error: "owner, manager, or hr only" }, { status: 403 });
+      }
+      try {
+        const { awardBonus } = await import("@/lib/people");
+        const id = awardBonus(
+          parsed.data.bonus.employeeId, parsed.data.bonus.month,
+          Math.round(parsed.data.bonus.amount), parsed.data.bonus.reason ?? "", me.email);
+        const { audit } = await import("@/lib/scale");
+        audit(me.email, "bonus.award", String(id), `${parsed.data.bonus.month} (${parsed.data.bonus.reason ?? ""})`);
+        return NextResponse.json({ ok: true, id });
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
       }

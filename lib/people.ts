@@ -10,6 +10,8 @@ export function peopleTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS PayrollRun (id INTEGER PRIMARY KEY AUTOINCREMENT, month TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'draft', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS SalaryStructure (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, base INTEGER NOT NULL DEFAULT 0, allowances INTEGER NOT NULL DEFAULT 0, deductions INTEGER NOT NULL DEFAULT 0)`);
   db.exec(`CREATE TABLE IF NOT EXISTS PayrollLine (id INTEGER PRIMARY KEY AUTOINCREMENT, runId INTEGER NOT NULL, employeeId INTEGER NOT NULL, base INTEGER NOT NULL DEFAULT 0, allowances INTEGER NOT NULL DEFAULT 0, deductions INTEGER NOT NULL DEFAULT 0, loanCut INTEGER NOT NULL DEFAULT 0, net INTEGER NOT NULL DEFAULT 0)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Bonus (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, month TEXT NOT NULL DEFAULT '', amount INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '', actor TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try { db.exec("ALTER TABLE PayrollLine ADD COLUMN bonus INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   db.exec(`CREATE TABLE IF NOT EXISTS Attendance (employeeId INTEGER NOT NULL, day TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'present', PRIMARY KEY (employeeId, day))`);
   db.exec(`CREATE TABLE IF NOT EXISTS LeaveReq (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, fromDay TEXT NOT NULL DEFAULT '', toDay TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'casual', status TEXT NOT NULL DEFAULT 'pending', notes TEXT NOT NULL DEFAULT '')`);
   db.exec(`CREATE TABLE IF NOT EXISTS Timesheet (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeId INTEGER NOT NULL, day TEXT NOT NULL DEFAULT '', hours REAL NOT NULL DEFAULT 0, taskRef TEXT NOT NULL DEFAULT '')`);
@@ -94,11 +96,53 @@ export function openRun(month: string): number {
     const loans = db.prepare("SELECT id, balance, installment FROM EmpLoan WHERE employeeId=? AND status='open'").all(e.id) as
       { id: number; balance: number; installment: number }[];
     const cut = loans.reduce((s, l) => s + loanCut(l.balance, l.installment), 0);
-    db.prepare("INSERT INTO PayrollLine (runId, employeeId, base, allowances, deductions, loanCut, net) VALUES (?,?,?,?,?,?,?)")
-      .run(id, e.id, e.base, e.allowances, e.deductions, cut, netPay({ base: e.base, allowances: e.allowances, deductions: e.deductions, loanCut: cut }));
+    const bonus = monthBonus(e.id, month);
+    db.prepare("INSERT INTO PayrollLine (runId, employeeId, base, allowances, deductions, loanCut, bonus, net) VALUES (?,?,?,?,?,?,?,?)")
+      .run(id, e.id, e.base, e.allowances, e.deductions, cut, bonus, netPay({ base: e.base, allowances: e.allowances, deductions: e.deductions, loanCut: cut, bonus }));
   }
   return id;
 }
+
+// One-off bonus for a payroll month. If the month's run is already open
+// (not paid), the live line is patched so award-then-run and run-then-award
+// agree; a paid run refuses (award next month instead).
+export function monthBonus(employeeId: number, month: string): number {
+  peopleTables();
+  const r = getDb().prepare("SELECT COALESCE(SUM(amount),0) s FROM Bonus WHERE employeeId=? AND month=?").get(employeeId, month) as { s: number };
+  return r.s;
+}
+
+export function listBonuses(month: string) {
+  peopleTables();
+  return getDb().prepare(`SELECT b.*, e.name FROM Bonus b LEFT JOIN Employee e ON e.id=b.employeeId WHERE b.month=? ORDER BY b.id DESC`).all(month);
+}
+
+export function awardBonus(employeeId: number, month: string, amount: number, reason: string, actor: string): number {
+  peopleTables();
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("month like YYYY-MM");
+  const db = getDb();
+  const emp = db.prepare("SELECT id FROM Employee WHERE id=? AND active=1").get(employeeId);
+  if (!emp) throw new Error("no active employee");
+  const amt = Math.round(amount);
+  if (!(amt > 0) || amt > 100000000) throw new Error("bad amount");
+  const run = db.prepare("SELECT id, status FROM PayrollRun WHERE month=?").get(month) as { id: number; status: string } | undefined;
+  if (run?.status === "paid") throw new Error("run already paid — award next month");
+  const id = Number(db.prepare("INSERT INTO Bonus (employeeId, month, amount, reason, actor) VALUES (?,?,?,?,?)")
+    .run(employeeId, month, amt, reason.slice(0, 200), actor.slice(0, 120)).lastInsertRowid);
+  if (run) {
+    // Patch the open run's line so both orders of operations agree.
+    const line = db.prepare("SELECT * FROM PayrollLine WHERE runId=? AND employeeId=?").get(run.id, employeeId) as
+      { base: number; allowances: number; deductions: number; loanCut: number } | undefined;
+    if (line) {
+      const bonus = monthBonus(employeeId, month);
+      db.prepare("UPDATE PayrollLine SET bonus=?, net=? WHERE runId=? AND employeeId=?")
+        .run(bonus, netPay({ base: line.base, allowances: line.allowances, deductions: line.deductions, loanCut: line.loanCut, bonus }), run.id, employeeId);
+    }
+  }
+  logEmpEvent(employeeId, "note", `bonus ₹${(amt / 100).toFixed(0)} for ${month} (${reason.slice(0, 200)})`);
+  return id;
+}
+
 
 export function getRun(id: number) {
   peopleTables();

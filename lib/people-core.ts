@@ -1,10 +1,10 @@
 // Pure people + planning math (no sqlite — safe for vitest).
 
-export interface PayBits { base: number; allowances: number; deductions: number; loanCut: number }
+export interface PayBits { base: number; allowances: number; deductions: number; loanCut: number; bonus?: number }
 
 // Net pay, floored at zero (deductions can never make it negative).
 export function netPay(p: PayBits): number {
-  return Math.max(0, Math.round(p.base + p.allowances - p.deductions - p.loanCut));
+  return Math.max(0, Math.round(p.base + p.allowances + (p.bonus ?? 0) - p.deductions - p.loanCut));
 }
 
 // Loan installment: min(agreed, remaining).

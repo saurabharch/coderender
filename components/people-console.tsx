@@ -42,7 +42,7 @@ export function PeopleConsole() {
   const [rep, setRep] = useState<{ headcount: number; byDept: Record<string, number>; payroll: { runs: string[]; lines: number; total: number }; attendance: { id: number; name: string; dept: string; days: number; present: number }[] } | null>(null);
   const [slrun, setSlrun] = useState("");
   const [slemp, setSlemp] = useState("");
-  const [slip, setSlip] = useState<{ run: { month: string; status: string }; line: { name: string; designation: string; dept: string; base: number; allowances: number; deductions: number; loanCut: number; net: number }; ytd: { s: number; n: number }; loan: { balance: number; installment: number } | null } | null>(null);
+  const [slip, setSlip] = useState<{ run: { month: string; status: string }; line: { name: string; designation: string; dept: string; base: number; allowances: number; deductions: number; loanCut: number; bonus: number; net: number }; ytd: { s: number; n: number }; loan: { balance: number; installment: number } | null } | null>(null);
   const [desigs, setDesigs] = useState<{ title: string; grade: string }[]>([]);
   const [cands, setCands] = useState<{ id: number; name: string; designation: string; stage: string }[]>([]);
   const [caname, setCaname] = useState("");
@@ -404,6 +404,10 @@ export function PeopleConsole() {
   }
 
   const [runs, setRuns] = useState<{ id: number; month: string; status: string }[]>([]);
+  const [bonuses, setBonuses] = useState<{ id: number; employeeId: number; name: string; amount: number; reason: string; actor: string }[]>([]);
+  const [bemp, setBemp] = useState("");
+  const [bamt, setBamt] = useState("");
+  const [breason, setBreason] = useState("");
   const [structs, setStructs] = useState<{ id: number; name: string; base: number; allowances: number; deductions: number }[]>([]);
   const [stname, setStname] = useState("");
   const [stbase, setStbase] = useState("");
@@ -435,8 +439,12 @@ export function PeopleConsole() {
       fetch("/api/people/ops?structures=1").then((x) => x.json()).catch(() => null),
     ]);
     if (r?.runs) setRuns(r.runs);
+    const bl = await fetch(`/api/people/ops?bonuses=${encodeURIComponent(month)}`).then((x) => x.json()).catch(() => null);
+    if (bl?.bonuses) setBonuses(bl.bonuses);
     if (s?.structures) setStructs(s.structures);
   }
+
+  useEffect(() => { void loadRuns(); }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function runPayroll() {
     const step = async (body: Record<string, unknown>) => {
@@ -465,6 +473,17 @@ export function PeopleConsole() {
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? `${to} ✓` : (d.error ?? "failed"));
     if (res.ok) void loadRuns();
+  }
+
+  async function awardBonusGo() {
+    if (!bemp.trim() || !bamt) { setMsg("Pick an employee and amount."); return; }
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bonus: { employeeId: Number(bemp), month, amount: Math.round(Number(bamt) * 100), reason: breason.trim() } }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Bonus awarded ✓ #${d.id}` : (d.error ?? "failed"));
+    if (res.ok) { setBemp(""); setBamt(""); setBreason(""); void loadRuns(); }
   }
 
   async function saveStruct() {
@@ -893,6 +912,7 @@ export function PeopleConsole() {
             <div className="space-y-0.5 font-mono text-xs">
               <p className="flex justify-between"><span>Base</span><span>₹{(slip.line.base / 100).toFixed(0)}</span></p>
               <p className="flex justify-between"><span>Allowances</span><span>₹{(slip.line.allowances / 100).toFixed(0)}</span></p>
+              {slip.line.bonus > 0 && <p className="flex justify-between"><span>Bonus</span><span>₹{(slip.line.bonus / 100).toFixed(0)}</span></p>}
               <p className="flex justify-between"><span>Deductions</span><span>−₹{(slip.line.deductions / 100).toFixed(0)}</span></p>
               {slip.line.loanCut > 0 && <p className="flex justify-between"><span>Loan slice</span><span>−₹{(slip.line.loanCut / 100).toFixed(0)}</span></p>}
               <p className="flex justify-between text-base font-extrabold"><span>Net</span><span>₹{(slip.line.net / 100).toFixed(0)}</span></p>
@@ -981,6 +1001,27 @@ export function PeopleConsole() {
             ))}
           </ul>
         )}
+        <p className="mt-2 font-bold">Bonuses ({month})</p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          <input value={bemp} onChange={(e) => setBemp(maskInt(e.target.value))} placeholder="Emp id" inputMode="numeric"
+            className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={bamt} onChange={(e) => setBamt(maskAmount(e.target.value))} placeholder="Bonus ₹" inputMode="decimal"
+            className="min-h-[44px] w-28 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <input value={breason} onChange={(e) => setBreason(e.target.value)} placeholder="Reason (Diwali)" maxLength={200}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <button onClick={() => void awardBonusGo()} disabled={!bemp.trim() || !bamt}
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Award</button>
+        </div>
+        {bonuses.length > 0 && (
+          <ul className="mt-1.5 space-y-1 text-sm">
+            {bonuses.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span>{b.name || `Emp #${b.employeeId}`} · <b>₹{(b.amount / 100).toFixed(0)}</b> · {b.reason || "bonus"}</span>
+                <span className="text-xs text-zinc-500">by {b.actor || "?"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="mt-2 font-bold">Salary structures</p>
         <div className="mt-1 flex flex-wrap gap-1.5">
           <input value={stname} onChange={(e) => setStname(e.target.value)} placeholder="Name (Trainee)" maxLength={80}
@@ -1005,7 +1046,7 @@ export function PeopleConsole() {
             ))}
           </ul>
         )}
-        <p className="mt-1 text-xs text-zinc-500">Builds lines (base + allowances − deductions − loan slice), pays from Cash, posts to ledger. Attendance, leave and timesheets live on the API.</p>
+        <p className="mt-1 text-xs text-zinc-500">Builds lines (base + allowances + bonus − deductions − loan slice), pays from Cash, posts to ledger. Bonuses award per month and ride the open run. Attendance, leave and timesheets live on the API.</p>
       </AdminCard>
       {msg && <p className="text-sm text-zinc-500">{msg}</p>}
     </div>
