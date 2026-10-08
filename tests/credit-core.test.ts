@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageStatus, parseTermsDays } from "@/lib/credit-core";
+import { ageStatus, parseTermsDays, udhariReminderText } from "@/lib/credit-core";
 
 const DAY = 86400000;
 
@@ -22,5 +22,13 @@ describe("credit-core", () => {
     expect(parseTermsDays(-5)).toBe(0);
     expect(parseTermsDays(999)).toBe(365);
     expect(parseTermsDays("nope")).toBe(0);
+  });
+});
+
+describe("udhari reminders", () => {
+  it("writes exact dues copy", () => {
+    expect(udhariReminderText("Saurabh", 50000, 3)).toContain("₹500");
+    expect(udhariReminderText("Saurabh", 50000, 3)).toContain("3 day(s)");
+    expect(udhariReminderText("", 100, 1)).toContain("friend");
   });
 });

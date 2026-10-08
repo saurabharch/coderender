@@ -37,5 +37,5 @@ each ticket is live-proved with chain green and CI green.
 
 ## Children
 
-- [Udhari due reminders](181-udhari-due-reminders.md) — frontier
+- [Udhari due reminders](181-udhari-due-reminders.md) — done (overdue-only tick + caps + logging live-proved)
 - [Printable customer statement](182-printable-statement.md) — frontier

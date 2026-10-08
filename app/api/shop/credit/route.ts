@@ -33,6 +33,10 @@ export async function POST(req: Request) {
       if (!parsed.success) return NextResponse.json({ error: "bad credit sale" }, { status: 422 });
       return NextResponse.json({ ok: true, id: await creditSale(parsed.data) });
     }
+    if (body?.op === "remind") {
+      const { udhariReminderTick } = await import("@/lib/vyapar");
+      return NextResponse.json({ ok: true, sent: await udhariReminderTick() });
+    }
     if (body?.op === "terms") {
       const p2 = z.object({ op: z.literal("terms"), customerId: z.number().int(), days: z.number().min(0).max(365) }).safeParse(body);
       if (!p2.success) return NextResponse.json({ error: "bad terms" }, { status: 422 });

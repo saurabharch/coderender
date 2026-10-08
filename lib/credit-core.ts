@@ -37,3 +37,9 @@ export function parseTermsDays(v: unknown): number {
   if (!Number.isFinite(n)) return 0;
   return Math.min(365, Math.max(0, n));
 }
+
+// Reminder copy: firm, warm, exact amount + overdue age. Pure for tests.
+export function udhariReminderText(name: string, balancePaise: number, daysOverdue: number): string {
+  const who = name.trim() || "friend";
+  return `Namaste ${who}, a friendly reminder: ₹${(Math.max(0, balancePaise) / 100).toFixed(0)} has been due for ${Math.max(0, daysOverdue)} day(s). Please pay at the counter or via UPI. — CodeRender`;
+}

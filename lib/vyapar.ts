@@ -151,6 +151,49 @@ export async function reminderTick(daysOverdue = 7): Promise<number> {
   return n;
 }
 
+// Udhari due reminders: only balances past terms, one nudge per customer per
+// cooldown window, logged in the shared ReminderLog (customerId leg).
+export async function udhariReminderTick(cooldownDays = 7): Promise<number> {
+  vyaparTables();
+  const { ageStatus, udhariReminderText } = await import("./credit-core");
+  const db = getDb();
+  try {
+    db.exec("ALTER TABLE ReminderLog ADD COLUMN customerId INTEGER NOT NULL DEFAULT 0");
+  } catch { /* exists */ }
+  const cool = Math.min(30, Math.max(1, Math.round(cooldownDays) || 7));
+  const dues = db.prepare(`SELECT id, name, phone, email, balance, termsDays, balanceSince FROM Customer
+    WHERE balance > 0 AND balanceSince != ''
+    AND date(balanceSince) <= date('now', '-' || CAST(termsDays AS TEXT) || ' days')
+    AND id NOT IN (SELECT customerId FROM ReminderLog WHERE customerId != 0 AND date(at) > date('now', ?) )`).all(`-${cool} days`) as
+    { id: number; name: string; phone: string; email: string; balance: number; termsDays: number; balanceSince: string }[];
+  let n = 0;
+  for (const d of dues) {
+    const st = ageStatus({ balance: d.balance, balanceSince: d.balanceSince, termsDays: d.termsDays });
+    if (!st.overdue) continue;
+    const text = udhariReminderText(d.name, d.balance, st.days - d.termsDays);
+    let via = "";
+    try {
+      if (d.phone) {
+        const { sendWhatsApp } = await import("./providers");
+        const r = await sendWhatsApp(d.phone, text);
+        if (r.sent) via = "whatsapp";
+      }
+      if (!via && d.email) {
+        const { sendMail } = await import("./mailer");
+        await sendMail(d.email, "Payment reminder — dues pending", `<p>${text}</p>`);
+        via = "email";
+      }
+      if (via) {
+        db.prepare("INSERT INTO ReminderLog (billId, customerId, channel) VALUES (?,?,?)").run(0, d.id, via);
+        db.prepare("INSERT INTO Notification (title, body, audience, kind, target) VALUES (?,?,?,?,?)")
+          .run(`Udhari reminder (${via})`, `${d.name} → ${d.phone || d.email}`, "team", "info", "team");
+        n++;
+      }
+    } catch { /* next tick retries */ }
+  }
+  return n;
+}
+
 // ---- chart + P&L ----
 export function chartOfAccounts() {
   vyaparTables();

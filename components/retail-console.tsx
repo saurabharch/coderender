@@ -156,6 +156,15 @@ export function RetailConsole({ tab }: { tab: string }) {
     if (res.ok) void load();
   }
 
+  async function remindDues() {
+    const res = await fetch("/api/shop/credit", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "remind" }),
+    });
+    const r = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Reminded ${r.sent ?? 0} overdue ✓ (WhatsApp first, email fallback, weekly cooldown)` : (r.error ?? "failed"));
+  }
+
   async function setTerms(id: number, cur: number) {
     const days = prompt("Payment terms in days (0 = due on sale)?", String(cur));
     if (days === null) return;
@@ -221,7 +230,11 @@ export function RetailConsole({ tab }: { tab: string }) {
         </div>
       </AdminCard>
       <AdminCard>
-        <p className="font-bold">Udhari — dues ({dues.length})</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-bold">Udhari — dues ({dues.length})</p>
+          <button onClick={() => void remindDues()}
+            className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Remind overdue</button>
+        </div>
         {dues.length === 0 ? <div className="mt-2"><Empty>All settled — no dues.</Empty></div> : (
           <ul className="mt-2 space-y-1 text-sm">
             {dues.map((u) => (

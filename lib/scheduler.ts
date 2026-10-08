@@ -102,9 +102,10 @@ export function startScheduler() {
         const today = now.toISOString().slice(0, 10);
         if (getPref("last_remind_day", "") !== today) {
           setPref("last_remind_day", today);
-          const { reminderTick } = await import("./vyapar");
+          const { reminderTick, udhariReminderTick } = await import("./vyapar");
           const n = await reminderTick();
-          if (n) console.log(`[reminders] sent ${n}`);
+          const u = await udhariReminderTick();
+          if (n || u) console.log(`[reminders] sent ${n} bill + ${u} udhari`);
         }
       }
     } catch (e) {
