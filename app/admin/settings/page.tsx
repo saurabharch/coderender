@@ -128,6 +128,8 @@ async function saveBusiness(form: FormData) {  "use server";
     const v = form.get(k);
     if (typeof v === "string") setPref(k, v.slice(0, 300));
   }
+  const { parseReceiptWidth } = await import("@/lib/retail-core");
+  setPref("receipt_width", parseReceiptWidth(form.get("receipt_width")));
   revalidatePath("/admin/settings");
 }
 
@@ -509,6 +511,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
           </label>
         ))}
+        <label className="grid gap-1 text-sm">Receipt paper (thermal)
+          <select name="receipt_width" defaultValue={getPref("receipt_width", "72")}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
+            {[["58", "58mm (narrow thermal)"], ["72", "72mm (standard)"], ["80", "80mm (wide thermal)"]].map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select></label>
         <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white md:col-span-2 md:w-fit">Save business</button>
       </form>
       </>)}

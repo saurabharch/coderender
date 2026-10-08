@@ -42,7 +42,9 @@ broken. Done when each frontier ticket is live-proved with chain green.
 
 ## Children
 
-- [POS anomaly triage](164-pos-anomaly-triage.md) — frontier, HITL (needs symptoms)
+- [POS anomaly triage](164-pos-anomaly-triage.md) — done (print: receipt width/logo causes traced)
 - [Sidebar mode-based groups](165-sidebar-mode-groups.md) — done
 - [POS offline catalog fallback](166-pos-offline-catalog.md) — done
 - [PWA shell + release hardening](167-pwa-shell-release-hardening.md) — done
+- [POS receipt width + logo](168-pos-receipt-width-logo.md) — done
+

@@ -54,6 +54,15 @@ export function receiptNo(orderId: number, at = ""): string {
   return `CRN-${day}-${Math.max(0, Math.round(orderId))}`;
 }
 
+// Receipt paper width (thermal roll). Only stocked widths validate; anything
+// else falls back to 72mm rather than breaking print CSS.
+export type ReceiptWidth = "58" | "72" | "80";
+
+export function parseReceiptWidth(v: unknown): ReceiptWidth {
+  const s = String(v ?? "").trim();
+  return s === "58" || s === "72" || s === "80" ? s : "72";
+}
+
 // Idempotency keys for offline replay + double-tap protection.
 export function newIkey(): string {
   return crypto.randomUUID().replaceAll("-", "").slice(0, 24);

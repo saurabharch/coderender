@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTrackingUrl, isAbandoned, newIkey, receiptNo, renderMessage, settleDrawer, shipCan } from "@/lib/retail-core";
+import { buildTrackingUrl, isAbandoned, newIkey, parseReceiptWidth, receiptNo, renderMessage, settleDrawer, shipCan } from "@/lib/retail-core";
 
 describe("retail-core", () => {
   it("ages carts into abandoned", () => {
@@ -38,5 +38,14 @@ describe("retail-core", () => {
     const a = newIkey();
     expect(a).toMatch(/^[0-9a-f]{24}$/);
     expect(newIkey()).not.toBe(a);
+  });
+
+  it("validates receipt paper widths, defaulting to 72mm", () => {
+    expect(parseReceiptWidth("58")).toBe("58");
+    expect(parseReceiptWidth("80")).toBe("80");
+    expect(parseReceiptWidth("72")).toBe("72");
+    expect(parseReceiptWidth("A4")).toBe("72");
+    expect(parseReceiptWidth("")).toBe("72");
+    expect(parseReceiptWidth(undefined)).toBe("72");
   });
 });

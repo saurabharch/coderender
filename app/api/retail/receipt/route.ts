@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/store";
 import { getPref } from "@/lib/store";
 import { commerceTables } from "@/lib/commerce";
-import { receiptNo } from "@/lib/retail-core";
+import { parseReceiptWidth, receiptNo } from "@/lib/retail-core";
 import { eanFromId } from "@/lib/barcode-core";
 import { shopGate } from "@/lib/shop-auth";
 
@@ -29,6 +29,10 @@ export async function GET(req: Request) {
       name: biz("biz_name"), address: biz("biz_address"), city: biz("biz_city"),
       state: biz("biz_state"), pin: biz("biz_pin"), gstin: biz("biz_gstin"),
       phone: biz("contact_phone"), email: biz("contact_email"),
+    },
+    meta: {
+      width: parseReceiptWidth(biz("receipt_width") || "72"),
+      logo: biz("brand_logo_light"),
     },
   });
 }

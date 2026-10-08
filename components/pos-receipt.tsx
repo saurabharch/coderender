@@ -8,6 +8,7 @@ export interface ReceiptData {
   lines: { productId: number; name: string; qty: number; price: number; total: number }[];
   payments: { method: string; amount: number; status: string }[];
   business: { name: string; address: string; city: string; state: string; pin: string; gstin: string; phone: string; email: string };
+  meta?: { width?: string; logo?: string };
 }
 
 // Customer copy: business, CRN + tracking barcode, billable lines, money,
@@ -19,17 +20,23 @@ export function PosReceipt({ data, tendered, change, onNew }: {
   const b = data.business;
   const method = data.payments[0]?.method ?? "cash";
   const addr = [b.address, b.city, b.state, b.pin].filter(Boolean).join(", ");
+  const width = data.meta?.width === "58" || data.meta?.width === "80" ? data.meta.width : "72";
+  const logo = data.meta?.logo || "";
   return (
     <div id="pos-receipt" className="mx-auto max-w-sm rounded-2xl border border-black/10 bg-white p-4 text-sm text-black dark:border-white/10 dark:bg-white dark:text-black">
       <style>{`@media print {
-        @page { margin: 0; }
+        @page { size: ${width}mm auto; margin: 0; }
         body { background: #fff !important; }
         body * { visibility: hidden; }
         #pos-receipt, #pos-receipt * { visibility: visible; }
-        #pos-receipt { position: absolute; inset: 0 auto auto 0; width: 72mm; border: none; border-radius: 0; margin: 0; }
+        #pos-receipt { position: absolute; inset: 0 auto auto 0; width: ${width}mm; border: none; border-radius: 0; margin: 0; }
         nav[aria-label="Admin"], .impersonate-bar { display: none !important; }
       }`}</style>
       <div className="text-center">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt="" className="mx-auto mb-1 h-10 w-auto" />
+        ) : null}
         <p className="text-base font-extrabold">{b.name || "Counter Bill"}</p>
         {addr ? <p className="text-xs text-zinc-600">{addr}</p> : null}
         {(b.phone || b.email) && <p className="text-xs text-zinc-600">{[b.phone, b.email].filter(Boolean).join(" · ")}</p>}
