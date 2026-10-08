@@ -338,9 +338,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </form>
       </>)}
       {tab === "flags" && (<>
-      <h2 className="mt-6 font-bold">Service flags (storefront kill-switches)</h2>
       <form action={saveFlags} className="mt-2 grid max-w-xl gap-1 rounded-2xl border border-black/10 p-4 dark:border-white/10">
-        {flagStates().map((f) => (
+      <h2 className="font-bold">Chatbot replies</h2>
+        {flagStates().filter((f) => f.key.startsWith("share_")).map((f) => (
+          <label key={f.key} className="flex min-h-[44px] items-center gap-2 text-sm">
+            <input type="checkbox" name={`flag_${f.key}`} value="on" defaultChecked={f.on} className="h-5 w-5" />
+            {f.label}
+          </label>
+        ))}
+      <h2 className="mt-4 font-bold">Service flags (storefront kill-switches)</h2>
+        {flagStates().filter((f) => !f.key.startsWith("share_")).map((f) => (
           <label key={f.key} className="flex min-h-[44px] items-center gap-2 text-sm">
             <input type="checkbox" name={`flag_${f.key}`} value="on" defaultChecked={f.on} className="h-5 w-5" />
             {f.label}

@@ -64,7 +64,7 @@ export function SubTabs({ tabs, active, label = "Sections" }: {
   active: string; label?: string;
 }) {
   return (
-    <nav aria-label={label} className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+    <nav aria-label={label} className="mt-3 flex flex-wrap gap-1.5">
       {tabs.map(({ id, label: text, Icon, href }) => {
         const on = id === active;
         return (
