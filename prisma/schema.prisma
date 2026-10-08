@@ -211,8 +211,6 @@ model KanbanTask {
   startAt       String   @default("")
   dueAt         String   @default("")
   attachments   String   @default("[]")
-  startAt       String   @default("")
-  dueAt         String   @default("")
   createdAt     DateTime @default(now())
   doneAt        DateTime?
 }
