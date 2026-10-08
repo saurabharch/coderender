@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Cut a release: bump version, changelog entry, commit, tag. Push via sync.sh.
+# Cut a release: gate (lint+typecheck+test+build) → bump version, changelog
+# entry, commit, tag. Push via sync.sh.
 # Usage: bash scripts/release.sh [patch|minor|major] ["notes line"]
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+echo "==> release gate"
+bash scripts/ci.sh
 PART="${1:-patch}"
 NOTE="${2:-}"
 CUR=$(node -p "require('./package.json').version")

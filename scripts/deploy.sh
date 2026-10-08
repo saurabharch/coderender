@@ -21,6 +21,9 @@ echo "==> backup current build"
 rm -rf .next.bak
 [ -d .next ] && cp -r .next .next.bak || true
 
+echo "==> build (the artifact pm2 will serve)"
+npm run build
+
 echo "==> reload pm2"
 ./node_modules/.bin/pm2 restart ecosystem.config.cjs --update-env
 sleep 14
