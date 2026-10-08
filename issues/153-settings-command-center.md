@@ -1,6 +1,7 @@
 # Program 153 — settings command center (quickbar, branding, business control)
 
 Status: done
+Assignee: opencode
 Labels: program, settings, theme
 
 Slices:

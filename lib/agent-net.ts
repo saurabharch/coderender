@@ -521,12 +521,13 @@ export async function runNetwork(opts: {
         const found = extractContact(msg);
         const known = findKnown(found.phone || undefined, found.email || undefined);
         if (known && (found.phone || found.email)) {
+          const cleanName = known.name && known.name !== "friend" ? known.name : "";
           saveState(opts.threadId, {
-            stage: "done", name: known.name || "friend",
+            stage: "done", name: cleanName || undefined,
             contact: known.phone || known.email, business: known.business || undefined,
           });
           return {
-            text: `Welcome back, ${addressAs(known.name || "friend")}! I have you on file${known.business ? ` (${known.business})` : ""} — no need to repeat anything. What can I do for you today: support, prices, or booking?`,
+            text: `Welcome back, ${addressAs(cleanName || "friend")}! I have you on file${known.business ? ` (${known.business})` : ""} — no need to repeat anything. What can I do for you today: support, prices, or booking?`,
             scope: "support", runtime: "none",
           };
         }
@@ -581,17 +582,26 @@ export async function runNetwork(opts: {
       }
       if (st.stage === "contact") {
         const { extractContact, findKnown, addressAs } = await import("./identity");
+        const { parseLeadName } = await import("./honorific");
         const found = extractContact(msg);
+        const saidName = parseLeadName(found.rest);
+        const priorName = st.name && st.name !== "friend" ? st.name : "";
+        const keptName = saidName || priorName;
         const tries = (st.tries ?? 0) + 1;
         if (!found.phone && !found.email && tries < 3) {
-          saveState(opts.threadId, { ...st, tries });
-          return { text: "I need at least a phone number or an email to continue — what works for you?", scope, runtime: "none", back: true };
+          saveState(opts.threadId, { ...st, tries, ...(keptName ? { name: keptName } : { name: undefined }) });
+          return {
+            text: saidName
+              ? `Thanks ${addressAs(saidName)}! Now a phone number or email so we can reach you?`
+              : "I need at least a phone number or an email to continue — what works for you?",
+            scope, runtime: "none", back: true,
+          };
         }
-        const rawName = found.rest || "friend";
-        const name = rawName.length >= 2 && /[aeiou]/i.test(rawName) ? rawName : "friend";
         const known = findKnown(found.phone || undefined, found.email || undefined);
-        const who = addressAs(known?.name || name);
-        const advanced = bumped({ stage: "mode", business: st.business || known?.business, goals: st.goals, nature: st.nature, name: known?.name || name, contact: found.phone || found.email, qcount: st.qcount, tries: 0 });
+        const knownName = known?.name && known.name !== "friend" ? known.name : "";
+        const name = knownName || keptName;
+        const who = addressAs(name || "friend");
+        const advanced = bumped({ stage: "mode", business: st.business || known?.business, goals: st.goals, nature: st.nature, name: name || undefined, contact: found.phone || found.email, qcount: st.qcount, tries: 0 });
         if ((advanced.qcount ?? 0) >= 25) {
           saveState(opts.threadId, { ...advanced, stage: "done" });
           return { text: `We've covered a lot, ${who}! Let's continue on a quick call — our team will reach you at ${found.phone || found.email || "your contact"} within one business day with researched prices.`, scope, runtime: "none", done: true };
@@ -625,15 +635,18 @@ export async function runNetwork(opts: {
           return { text: "Tap one of the slots below — or type a day and time like 'Friday 4pm' — and I'll confirm it instantly:", scope, runtime: "none", back: true, options: nextSlots() };
         }
         saveState(opts.threadId, { ...st, stage: "done" });
+        // Persist the real name (or empty when truly unknown) — the "friend"
+        // display fallback lives at render time only, never in the database.
+        const storedName = st.name && st.name !== "friend" ? st.name : "";
         try {
           getDb().prepare("INSERT INTO Appointment (threadId, name, contact, mode, slot, status) VALUES (?,?,?,?,?,?)")
-            .run(opts.threadId ?? null, st.name ?? "friend", st.contact ?? "", st.meet ?? "meet", slot, "confirmed");
+            .run(opts.threadId ?? null, storedName, st.contact ?? "", st.meet ?? "meet", slot, "confirmed");
         } catch { /* booking never breaks chat */ }
         try {
           // Wizard completion mints a real lead so sales sees every booking.
           const biz = [st.business, st.goals?.join("/"), st.nature].filter(Boolean).join(" · ").slice(0, 200);
           getDb().prepare("INSERT INTO Lead (name, phone, businessType, source, message) VALUES (?,?,?,?,?)")
-            .run(st.name ?? "friend", (st.contact ?? "").slice(0, 20), "general", "chat", `Booked ${st.meet ?? "meet"} ${slot}. ${biz}`);
+            .run(storedName, (st.contact ?? "").slice(0, 20), "general", "chat", `Booked ${st.meet ?? "meet"} ${slot}. ${biz}`);
         } catch { /* lead never breaks chat */ }
         const modeLabel = MODES.find((x) => x.id === st.meet)?.label ?? "video call";
         const joinLine = st.meet === "voice"
