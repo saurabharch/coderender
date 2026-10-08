@@ -74,7 +74,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
   },
 ];
 
-export function AdminDrawer({ email, role }: { email: string; role: string }) {
+export function AdminDrawer({ email, role, visible }: { email: string; role: string; visible: string[] | null }) {
   const [open, setOpen] = useState(false);
   const path = usePathname();
   const can = (p: Perm | "any") => p === "any" || hasPerm(role, p);
@@ -82,7 +82,7 @@ export function AdminDrawer({ email, role }: { email: string; role: string }) {
   const list = (
     <nav aria-label="Admin" className="grid gap-3">
       {GROUPS.map((g) => {
-        const items = g.items.filter(([, , , p]) => can(p));
+        const items = g.items.filter(([l, h, , p]) => can(p) && (!visible || visible.includes(h) || h === "/admin/settings"));
         if (!items.length) return null;
         return (
         <div key={g.label}>

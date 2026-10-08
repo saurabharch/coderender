@@ -13,6 +13,7 @@ import { QuickbarEditor } from "@/components/quickbar-editor";
 import { AtSign, Ban, Calculator, DatabaseBackup, Flag, IndianRupee, Mail, MonitorSmartphone, Palette, Phone, Puzzle, ReceiptText, ShieldCheck, SlidersHorizontal, Store, Timer, Users, Zap } from "lucide-react";
 import { BRAND_DEFAULTS } from "@/lib/brand";
 import { BrandingFields } from "@/components/branding-form";
+import { DASHBOARD_ROUTES, businessIndustry, listIndustries, saveIndustry, setIndustryActive, setIndustryRoutes, visibleRoutes } from "@/lib/industry";
 
 async function save(form: FormData) {
   "use server";
@@ -204,6 +205,35 @@ async function saveBrand(form: FormData) {  "use server";
   redirect("/admin/settings?tab=branding&saved=1");
 }
 
+async function putIndustry(form: FormData) {  "use server";
+  await requireTeam();
+  const { saveIndustry: put, setIndustryActive: flip } = await import("@/lib/industry");
+  if (form.get("toggle")) {
+    const slug = String(form.get("toggle") || "");
+    const cur = listIndustries().find((x) => x.slug === slug);
+    flip(slug, !(cur?.active ?? 1));
+  } else {
+    put(String(form.get("slug") || ""), String(form.get("label") || ""), String(form.get("mode") || "hybrid"));
+  }
+  revalidatePath("/admin/settings");
+}
+
+async function saveBusinessIndustry(form: FormData) {  "use server";
+  await requireTeam();
+  setPref("business_industry", String(form.get("business_industry") || ""));
+  revalidatePath("/admin/settings");
+}
+
+async function saveIndustryRoutes(form: FormData) {  "use server";
+  await requireTeam();
+  const { setIndustryRoutes: write, DASHBOARD_ROUTES: all } = await import("@/lib/industry");
+  const slug = String(form.get("industry") || "");
+  const known = new Set(all.map((r) => r.href));
+  const picked = form.getAll("route").map(String).filter((h) => known.has(h));
+  write(slug, picked);
+  revalidatePath("/admin/settings");
+}
+
 async function saveQuickbar(form: FormData) {
   "use server";
   await requireTeam();
@@ -364,6 +394,64 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </ul>
       </>)}
       {tab === "business" && (<>
+      <h2 className="font-bold">Operating industry</h2>
+      <form action={saveBusinessIndustry} className="mt-2 flex max-w-xl flex-wrap items-end gap-1.5 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        <label className="grid min-w-0 flex-1 gap-1 text-sm">Industry (drives dashboard options)
+          <select name="business_industry" defaultValue={businessIndustry()}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
+            <option value="">All modules (no filter)</option>
+            {listIndustries().filter((x) => x.active).map((x) => (
+              <option key={x.slug} value={x.slug}>{x.label} · {x.mode}</option>
+            ))}
+          </select>
+        </label>
+        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Set industry</button>
+      </form>
+      <h2 className="mt-6 font-bold">Industries ({listIndustries().length}) <span className="text-xs font-normal text-zinc-500">(add your trade; toggles dashboard visibility)</span></h2>
+      <form action={putIndustry} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10 min-[420px]:grid-cols-3">
+        <label className="grid gap-1 text-sm">Slug
+          <input name="slug" placeholder="pet-groomers" maxLength={60}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 font-mono text-sm dark:border-white/20" /></label>
+        <label className="grid gap-1 text-sm">Label
+          <input name="label" placeholder="Pet Groomers" maxLength={120}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" /></label>
+        <label className="grid gap-1 text-sm">Mode
+          <select name="mode" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20">
+            <option value="hybrid">hybrid</option><option value="offline">offline</option><option value="online">online</option>
+          </select></label>
+        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white min-[420px]:col-span-3 min-[420px]:w-fit">Add industry</button>
+      </form>
+      <ul className="mt-2 max-w-xl space-y-1 text-sm">
+        {listIndustries().map((x) => {
+          const vis = visibleRoutes(x.slug);
+          return (
+            <li key={x.slug}>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span><b>{x.label}</b> <span className="font-mono text-xs text-zinc-500">{x.slug} · {x.mode}</span> {x.active ? null : <span className="text-xs text-zinc-400">(off)</span>}</span>
+                <form action={putIndustry}>
+                  <input type="hidden" name="toggle" value={x.slug} />
+                  <button className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">{x.active ? "Disable" : "Enable"}</button>
+                </form>
+              </div>
+              <form action={saveIndustryRoutes} className="mt-1 rounded-xl border border-dashed border-black/10 p-2 dark:border-white/10">
+                <input type="hidden" name="industry" value={x.slug} />
+                <p className="px-1 text-xs font-bold text-zinc-500">Dashboard routes {vis ? `(${vis.length} shown)` : "(all shown)"}</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {DASHBOARD_ROUTES.map((r) => {
+                    const on = vis ? vis.includes(r.href) : true;
+                    return (
+                      <label key={r.href} className="flex min-h-[36px] cursor-pointer items-center gap-1 rounded-full border border-black/15 px-2 text-[11px] dark:border-white/20">
+                        <input type="checkbox" name="route" value={r.href} defaultChecked={on} className="h-4 w-4" />{r.label}
+                      </label>
+                    );
+                  })}
+                </div>
+                <button className="mt-1 min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Save routes</button>
+              </form>
+            </li>
+          );
+        })}
+      </ul>
       <h2 className="mt-6 font-bold">Business profile (prints on bills)</h2>
       <form action={saveBusiness} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 md:grid-cols-2 dark:border-white/10">
         {[["biz_name", "Business name"], ["biz_phone", "Phone"], ["biz_email", "Email"], ["biz_address", "Address"], ["biz_city", "City"], ["biz_state", "State"], ["biz_pin", "Pincode"], ["biz_gstin", "GSTIN"], ["biz_cin", "CIN"]].map(([k, l]) => (
