@@ -7,6 +7,10 @@ on:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    # The schema datasource reads env("DATABASE_URL"); validate/build only
+    # need it present, never a real database.
+    env:
+      DATABASE_URL: file:./dev.db
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
