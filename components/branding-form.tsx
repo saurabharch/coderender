@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ImageInputField } from "@/components/media-picker";
 import { FONT_STACKS, STANDARD_PALETTES, BRAND_SCOPES } from "@/lib/brand";
 
@@ -23,6 +23,13 @@ function Slot({ name, label, hint, value, onChange }: {
 // through the parent server form (all inputs carry names).
 export function BrandingFields({ initial }: { initial: BrandVals }) {
   const [v, setV] = useState<BrandVals>(initial);
+  // After save+redirect the server sends fresh values but React keeps editor
+  // state — resync so the preview shows what is actually saved.
+  const fingerprint = JSON.stringify(initial);
+  useEffect(() => {
+    setV(JSON.parse(fingerprint) as BrandVals);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fingerprint]);
   const set = (k: string, val: string) => setV((s) => ({ ...s, [k]: val }));
   const opacity = Math.min(100, Math.max(10, Number(v.brand_logo_opacity) || 100));
   const font = FONT_STACKS.find((f) => f.id === v.brand_font) ?? FONT_STACKS[0];
