@@ -60,17 +60,28 @@ export const FONT_STACKS = [  { id: "default", label: "Default (site fonts)", bo
 export const BRAND_SCOPES = ["both", "public", "dashboard"] as const;
 
 // Preference keys (read with getPref in server code; lib/brand stays sqlite-free).
+// Single source: every key in BRAND_DEFAULTS must appear here.
 export const BRAND_KEYS = [
   "brand_logo_light", "brand_logo_dark", "brand_stamp_light", "brand_stamp_dark",
   "brand_banner_light", "brand_banner_dark",
   "brand_pwa_192", "brand_pwa_512", "brand_pwa_maskable", "brand_pwa_apple",
-  "brand_logo_opacity", "brand_primary", "brand_font", "brand_scope",
+  "brand_favicon", "brand_loading_icon",
+  "brand_logo_opacity", "brand_primary", "brand_deep", "brand_accent", "brand_ink",
+  "brand_font", "brand_scope",
+  "site_name", "site_tagline", "site_description", "site_keywords",
 ] as const;
 
 export const BRAND_DEFAULTS: Record<string, string> = {
   brand_logo_light: "", brand_logo_dark: "", brand_stamp_light: "", brand_stamp_dark: "",
   brand_banner_light: "", brand_banner_dark: "",
   brand_pwa_192: "", brand_pwa_512: "", brand_pwa_maskable: "", brand_pwa_apple: "",
+  brand_favicon: "", brand_loading_icon: "",
   brand_logo_opacity: "100", brand_primary: "#0F8F83", brand_deep: "#064E46",
   brand_accent: "#D7F45A", brand_ink: "#171717", brand_font: "default", brand_scope: "both",
+  site_name: "CodeRender",
+  site_tagline: "WhatsApp Automation, Google Business Profile & Local SEO",
+  site_description:
+    "CodeRender grows local businesses with WhatsApp Business API automation, Google Business Profile management, local SEO, lead generation, and fast websites. Salons, clinics, gyms, restaurants and more.",
+  site_keywords:
+    "whatsapp business api, whatsapp automation, google business profile management, local seo india, lead generation services, salon marketing, clinic marketing, restaurant marketing, gym marketing, google maps ranking",
 };

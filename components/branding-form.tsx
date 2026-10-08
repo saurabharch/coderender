@@ -39,6 +39,31 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
   return (
     <div className="grid gap-3">
       <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
+        <p className="font-bold">Site identity <span className="text-xs font-normal text-zinc-500">(title, tagline, SEO)</span></p>
+        <div className="mt-2 grid gap-2">
+          <label className="grid gap-1 text-sm">Site name
+            <input name="site_name" value={v.site_name ?? ""} maxLength={120}
+              onChange={(e) => set("site_name", e.target.value)} placeholder="CodeRender"
+              className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+          </label>
+          <label className="grid gap-1 text-sm">Tagline
+            <input name="site_tagline" value={v.site_tagline ?? ""} maxLength={200}
+              onChange={(e) => set("site_tagline", e.target.value)} placeholder="WhatsApp Automation, Google Business Profile & Local SEO"
+              className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+          </label>
+          <label className="grid gap-1 text-sm">Meta description
+            <textarea name="site_description" value={v.site_description ?? ""} maxLength={500} rows={3}
+              onChange={(e) => set("site_description", e.target.value)} placeholder="One or two sentences for search results."
+              className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 py-2 dark:border-white/20" />
+          </label>
+          <label className="grid gap-1 text-sm">Meta keywords <span className="text-xs font-normal text-zinc-500">(comma-separated)</span>
+            <input name="site_keywords" value={v.site_keywords ?? ""} maxLength={1000}
+              onChange={(e) => set("site_keywords", e.target.value)} placeholder="whatsapp automation, local seo india, …"
+              className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
+          </label>
+        </div>
+      </section>
+      <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
         <p className="font-bold">Logos <span className="text-xs font-normal text-zinc-500">(PNG with transparency works best)</span></p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           <Slot name="brand_logo_light" label="Logo · light theme" hint="Header/footer on light" value={logoLight} onChange={(x) => set("brand_logo_light", x)} />
@@ -60,6 +85,14 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           <Slot name="brand_banner_light" label="Banner · light" hint="1920px wide ideal" value={v.brand_banner_light} onChange={(x) => set("brand_banner_light", x)} />
           <Slot name="brand_banner_dark" label="Banner · dark" hint="1920px wide ideal" value={v.brand_banner_dark} onChange={(x) => set("brand_banner_dark", x)} />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
+        <p className="font-bold">Favicon & loading <span className="text-xs font-normal text-zinc-500">(tab icon + splash; empty = default mark)</span></p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <Slot name="brand_favicon" label="Favicon" hint="PNG 32×32 or SVG" value={v.brand_favicon} onChange={(x) => set("brand_favicon", x)} />
+          <Slot name="brand_loading_icon" label="Loading icon" hint="Splash over preloader" value={v.brand_loading_icon} onChange={(x) => set("brand_loading_icon", x)} />
         </div>
       </section>
 

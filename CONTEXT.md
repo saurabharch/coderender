@@ -3,6 +3,10 @@
 Single source for domain terms. Challenge terms against this file; update it inline when meaning shifts.
 
 ## Glossary
+- **Brand kit**: logos (light/dark), stamps, banners, PWA icons, favicon, loading icon, palette (primary/deep/accent/ink), font stack, scope. Stored as `brand_*` prefs; empty value means "use default".
+- **Theme scope**: where the kit applies — `both` (global), `public` (storefront only), `dashboard` (admin only). Enforced in `BrandTheme` via `admin` flag.
+- **Site identity**: site name + tagline + meta keywords + meta description. Feeds `<title>`, metadata, manifest, OG tags; separate from business profile (bills) and SEO copy.
+- **Remove/fallback**: clearing a slot writes `""`; UI must fall back to built-in mark (`Logo`, `/icon.svg`) with no broken `<img>`.
 - **Industry vertical**: one of the 10 Grexa-style pages (`salon-owners` … `handyman-services`). All share `/industries/[slug]` template, differ only in copy/SEO metadata.
 - **Featured tool**: `GBP Booster - WhatsApp AI Agent` at `/tools/gbp-booster-whatsapp-ai-agent`.
 - **Offer ladder**: entry (audit/sprint) → project (fixed scope/date) → retainer. Loud, confident commitments live in `templates/offers/` + `workspaces/coderender/`.

@@ -185,12 +185,14 @@ async function resetQuickbarRole(form: FormData) {  "use server";
 }
 
 async function saveBrand(form: FormData) {  "use server";
-  await requireTeam();
+  const me = await sessionUser();
+  if (!me || me.role !== "owner") return;
   const get = (k: string) => String(form.get(k) ?? "").slice(0, 500);
   const out: Record<string, string> = {};
   for (const k of ["brand_logo_light", "brand_logo_dark", "brand_stamp_light", "brand_stamp_dark",
     "brand_banner_light", "brand_banner_dark",
-    "brand_pwa_192", "brand_pwa_512", "brand_pwa_maskable", "brand_pwa_apple"]) {
+    "brand_pwa_192", "brand_pwa_512", "brand_pwa_maskable", "brand_pwa_apple",
+    "brand_favicon", "brand_loading_icon"]) {
     out[k] = get(k);
   }
   out.brand_logo_opacity = String(Math.min(100, Math.max(10, Number(form.get("brand_logo_opacity") || 100) || 100)));
@@ -204,6 +206,11 @@ async function saveBrand(form: FormData) {  "use server";
   out.brand_font = FONT_STACKS.some((f) => f.id === form.get("brand_font")) ? String(form.get("brand_font")) : "default";
   const scope = String(form.get("brand_scope") || "both");
   out.brand_scope = (BRAND_SCOPES as readonly string[]).includes(scope) ? scope : "both";
+  out.site_name = String(form.get("site_name") ?? "").slice(0, 120).trim() || "CodeRender";
+  out.site_tagline = String(form.get("site_tagline") ?? "").slice(0, 200).trim();
+  out.site_description = String(form.get("site_description") ?? "").slice(0, 500).trim();
+  out.site_keywords = String(form.get("site_keywords") ?? "").split(",")
+    .map((s) => s.trim()).filter(Boolean).slice(0, 40).join(", ").slice(0, 1000);
   for (const [k, v] of Object.entries(out)) setPref(k, v);
   revalidatePath("/admin/settings");
   redirect("/admin/settings?tab=branding&saved=1");
@@ -277,12 +284,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const brandInit: Record<string, string> = {};
   for (const [k, fb] of Object.entries(BRAND_DEFAULTS)) brandInit[k] = getPref(k, fb);
-  const raw = sp.tab ?? "general";
-  const tab = (SETTING_TABS as readonly string[]).includes(raw) ? raw : "general";
   const saved = sp.saved === "1";
   const me = await sessionUser();
   const isOwner = me?.role === "owner";
   const meEmail = me?.email ?? "";
+  // Branding & Theme is owner-only: non-owners fall back to General even on
+  // direct ?tab=branding links, and never see the tab.
+  const rawTab = sp.tab ?? "general";
+  const tab = rawTab === "branding" && !isOwner ? "general"
+    : (SETTING_TABS as readonly string[]).includes(rawTab) ? rawTab : "general";
   const team = getDb().prepare(
     `SELECT u.email, u.role, u.designation, m.role mrole FROM AppUser u LEFT JOIN Membership m ON m.userId=u.id ORDER BY u.id`).all() as
     { email: string; role: string; designation: string; mrole: string | null }[];
@@ -304,7 +314,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         { id: "flags", label: "Flags", Icon: Flag, href: "/admin/settings?tab=flags" },
         { id: "prices", label: "Prices", Icon: IndianRupee, href: "/admin/settings?tab=prices" },
         { id: "quickbar", label: "Quick bar", Icon: Zap, href: "/admin/settings?tab=quickbar" },
-        { id: "branding", label: "Branding", Icon: Palette, href: "/admin/settings?tab=branding" },
+        ...(isOwner ? [{ id: "branding", label: "Branding", Icon: Palette, href: "/admin/settings?tab=branding" }] : []),
       ]} />
       {tab === "general" && (<>
       <form action={save} className="mt-4 grid max-w-xl gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
@@ -515,9 +525,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <h2 className="font-bold">Staff quick bar <span className="text-xs font-normal text-zinc-500">(mobile floating buttons per role — scan stays central)</span></h2>
       <QuickbarEditor initial={quickbarCustom()} save={saveQuickbar} resetRole={resetQuickbarRole} />
       </>)}
-      {tab === "branding" && (<>
+      {tab === "branding" && isOwner && (<>
       {saved && <p role="status" className="mb-2 rounded-xl bg-emerald-500/15 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">Branding saved ✓ — live on next visit.</p>}
-      <h2 className="font-bold">Branding & Theme <span className="text-xs font-normal text-zinc-500">(logos, banners, app icons, palette, type)</span></h2>
+      <h2 className="font-bold">Branding & Theme <span className="text-xs font-normal text-zinc-500">(identity, logos, favicon, loading, banners, app icons, palette, type)</span></h2>
       <form action={saveBrand} className="mt-2 grid max-w-xl gap-3">
         <BrandingFields initial={brandInit} />
         <button className="min-h-[48px] w-fit rounded-xl bg-brand px-6 text-sm font-semibold text-white">Save branding</button>

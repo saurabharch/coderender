@@ -10,26 +10,39 @@ import { ChunkRecovery } from "@/components/chunk-recovery";
 import { ChatWidget } from "@/components/chat-widget";
 import { ServiceWorker } from "@/components/service-worker";
 import { JsonLd } from "@/components/json-ld";
-import { getDb } from "@/lib/store";
+import { getDb, getPref } from "@/lib/store";
+import { BRAND_DEFAULTS } from "@/lib/brand";
 import { activeAnnouncement } from "@/lib/cms";
 import { display, body } from "@/lib/fonts";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: {
-    default: "CodeRender — WhatsApp Automation, Google Business Profile & Local SEO",
-    template: "%s — CodeRender",
-  },
-  description:
-    "CodeRender grows local businesses with WhatsApp Business API automation, Google Business Profile management, local SEO, lead generation, and fast websites. Salons, clinics, gyms, restaurants and more.",
-  keywords: [
-    "whatsapp business api", "whatsapp automation", "google business profile management",
-    "local seo india", "lead generation services", "salon marketing", "clinic marketing",
-    "restaurant marketing", "gym marketing", "google maps ranking",
-  ],
-  metadataBase: new URL("https://coderender.in"),
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const pick = (k: string): string => {
+    try { return getPref(k, BRAND_DEFAULTS[k] ?? ""); } catch { return BRAND_DEFAULTS[k] ?? ""; }
+  };
+  const name = pick("site_name") || "CodeRender";
+  const tagline = pick("site_tagline");
+  const description = pick("site_description") || BRAND_DEFAULTS.site_description;
+  const keywords = pick("site_keywords").split(",").map((s) => s.trim()).filter(Boolean);
+  const favicon = pick("brand_favicon");
+  const apple = pick("brand_pwa_apple") || favicon;
+  const icon = favicon || "/icon.svg";
+  return {
+    title: {
+      default: tagline ? `${name} — ${tagline}` : name,
+      template: `%s — ${name}`,
+    },
+    description,
+    keywords: keywords.length > 0 ? keywords : undefined,
+    metadataBase: new URL("https://coderender.in"),
+    icons: { icon, ...(apple ? { apple } : {}) },
+    openGraph: {
+      title: tagline ? `${name} — ${tagline}` : name,
+      description,
+      siteName: name,
+    },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   let announcement = "";

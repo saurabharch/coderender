@@ -3,10 +3,10 @@ import { getPref } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
-// PWA manifest wired to the branding kit (uploaded icons + palette).
+// PWA manifest wired to the branding kit (uploaded icons + palette + identity).
 export default function manifest(): MetadataRoute.Manifest {
-  const name = getPref("biz_name", "CodeRender");
-  const primary = /^#[0-9a-f]{6}$/i.test(getPref("brand_primary", "")) ? getPref("brand_primary", "") : "#0d9488";
+  const name = getPref("site_name", "CodeRender");
+  const primary = /^#[0-9a-f]{6}$/i.test(getPref("brand_primary", "")) ? getPref("brand_primary", "") : "#0F8F83";
   const icons: MetadataRoute.Manifest["icons"] = [];
   const push = (src: string, sizes: string, purpose?: "maskable" | "any") => {
     if (src) icons.push({ src, sizes, type: "image/png", ...(purpose ? { purpose } : {}) });

@@ -11,6 +11,7 @@ export function BrandLogo({ size = 28, wordmark = "full" }: { size?: number; wor
   const [kit, setKit] = useState<{ logo: string; opacity: number } | null>(null);
   useEffect(() => {
     fetch("/api/brand").then((r) => r.json()).then((d) => {
+      if ((d.brand_scope || "both") === "dashboard") return;
       const url = resolvedTheme === "dark" ? d.brand_logo_dark || d.brand_logo_light : d.brand_logo_light;
       if (url) setKit({ logo: url, opacity: Math.min(100, Math.max(10, Number(d.brand_logo_opacity) || 100)) });
     }).catch(() => {});
