@@ -70,8 +70,13 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
         <p className="font-bold">Palette & type</p>
         <div className="mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Standard palettes">
           {STANDARD_PALETTES.map((p) => (
-            <button key={p.name} type="button" onClick={() => set("brand_primary", p.primary)}
-              title={p.name} aria-label={`${p.name} palette`} aria-pressed={v.brand_primary === p.primary}
+            <button key={p.name} type="button" onClick={() => {
+              set("brand_primary", p.primary);
+              if (p.deep) set("brand_deep", p.deep);
+              if (p.accent) set("brand_accent", p.accent);
+              if (p.ink) set("brand_ink", p.ink);
+            }}
+              title={`${p.name} — primary ${p.primary}`} aria-label={`${p.name} palette`} aria-pressed={v.brand_primary === p.primary}
               className={`flex h-11 w-11 items-center justify-center rounded-full border-2 ${v.brand_primary === p.primary ? "border-black dark:border-white" : "border-transparent"}`}
               style={{ background: p.primary }}>
               {v.brand_primary === p.primary ? <span aria-hidden className="text-xs font-bold text-white">✓</span> : null}
@@ -84,6 +89,29 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
           </label>
           <input type="hidden" name="brand_primary" value={v.brand_primary} />
           <span className="font-mono text-xs text-zinc-500">{v.brand_primary}</span>
+        </div>
+        <div className="mt-2 grid gap-1.5">
+          {([
+            ["brand_deep", "Deep teal", v.brand_deep || "#064E46"],
+            ["brand_accent", "Accent lime", v.brand_accent || "#D7F45A"],
+            ["brand_ink", "Text ink", v.brand_ink || "#171717"],
+          ] as const).map(([key, label, val]) => (
+            <label key={key} className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border border-black/10 px-3 text-sm dark:border-white/10">
+              <span className="h-6 w-6 shrink-0 rounded-full border border-black/20" style={{ background: val }} aria-hidden />
+              <span className="font-semibold">{label}</span>
+              <span className="font-mono text-xs text-zinc-500">{val}</span>
+              <input type="color" value={/^#[0-9a-f]{6}$/i.test(val) ? val : "#0F8F83"}
+                onChange={(e) => set(key, e.target.value)} aria-label={`Custom ${label.toLowerCase()} color`}
+                className="ml-auto h-9 w-14 cursor-pointer rounded-lg border border-black/15 bg-transparent dark:border-white/20" />
+              <input type="hidden" name={key} value={val} />
+            </label>
+          ))}
+          <p className="flex items-center gap-2 text-xs text-zinc-500">
+            <span className="flex gap-1" aria-hidden>
+              <span className="h-5 w-5 rounded-full bg-black" /><span className="h-5 w-5 rounded-full border border-black/20 bg-white" />
+            </span>
+            Pure black / white stay locked — dark mode depends on them.
+          </p>
         </div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           <label className="grid gap-1 text-sm">Headings & text

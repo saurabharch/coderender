@@ -34,16 +34,26 @@ export function BrandTheme({ admin = false }: { admin?: boolean }) {
       if (admin && scope === "public") return;
       if (!admin && scope === "dashboard") return;
       const root = document.documentElement;
-      if (/^#[0-9a-f]{6}$/i.test(d.brand_primary || "")) {
-        const hex = d.brand_primary as string;
-        const m = /^#([0-9a-f]{6})$/i.exec(hex)!;
-        const n = parseInt(m[1], 16);
+      const hexOk = (h: unknown): h is string => typeof h === "string" && /^#[0-9a-f]{6}$/i.test(h);
+      const triple = (hex: string): string => {
+        const n = parseInt(hex.slice(1), 16);
+        return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+      };
+      if (hexOk(d.brand_primary)) root.style.setProperty("--brand", triple(d.brand_primary));
+      if (hexOk(d.brand_deep)) root.style.setProperty("--brand-deep", triple(d.brand_deep));
+      else if (hexOk(d.brand_primary)) {
+        const n = parseInt((d.brand_primary as string).slice(1), 16);
+        const dark = [n >> 16 & 255, n >> 8 & 255, n & 255].map((v) => Math.round(v * 0.45)).join(" ");
+        root.style.setProperty("--brand-deep", dark);
+      }
+      if (hexOk(d.brand_primary)) {
+        const n = parseInt((d.brand_primary as string).slice(1), 16);
         const rgb: [number, number, number] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
         const mix = (t: number) => rgb.map((v) => Math.round(v + ((t >= 0 ? 255 : 0) - v) * Math.min(1, Math.abs(t)))).join(" ");
-        root.style.setProperty("--brand", mix(0));
         root.style.setProperty("--brand-soft", mix(0.85));
-        root.style.setProperty("--brand-deep", mix(-0.45));
       }
+      if (hexOk(d.brand_accent)) root.style.setProperty("--brand-accent", triple(d.brand_accent));
+      if (hexOk(d.brand_ink)) root.style.setProperty("--brand-ink", triple(d.brand_ink));
       const fonts: Record<string, { body: string; display: string }> = {
         default: { body: "var(--font-body), system-ui, sans-serif", display: "var(--font-display), system-ui, sans-serif" },
         system: { body: "system-ui, -apple-system, sans-serif", display: "system-ui, -apple-system, sans-serif" },

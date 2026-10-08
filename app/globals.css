@@ -4,9 +4,11 @@
 
 :root {
   color-scheme: light dark;
-  --brand: 13 148 136;
-  --brand-soft: 204 251 241;
-  --brand-deep: 15 118 110;
+  --brand: 15 143 131;
+  --brand-soft: 219 238 236;
+  --brand-deep: 6 78 70;
+  --brand-accent: 215 244 90;
+  --brand-ink: 23 23 23;
 }
 
 html { scroll-behavior: smooth; }

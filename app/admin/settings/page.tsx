@@ -195,7 +195,11 @@ async function saveBrand(form: FormData) {  "use server";
   }
   out.brand_logo_opacity = String(Math.min(100, Math.max(10, Number(form.get("brand_logo_opacity") || 100) || 100)));
   const primary = get("brand_primary");
-  out.brand_primary = /^#[0-9a-f]{6}$/i.test(primary) ? primary.toLowerCase() : "#0d9488";
+  out.brand_primary = /^#[0-9a-f]{6}$/i.test(primary) ? primary.toLowerCase() : "#0F8F83";
+  for (const [k, fb] of [["brand_deep", "#064E46"], ["brand_accent", "#D7F45A"], ["brand_ink", "#171717"]] as const) {
+    const h = get(k);
+    out[k] = /^#[0-9a-f]{6}$/i.test(h) ? h.toLowerCase() : fb;
+  }
   const { FONT_STACKS, BRAND_SCOPES } = await import("@/lib/brand");
   out.brand_font = FONT_STACKS.some((f) => f.id === form.get("brand_font")) ? String(form.get("brand_font")) : "default";
   const scope = String(form.get("brand_scope") || "both");

@@ -26,8 +26,8 @@ import "@mantine/nprogress/styles.css";
 import "@mantine/lightbox/styles.css";
 
 const brand: MantineColorsTuple = [
-  "#effdf9", "#ccfbf1", "#99f0dd", "#5ee3c3", "#2dd0a5",
-  "#0d9488", "#0f766e", "#115e59", "#134e4a", "#042f2e",
+  "#e9f7f4", "#d2efe9", "#a5e0d4", "#6cc7b6", "#33a892",
+  "#14907e", "#0F8F83", "#0b6f66", "#064E46", "#042622",
 ];
 
 // next-themes (class) → Mantine scheme bridge. One direction only.

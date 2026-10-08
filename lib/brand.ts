@@ -29,14 +29,15 @@ export function hexToTuple(hex: string): string[] | null {
 }
 
 export const STANDARD_PALETTES = [
-  { name: "Teal (default)", primary: "#0d9488" },
-  { name: "Ocean", primary: "#0f71fa" },
-  { name: "Forest", primary: "#1f7559" },
-  { name: "Plum", primary: "#7c3aed" },
-  { name: "Ember", primary: "#f55d2b" },
-  { name: "Rose", primary: "#e11d48" },
-  { name: "Amber", primary: "#b45309" },
-  { name: "Slate", primary: "#334155" },
+  { name: "CodeRender", primary: "#0F8F83", deep: "#064E46", accent: "#D7F45A", ink: "#171717" },
+  { name: "Teal", primary: "#0d9488", deep: "#0f766e", accent: "#D7F45A", ink: "#171717" },
+  { name: "Ocean", primary: "#0f71fa", deep: "#05497f", accent: "#ebf373", ink: "#171717" },
+  { name: "Forest", primary: "#1f7559", deep: "#545c2c", accent: "#d4ec8c", ink: "#171717" },
+  { name: "Plum", primary: "#7c3aed", deep: "#4c1d95", accent: "#f0abfc", ink: "#171717" },
+  { name: "Ember", primary: "#f55d2b", deep: "#7c2d12", accent: "#fde68a", ink: "#171717" },
+  { name: "Rose", primary: "#e11d48", deep: "#881337", accent: "#fecdd3", ink: "#171717" },
+  { name: "Amber", primary: "#b45309", deep: "#78350f", accent: "#fde68a", ink: "#171717" },
+  { name: "Slate", primary: "#334155", deep: "#0f172a", accent: "#e2e8f0", ink: "#171717" },
 ];
 
 /** Mix hex toward white (t>0) or black (t<0); returns "R G B" triplet for CSS vars. */
@@ -70,5 +71,6 @@ export const BRAND_DEFAULTS: Record<string, string> = {
   brand_logo_light: "", brand_logo_dark: "", brand_stamp_light: "", brand_stamp_dark: "",
   brand_banner_light: "", brand_banner_dark: "",
   brand_pwa_192: "", brand_pwa_512: "", brand_pwa_maskable: "", brand_pwa_apple: "",
-  brand_logo_opacity: "100", brand_primary: "#0d9488", brand_font: "default", brand_scope: "both",
+  brand_logo_opacity: "100", brand_primary: "#0F8F83", brand_deep: "#064E46",
+  brand_accent: "#D7F45A", brand_ink: "#171717", brand_font: "default", brand_scope: "both",
 };
