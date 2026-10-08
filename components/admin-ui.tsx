@@ -64,12 +64,12 @@ export function SubTabs({ tabs, active, label = "Sections" }: {
   active: string; label?: string;
 }) {
   return (
-    <nav aria-label={label} className="mt-3 flex flex-wrap gap-1.5">
+    <nav aria-label={label} className="mt-3 flex snap-x gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {tabs.map(({ id, label: text, Icon, href }) => {
         const on = id === active;
         return (
           <Link key={id} href={href} aria-current={on ? "page" : undefined}
-            className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-semibold ${on ? "bg-brand text-white" : "border border-black/15 dark:border-white/20"}`}>
+            className={`flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-full px-4 text-sm font-semibold ${on ? "bg-brand text-white" : "border border-black/15 dark:border-white/20"}`}>
             <Icon size={16} />{text}
           </Link>
         );

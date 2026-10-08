@@ -92,6 +92,11 @@ export function saveTax(input: { id?: number; name: string; pct: number; inter?:
   return Number(r.lastInsertRowid);
 }
 
+export function setTaxActive(id: number, active: boolean): void {
+  commerceTables();
+  getDb().prepare("UPDATE TaxRate SET active=? WHERE id=?").run(active ? 1 : 0, id);
+}
+
 export function listCoupons() {
   commerceTables();
   return getDb().prepare("SELECT * FROM Coupon ORDER BY code").all();

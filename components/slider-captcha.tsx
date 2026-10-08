@@ -5,7 +5,7 @@ import { Logo } from "./logo";
 
 interface Challenge {
   id: string; sig: string; bg: string;
-  challenges: string[]; zeros: number;
+  challenges: string[]; zeros: number; hx?: number;
 }
 
 export interface SliderSolution {
@@ -164,7 +164,11 @@ export function SliderWidget({ onPass, onSolve, challengeUrl }: {
       bctx.drawImage(img, ox, oy, dw, dh);
       bctx.fillStyle = "rgba(0,0,0,0.45)";
       bctx.fillRect(0, 0, W, H);
-      const hx = W / 2 - P / 2;
+      // Hole X comes from the server (random per challenge) — never centered
+      // by default. Piece still travels horizontally only (scroll input).
+      const hx = typeof ch.hx === "number"
+        ? Math.min(W - P - 4, Math.max(4, Math.round(ch.hx * (W - P))))
+        : W / 2 - P / 2;
       const hy = H / 2 - P / 2;
       bctx.save();
       piecePath(bctx, hx, hy, P);

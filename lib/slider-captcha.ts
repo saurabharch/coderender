@@ -50,6 +50,7 @@ export function pickBackground(): string {
 export interface SliderIssued {
   id: string; sig: string; bg: string;
   challenges: string[]; zeros: number; expiresIn: number;
+  hx: number;
 }
 
 export function newSliderChallenge(): SliderIssued {
@@ -61,7 +62,7 @@ export function newSliderChallenge(): SliderIssued {
   getDb().prepare("INSERT INTO SliderCaptcha (id, x, exp, challenges, bg) VALUES (?,?,?,?,?)").run(
     id, x, Date.now() + TTL_MS, JSON.stringify(challenges), bg);
   getDb().prepare("DELETE FROM SliderCaptcha WHERE exp < ?").run(Date.now());
-  return { id, sig: sign(id), bg, challenges, zeros: 3, expiresIn: Math.round(TTL_MS / 1000) };
+  return { id, sig: sign(id), bg, challenges, zeros: 3, expiresIn: Math.round(TTL_MS / 1000), hx: Math.round(x * 1000) / 1000 };
 }
 
 export interface PowAnswer { challenge: string; prefix: number }

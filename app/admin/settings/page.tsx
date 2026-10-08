@@ -9,7 +9,7 @@ import { sessionUser } from "@/lib/auth";
 import { requireTeam } from "@/lib/auth";
 import { SubTabs } from "@/components/admin-ui";
 import { QUICKBAR_ACTIONS, QUICKBAR_ROLES, quickbarCustom } from "@/lib/quickbar";
-import { Flag, IndianRupee, MonitorSmartphone, ReceiptText, SlidersHorizontal, Store, Users, Zap } from "lucide-react";
+import { AtSign, Ban, Calculator, DatabaseBackup, Flag, IndianRupee, Mail, MonitorSmartphone, Phone, Puzzle, ReceiptText, ShieldCheck, SlidersHorizontal, Store, Timer, Users, Zap } from "lucide-react";
 
 async function save(form: FormData) {
   "use server";
@@ -139,6 +139,17 @@ async function saveTaxRate(form: FormData) {  "use server";
   revalidatePath("/admin/settings");
 }
 
+async function toggleTaxRate(form: FormData) {  "use server";
+  await requireTeam();
+  const { listTaxes, saveTax } = await import("@/lib/commerce");
+  const id = Number(form.get("id") || 0);
+  const row = (listTaxes() as { id: number; active: number }[]).find((x) => x.id === id);
+  if (!row) return;
+  const { setTaxActive } = await import("@/lib/commerce");
+  setTaxActive(id, !row.active);
+  revalidatePath("/admin/settings");
+}
+
 async function saveFlags(form: FormData) {
   "use server";
   await requireTeam();
@@ -147,6 +158,26 @@ async function saveFlags(form: FormData) {
     setFlag(key, form.get(`flag_${key}`) === "on");
   }
   revalidatePath("/admin/settings");
+}
+
+async function clearPrice(form: FormData) {  "use server";
+  await requireTeam();
+  const k = String(form.get("key") || "");
+  const cur = JSON.parse(getPref("site_prices", "{}") || "{}");
+  delete cur[k];
+  setPref("site_prices", JSON.stringify(cur));
+  revalidatePath("/admin/settings");
+}
+
+async function resetQuickbarRole(form: FormData) {  "use server";
+  await requireTeam();
+  const role = String(form.get("role") || "");
+  try {
+    const cur = JSON.parse(getPref("quickbar", "{}") || "{}");
+    delete cur[role];
+    setPref("quickbar", JSON.stringify(cur));
+  } catch { /* keep */ }
+  redirect("/admin/settings?tab=quickbar");
 }
 
 async function saveQuickbar(form: FormData) {
@@ -218,17 +249,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <form action={save} className="mt-4 grid max-w-xl gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
         <label className="flex min-h-[44px] items-center gap-2 text-sm">
           <input type="checkbox" name="daily_report" value="on" defaultChecked={getPref("daily_report", "on") === "on"} className="h-5 w-5" />
-          Daily owner report email (23:55 IST)
+          <Mail size={16} className="shrink-0 text-brand-deep" /> Daily owner report email (23:55 IST)
         </label>
         <label className="flex min-h-[44px] items-center gap-2 text-sm">
           <input type="checkbox" name="backup" value="on" defaultChecked={getPref("backup", "on") === "on"} className="h-5 w-5" />
-          Daily database backup (~03:00 IST, keeps 7 verified copies)
+          <DatabaseBackup size={16} className="shrink-0 text-brand-deep" /> Daily database backup (~03:00 IST, keeps 7 verified copies)
         </label>
-        <label className="grid gap-1 text-sm">Contact phone (overrides env in reports)
-          <input name="contact_phone" defaultValue={getPref("contact_phone", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
-        <label className="grid gap-1 text-sm">Contact email
-          <input name="contact_email" defaultValue={getPref("contact_email", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
-        <label className="grid gap-1 text-sm">Business type (drives staff quick actions)
+        <label className="grid gap-1 text-sm"><span className="flex items-center gap-1.5"><Phone size={14} className="text-brand-deep" /> Contact phone (overrides env in reports)</span>
+          <input name="contact_phone" inputMode="tel" defaultValue={getPref("contact_phone", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+        <label className="grid gap-1 text-sm"><span className="flex items-center gap-1.5"><AtSign size={14} className="text-brand-deep" /> Contact email</span>
+          <input name="contact_email" inputMode="email" defaultValue={getPref("contact_email", "")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+        <label className="grid gap-1 text-sm"><span className="flex items-center gap-1.5"><Store size={14} className="text-brand-deep" /> Business type (drives staff quick actions)</span>
           <select name="business_type" defaultValue={getPref("business_type", "shop")}
             className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
             {[["shop", "Shop — counter first (POS + PIN flow)"], ["ecommerce", "E-commerce — orders first"], ["clinic", "Clinic/OPD — bookings first (phased)"]].map(([v, l]) => (
@@ -236,17 +267,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             ))}
           </select>
         </label>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-1 text-sm">SLA: escalate open after (hours)
+        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+          <label className="grid gap-1 text-sm"><span className="flex items-center gap-1.5"><Timer size={14} className="text-brand-deep" /> SLA: escalate open after (hours)</span>
             <input name="sla_ack_hours" inputMode="numeric" defaultValue={getPref("sla_ack_hours", "24")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
-          <label className="grid gap-1 text-sm">SLA: auto-close resolved after (days)
+          <label className="grid gap-1 text-sm"><span className="flex items-center gap-1.5"><Timer size={14} className="text-brand-deep" /> SLA: auto-close resolved after (days)</span>
             <input name="sla_close_days" inputMode="numeric" defaultValue={getPref("sla_close_days", "14")} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
         </div>
-        <fieldset className="grid gap-1 text-sm">Human gate — exactly one active
+        <fieldset className="grid gap-1 text-sm"><span className="flex items-center gap-1.5 font-semibold"><ShieldCheck size={14} className="text-brand-deep" /> Human gate — exactly one active</span>
           {(["default", "slider", "off"] as const).map((p) => (
             <label key={p} className="flex min-h-[44px] items-center gap-2">
               <input type="radio" name="captcha_provider" value={p} defaultChecked={getPref("captcha_provider", "default") === p} className="h-5 w-5" />
-              {p === "default" ? "Math check (classic)" : p === "slider" ? "Slide puzzle (visual)" : "Off (no gate)"}
+              {p === "default" ? (<><Calculator size={15} className="text-brand-deep" /> Math check (classic)</>) : p === "slider" ? (<><Puzzle size={15} className="text-brand-deep" /> Slide puzzle (visual)</>) : (<><Ban size={15} className="text-zinc-400" /> Off (no gate)</>)}
             </label>
           ))}
         </fieldset>
@@ -321,9 +352,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <h2 className="mt-6 font-bold">Tax rates (GST-ready: rate table, CGST/SGST vs IGST per bill)</h2>
       <ul className="mt-2 max-w-xl space-y-1 text-sm">
         {(listTaxes() as { id: number; name: string; pct: number; inter: number; inclusive: number; active: number }[]).map((t) => (
-          <li key={t.id} className="flex justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+          <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
             <span>{t.name} · {t.pct}% · {t.inter ? "IGST" : "CGST+SGST"} · {t.inclusive ? "inclusive" : "exclusive"}</span>
-            <span className={t.active ? "text-emerald-700" : "text-zinc-400"}>{t.active ? "on" : "off"}</span>
+            <form action={toggleTaxRate} className="flex items-center gap-2">
+              <input type="hidden" name="id" value={t.id} />
+              <span className={t.active ? "text-xs font-bold text-emerald-700" : "text-xs text-zinc-400"}>{t.active ? "applied" : "off"}</span>
+              <button aria-label={`Turn ${t.name} ${t.active ? "off" : "on"}`} className="min-h-[44px] min-w-[52px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">{t.active ? "On" : "Off"}</button>
+            </form>
           </li>
         ))}
       </ul>
@@ -364,7 +399,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           const cur = (quickbarCustom()[role] ?? []);
           return (
             <fieldset key={role} className="grid gap-1 rounded-xl border border-black/10 p-2 dark:border-white/10">
-              <legend className="px-1 text-sm font-bold capitalize">{role}{cur.length === 0 && <span className="font-normal text-zinc-500"> (defaults)</span>}</legend>
+              <legend className="flex items-center gap-2 px-1 text-sm font-bold capitalize">{role}{cur.length === 0 && <span className="font-normal text-zinc-500"> (defaults)</span>}
+                {cur.length > 0 && (
+                  <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] text-brand-deep">custom</span>
+                )}</legend>
               <div className="flex flex-wrap gap-1.5">
                 {QUICKBAR_ACTIONS.map((a) => (
                   <label key={a.id} className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl border border-black/15 px-3 text-sm dark:border-white/20">
@@ -376,20 +414,45 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </fieldset>
           );
         })}
-        <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save quick bar</button>
+        <div className="flex flex-wrap gap-1.5">
+          <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save quick bar</button>
+        </div>
+        <p className="text-xs text-zinc-500">Reset one role to defaults:</p>
+        <div className="flex flex-wrap gap-1.5">
+          {QUICKBAR_ROLES.filter((role) => (quickbarCustom()[role] ?? []).length > 0).map((role) => (
+            <form key={role} action={resetQuickbarRole}>
+              <input type="hidden" name="role" value={role} />
+              <button className="min-h-[44px] rounded-full border border-black/15 px-3 text-xs font-semibold capitalize dark:border-white/20">↺ {role}</button>
+            </form>
+          ))}
+        </div>
       </form>
       </>)}
       {tab === "prices" && (<>
       <h2 className="mt-6 font-bold">Site prices (₹ — live on pricing page, calculator, agent)</h2>
-      <form action={savePrices} className="mt-2 grid max-w-xl grid-cols-2 gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10 md:grid-cols-3">
+      <form action={savePrices} className="mt-2 grid max-w-xl grid-cols-1 gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10 min-[420px]:grid-cols-2 md:grid-cols-3">
         {[["audit", "Audit"], ["packFrom", "Pack from"], ["siteFrom", "Site from"], ["retainerFrom", "Retainer/mo"], ["leadsFrom", "Leads/mo"]].map(([k, l]) => (
-          <label key={k} className="grid gap-1 text-sm">{l}
+          <label key={k} className="grid gap-1 text-sm"><span className="flex items-center gap-1.5">{l}
+            {prices[k] !== undefined
+              ? <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-bold text-brand-deep">custom</span>
+              : <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-white/10">default</span>}
+          </span>
             <input name={k} inputMode="numeric" defaultValue={prices[k] ?? ""} placeholder="default"
               className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
           </label>
         ))}
-        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white md:col-span-3 md:w-fit">Save prices</button>
+        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white min-[420px]:col-span-2 md:col-span-3 md:w-fit">Save prices</button>
       </form>
+      {Object.keys(prices).length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {Object.keys(prices).map((k) => (
+            <form key={k} action={clearPrice}>
+              <input type="hidden" name="key" value={k} />
+              <button className="min-h-[44px] rounded-full border border-black/15 px-3 text-xs dark:border-white/20">↺ {k} to default</button>
+            </form>
+          ))}
+        </div>
+      )}
       <p className="mt-2 text-sm text-zinc-500">Broadcasts sent: {notifs.c} · Org: CodeRender (id 1) · preferences stored per key.</p>
       </>)}
     </>
