@@ -9,6 +9,7 @@ Single source for domain terms. Challenge terms against this file; update it inl
 - **Remove/fallback**: clearing a slot writes `""`; UI must fall back to built-in mark (`Logo`, `/icon.svg`) with no broken `<img>`.
 - **Lead name**: the real human name parsed from chat (`parseLeadName`), stored in `Lead.name` / `Appointment.name` / intake state. Display fallback "friend" is render-only and must never be persisted as data.
 - **Business mode**: `Industry.mode` offline/online/hybrid driving drawer-group visibility globally; distinct from `business_type` (shop/ecommerce/clinic) and from per-industry route lists. RBAC stays authoritative.
+- **Ledger**: balanced double-entry — every `ledgerPost` writes equal debit + credit legs into ONE `JournalEntry` table (row shape is single-row, books are double-entry); trial balance must net to zero. Rows immutable, migrations only add.
 - **Industry vertical**: one of the 10 Grexa-style pages (`salon-owners` … `handyman-services`). All share `/industries/[slug]` template, differ only in copy/SEO metadata.
 - **Featured tool**: `GBP Booster - WhatsApp AI Agent` at `/tools/gbp-booster-whatsapp-ai-agent`.
 - **Offer ladder**: entry (audit/sprint) → project (fixed scope/date) → retainer. Loud, confident commitments live in `templates/offers/` + `workspaces/coderender/`.

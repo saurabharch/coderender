@@ -4,8 +4,9 @@
 // printable documents. Optional Autumn passthrough when AUTUMN_API_KEY
 // is set (same events mirrored; local ledger stays source of truth).
 import { getDb } from "./store";
+import { legsFor, sumTrial, type EntryKind } from "./finance-core";
 
-export type EntryKind = "invoice" | "payment" | "commission" | "payout" | "refund" | "adjust";
+export type { EntryKind };
 
 export function ledgerPost(input: { kind: EntryKind; refId: number; amount: number; memo?: string; account?: string }): number {
   const d = getDb();
@@ -13,24 +14,11 @@ export function ledgerPost(input: { kind: EntryKind; refId: number; amount: numb
     id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, refId INTEGER NOT NULL DEFAULT 0,
     debit TEXT NOT NULL DEFAULT '', credit TEXT NOT NULL DEFAULT '', amount INTEGER NOT NULL DEFAULT 0,
     memo TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  const [debit, credit] = input.account ? [input.account, input.account] : legsFor(input.kind);
   const r = d.prepare("INSERT INTO JournalEntry (kind, refId, debit, credit, amount, memo) VALUES (?,?,?,?,?,?)").run(
-    input.kind, input.refId, input.account ?? accountFor(input.kind, "debit"),
-    input.account ?? accountFor(input.kind, "credit"), Math.round(input.amount), String(input.memo ?? "").slice(0, 500));
+    input.kind, input.refId, debit, credit, Math.round(input.amount), String(input.memo ?? "").slice(0, 500));
   void autumnMirror(input.kind, input.refId, input.amount);
   return Number(r.lastInsertRowid);
-}
-
-function accountFor(kind: EntryKind, side: "debit" | "credit"): string {
-  const map: Record<string, [string, string]> = {
-    invoice: ["receivable", "revenue"],
-    payment: ["cash", "receivable"],
-    commission: ["commission-expense", "partner-payable"],
-    payout: ["partner-payable", "cash"],
-    refund: ["revenue", "cash"],
-    adjust: ["suspense", "suspense"],
-  };
-  const [debit, credit] = map[kind] ?? ["suspense", "suspense"];
-  return side === "debit" ? debit : credit;
 }
 
 async function autumnMirror(kind: string, refId: number, amount: number): Promise<void> {
@@ -48,16 +36,7 @@ async function autumnMirror(kind: string, refId: number, amount: number): Promis
 export function trialBalance(): { account: string; debit: number; credit: number }[] {
   const rows = getDb().prepare("SELECT debit, credit, amount FROM JournalEntry").all() as
     { debit: string; credit: string; amount: number }[];
-  const map = new Map<string, { debit: number; credit: number }>();
-  for (const r of rows) {
-    const d = map.get(r.debit) ?? { debit: 0, credit: 0 };
-    d.debit += r.amount;
-    map.set(r.debit, d);
-    const c = map.get(r.credit) ?? { debit: 0, credit: 0 };
-    c.credit += r.amount;
-    map.set(r.credit, c);
-  }
-  return [...map.entries()].map(([account, v]) => ({ account, ...v })).sort((a, b) => a.account.localeCompare(b.account));
+  return sumTrial(rows);
 }
 
 export function ledgerBalances(): { account: string; balance: number }[] {

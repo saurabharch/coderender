@@ -24,7 +24,7 @@ green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [Double-entry ledger adoption](174-double-entry-ledger.md): books already balanced, proven live; legs math extracted pure + tested.
 
 ## Not yet specified
 
@@ -40,7 +40,7 @@ green and CI green.
 
 ## Children
 
-- [Double-entry ledger adoption](174-double-entry-ledger.md) — frontier
+- [Double-entry ledger adoption](174-double-entry-ledger.md) — done
 - [Receivables aging, terms, write-off](175-receivables-aging.md) — blocked by double-entry decision
 - [GST depth: HSN, composition, versioned rules](176-gst-depth.md) — frontier
 - [CSV import pipeline](177-csv-import-pipeline.md) — frontier
