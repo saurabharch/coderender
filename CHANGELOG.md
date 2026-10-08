@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.78.0] - 2026-10-08
+## [0.79.0] - 2026-10-08
+- Brand palette## [0.78.0] - 2026-10-08
 - Command center## [0.77.0] - 2026-10-08
 - Branding engine## [0.76.0] - 2026-10-08
 - Settings captcha## [0.75.1] - 2026-10-08
