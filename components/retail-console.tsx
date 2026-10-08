@@ -256,6 +256,8 @@ export function RetailConsole({ tab }: { tab: string }) {
                     className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Terms</button>
                   <button onClick={() => void writeOff(u.id, u.name)}
                     className="min-h-[44px] rounded-xl border border-red-500/40 px-3 text-xs font-semibold text-red-700 dark:text-red-300">Write off</button>
+                  <a href={`/admin/customers/${u.id}/statement`}
+                    className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Statement</a>
                 </span>
               </li>
             ))}
