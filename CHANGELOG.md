@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.86.0] - 2026-10-08
+## [0.87.0] - 2026-10-09
+- Quote versioning## [0.86.0] - 2026-10-08
 - Import rollback## [0.85.0] - 2026-10-08
 - GST depth## [0.84.0] - 2026-10-08
 - Receivables aging## [0.83.2] - 2026-10-08
