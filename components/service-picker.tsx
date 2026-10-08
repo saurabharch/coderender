@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // Auto-suggest service mapping: type to filter, tick to link.
 export function ServicePicker({ services, selected = [] }: {
   services: { id: number; title: string; category: string }[]; selected?: number[];
 }) {
   const [q, setQ] = useState("");
+  const [picked, setPicked] = useState(selected.length);
+  const boxRef = useRef<HTMLSpanElement>(null);
+  const recount = () => {
+    setPicked(boxRef.current?.querySelectorAll('input[type="checkbox"]:checked').length ?? 0);
+  };
   const needle = q.trim().toLowerCase();
   const shown = services.filter((s) =>
     !needle || s.title.toLowerCase().includes(needle) || s.category.toLowerCase().includes(needle));
@@ -15,12 +20,12 @@ export function ServicePicker({ services, selected = [] }: {
     <span className="grid gap-1 text-sm">Services included
       <div className="flex gap-1.5">
         <input value={q} onChange={(e) => setQ(e.target.value)} type="search" enterKeyHint="search" autoComplete="off" placeholder="Type to suggest… (e.g. seo)"
-          role="searchbox" aria-label="Filter services"
+          role="searchbox" aria-label="Filter services" onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
         maxLength={60} className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" />
         {q && <button onClick={() => setQ("")} aria-label="Clear service filter" className="min-h-[44px] min-w-[44px] rounded-xl border border-black/15 dark:border-white/20">✕</button>}
       </div>
-      <p className="text-xs text-zinc-500" role="status">{shown.length} of {services.length} services</p>
-      <span className="grid max-h-[50vh] gap-0.5 overflow-y-auto overscroll-contain rounded-xl border border-black/15 p-2 dark:border-white/20">
+      <p className="text-xs text-zinc-500" role="status">{shown.length} of {services.length} services · {picked} linked</p>
+      <span ref={boxRef} onChange={recount} className="grid max-h-[50vh] gap-0.5 overflow-y-auto overscroll-contain rounded-xl border border-black/15 p-2 dark:border-white/20">
         {cats.map((c) => (
           <span key={c}>
             <b className="text-xs uppercase tracking-wider text-zinc-500">{c}</b>

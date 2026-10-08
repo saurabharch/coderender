@@ -131,3 +131,18 @@ export function deletePlan(id: number): void {
   getDb().prepare("DELETE FROM PackageService WHERE packageId=?").run(id);
   getDb().prepare("DELETE FROM ServicePackage WHERE id=?").run(id);
 }
+
+// Agent/storefront-ready text: active plans with live prices, linked
+// services and includes. Empty when nothing is configured (callers fall back
+// to the static ladder — never invent packs).
+export function plansBriefing(): string {
+  const live = listPlans().filter((p) => p.active);
+  if (live.length === 0) return "";
+  return live.map((p) => {
+    const svcs = (p.services ?? []).map((s) => s.title).join(", ");
+    const inc = (p.includes ?? []).slice(0, 6).join("; ");
+    return `${p.name}: DRAFT ₹${p.price}${p.per && p.per !== "one-time" ? ` ${p.per}` : ""}`
+      + `${p.bestFor ? ` — best for ${p.bestFor}` : ""}`
+      + `${svcs ? `. Services: ${svcs}` : ""}${inc ? `. Includes: ${inc}` : ""}`;
+  }).join("\n");
+}

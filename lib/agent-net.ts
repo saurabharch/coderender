@@ -29,10 +29,12 @@ const tools: Record<string, Tool> = {
   },
   pricing_estimate: {
     name: "pricing_estimate",
-    desc: "DRAFT ladder prices (live from site settings)",
+    desc: "DRAFT ladder prices (live from site settings + configured packs)",
     run: async () => {
       const { ladderLine } = await import("./pricing");
-      return ladderLine();
+      const { plansBriefing } = await import("./catalog");
+      const packs = plansBriefing();
+      return ladderLine() + (packs ? `\nConfigured packs:\n${packs}` : "");
     },
   },
   kanban_overview: {
