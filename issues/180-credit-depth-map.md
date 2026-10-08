@@ -1,7 +1,7 @@
 # Wayfinder map: Credit depth (reminders + statements)
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -21,7 +21,8 @@ each ticket is live-proved with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [Udhari due reminders](181-udhari-due-reminders.md): overdue-only tick + caps + logging live-proved.
+- [Printable customer statement](182-printable-statement.md): A4 statement page live-proved.
 
 ## Not yet specified
 
