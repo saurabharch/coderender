@@ -24,3 +24,6 @@ jobs:
       - run: npx prisma validate
       - run: npm run build
       - run: docker compose -f deploy/docker-compose.yml config -q
+        env:
+          # Syntax check only; no containers start here.
+          POSTGRES_PASSWORD: ci-check-only
