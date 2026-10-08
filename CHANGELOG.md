@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.76.0] - 2026-10-08
+## [0.77.0] - 2026-10-08
+- Branding engine## [0.76.0] - 2026-10-08
 - Settings captcha## [0.75.1] - 2026-10-08
 - Flags UX## [0.75.0] - 2026-10-08
 - Chat sales UX## [0.74.0] - 2026-10-08
