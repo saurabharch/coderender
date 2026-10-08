@@ -27,3 +27,4 @@ jobs:
         env:
           # Syntax check only; no containers start here.
           POSTGRES_PASSWORD: ci-check-only
+          WORKER_TICK_TOKEN: ci-check-only
