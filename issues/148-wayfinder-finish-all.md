@@ -16,6 +16,8 @@ responsive sweep of all admin routes passes.
 
 ## Decisions so far
 
+- [Planning-doc mapping](170-planning-doc-mapping.md): all 15 planning docs shipped or explicitly deferred; zero unchecked boxes; deliberate partials documented.
+
 - Ticket 147 (recruit pipeline + training): closed, v0.71.0. Duplicate tone keys caused a red typecheck mid-ticket; fixed before build.
 
 ## Not yet specified
