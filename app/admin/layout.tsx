@@ -4,7 +4,7 @@ import { AdminDrawer } from "@/components/admin-drawer";
 import { MantineShell } from "@/components/mantine-shell";
 import { StaffQuickBar } from "@/components/staff-quickbar";
 import { BrandTheme } from "@/components/brand-theme";
-import { businessIndustry, visibleRoutes } from "@/lib/industry";
+import { resolveVisible } from "@/lib/industry";
 
 async function stopImpersonate() {
   "use server";
@@ -30,8 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const user = await sessionUser();
   if (!user) redirect("/login");
   const imp = await impersonator();
-  const biz = businessIndustry();
-  const vis = biz ? visibleRoutes(biz) : null;
+  const vis = resolveVisible();
   return (
     <div className="wrap section max-w-6xl">
       {imp && (

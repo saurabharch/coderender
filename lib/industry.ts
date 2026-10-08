@@ -1,5 +1,6 @@
 import { getDb, getPref, setPref } from "./store";
 import { VERTICALS } from "./site";
+import { NAV_GROUPS, NAV_MODES, allNavHrefs, applyModeVisible, type NavMode } from "./nav-catalog";
 
 // Business control plane (server only): industry registry + per-industry
 // dashboard route visibility. RBAC still gates access; this only controls
@@ -36,34 +37,12 @@ export function setIndustryActive(slug: string, on: boolean): void {
   getDb().prepare("UPDATE Industry SET active=? WHERE slug=?").run(on ? 1 : 0, slug);
 }
 
-// Dashboard routes manageable per industry (href + label + group).
-export const DASHBOARD_ROUTES = [
-  { href: "/admin", label: "Overview", group: "Sell" },
-  { href: "/admin/pos", label: "POS", group: "Sell" },
-  { href: "/admin/orders", label: "Orders", group: "Sell" },
-  { href: "/admin/shop", label: "Inventory", group: "Sell" },
-  { href: "/admin/billing", label: "Billing", group: "Sell" },
-  { href: "/admin/retail", label: "Retail", group: "Sell" },
-  { href: "/admin/stock", label: "Stock", group: "Sell" },
-  { href: "/admin/crm", label: "CRM", group: "Engage" },
-  { href: "/admin/customers", label: "Customers", group: "Engage" },
-  { href: "/admin/services", label: "Services", group: "Engage" },
-  { href: "/admin/boards", label: "Boards", group: "Plan" },
-  { href: "/admin/calendar", label: "Calendar", group: "Plan" },
-  { href: "/admin/schedule", label: "Schedule", group: "Plan" },
-  { href: "/admin/people", label: "People", group: "Team" },
-  { href: "/admin/bi", label: "BI", group: "System" },
-  { href: "/admin/learn", label: "Learn", group: "System" },
-  { href: "/admin/flows", label: "Flows", group: "System" },
-  { href: "/admin/notify", label: "Notify", group: "System" },
-  { href: "/admin/media", label: "Media", group: "System" },
-  { href: "/admin/blog", label: "Blog", group: "System" },
-  { href: "/admin/forms", label: "Forms", group: "System" },
-  { href: "/admin/keys", label: "API keys", group: "System" },
-  { href: "/admin/flags", label: "Flags", group: "System" },
-  { href: "/admin/routes", label: "Routes", group: "System" },
-  { href: "/admin/settings", label: "Settings", group: "System" },
-];
+// Dashboard routes manageable per industry AND per business mode. Single
+// source is the nav catalog, so every drawer entry is manageable (previously
+// only a 25-href subset was).
+export const DASHBOARD_ROUTES = NAV_GROUPS.flatMap((g) =>
+  g.items.map((i) => ({ href: i.href, label: i.label, group: g.label })),
+);
 
 function routesMap(): Record<string, string[]> {
   try {
@@ -107,3 +86,58 @@ export function businessIndustry(): string {
     return row?.slug ?? "";
   } catch { return ""; }
 }
+
+/** Business mode of the operating industry ("" when none selected). */
+export function businessMode(): string {
+  try {
+    const slug = businessIndustry();
+    if (!slug) return "";
+    const row = getDb().prepare("SELECT mode FROM Industry WHERE slug=?").get(slug) as
+      { mode: string } | undefined;
+    const m = row?.mode ?? "";
+    return (NAV_MODES as readonly string[]).includes(m) ? m : "";
+  } catch { return ""; }
+}
+
+function modeMap(): Record<string, string[]> {
+  try {
+    const row = getDb().prepare("SELECT value FROM Preference WHERE key='mode_routes'").get() as
+      { value: string } | undefined;
+    const parsed: unknown = JSON.parse(row?.value ?? "{}");
+    if (parsed && typeof parsed === "object") return parsed as Record<string, string[]>;
+    return {};
+  } catch { return {}; }
+}
+
+/** Visible hrefs for a business mode, or null when it uses the full dashboard. */
+export function visibleForMode(mode: string): string[] | null {
+  const list = modeMap()[mode];
+  if (!list) return null;
+  const known = new Set(allNavHrefs());
+  const clean = [...new Set(list)].filter((h) => known.has(h));
+  return clean;
+}
+
+export function setModeRoutes(mode: string, hrefs: string[]): void {
+  if (!(NAV_MODES as readonly string[]).includes(mode)) return;
+  const known = new Set(allNavHrefs());
+  const clean = [...new Set(hrefs)].filter((h) => known.has(h));
+  const m = modeMap();
+  if (clean.length >= known.size) delete m[mode];
+  else m[mode] = clean;
+  setPref("mode_routes", JSON.stringify(m));
+}
+
+/**
+ * Effective drawer list: per-industry list intersected with the operating
+ * mode's list. Null = full dashboard. RBAC still gates access underneath.
+ */
+export function resolveVisible(): string[] | null {
+  const biz = businessIndustry();
+  const base = biz ? visibleRoutes(biz) : null;
+  const mode = businessMode();
+  if (!mode) return base;
+  return applyModeVisible(base, modeMap(), mode);
+}
+
+export type { NavMode };

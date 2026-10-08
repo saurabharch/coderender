@@ -10,69 +10,56 @@ import {
 
 import { hasPerm } from "@/lib/scale-core";
 import type { Perm } from "@/lib/scale-core";
+import { NAV_GROUPS } from "@/lib/nav-catalog";
 
-type Item = [string, string, React.ComponentType<{ size?: number; className?: string }>, Perm | "any"];
+type IconType = React.ComponentType<{ size?: number; className?: string }>;
 
-// Fourth element = required permission ("any" = every signed-in team member).
-const GROUPS: { label: string; items: Item[] }[] = [
-  {
-    label: "Workspace", items: [
-      ["Overview", "/admin", LayoutDashboard, "any"],
-      ["BI", "/admin/bi", Activity, "reports"],
-      ["Leads", "/admin/leads", Users, "crm"],
-      ["Pipeline", "/admin/pipeline", KanbanSquare, "crm"],
-      ["Boards", "/admin/boards", Trello, "any"],
-      ["Todos", "/admin/todos", ListChecks, "any"],
-      ["Calendar", "/admin/calendar", CalendarClock, "any"],
-      ["People", "/admin/people", Users, "people"],
-      ["Services", "/admin/services", ClipboardList, "services"],
-      ["Schedule", "/admin/schedule", CalendarClock, "any"],
-      ["Google", "/admin/google", Plug, "any"],
-    ],
-  },
-  {
-    label: "Sell", items: [
-      ["Orders", "/admin/orders", ShoppingCart, "sell"],
-      ["POS", "/admin/pos", ShoppingCart, "sell"],
-      ["Inventory", "/admin/shop", ShoppingCart, "sell"],
-      ["Billing", "/admin/billing", IndianRupee, "billing"],
-      ["Retail", "/admin/retail", Megaphone, "retail"],
-      ["Stock", "/admin/stock", Package, "stock"],
-      ["Packages", "/admin/packages", Package, "sell"],
-      ["Partners", "/admin/partners", Handshake, "partners"],
-      ["Proof", "/admin/proof", Star, "marketing"],
-      ["Pages", "/admin/pages", LayoutTemplate, "marketing"],
-      ["CMS", "/admin/cms", Blocks, "marketing"],
-      ["Blog", "/admin/blog", FileText, "marketing"],
-      ["Media", "/admin/media", Image, "marketing"],
-      ["Forms", "/admin/forms", ClipboardList, "any"],
-    ],
-  },
-  {
-    label: "Engage", items: [
-      ["WhatsApp", "/admin/whatsapp", MessageCircle, "crm"],
-      ["CRM", "/admin/crm", Users, "crm"],
-      ["Customers", "/admin/customers", Contact, "crm"],
-      ["Comments", "/admin/comments", MessageSquare, "marketing"],
-      ["Tickets", "/admin/tickets", Ticket, "crm"],
-      ["Subscribers", "/admin/subscribers", Mail, "marketing"],
-      ["Notify", "/admin/notify", Bell, "marketing"],
-    ],
-  },
-  {
-    label: "System", items: [
-      ["Ops", "/admin/ops", Activity, "reports"],
-      ["Scale", "/admin/scale", ShieldCheck, "settings"],
-      ["Flows", "/admin/flows", Workflow, "settings"],
-      ["Webhooks", "/admin/hooks", Plug, "settings"],
-      ["Api Keys", "/admin/keys", KeyRound, "keys"],
-      ["Learn", "/admin/learn", GraduationCap, "reports"],
-      ["Flags", "/admin/flags", ShieldCheck, "settings"],
-      ["Routes", "/admin/routes", Route, "reports"],
-      ["Settings", "/admin/settings", Settings, "settings"],
-    ],
-  },
-];
+// Icons by href (catalog owns labels/groups/perms; this map owns visuals).
+const ICONS: Record<string, IconType> = {
+  "/admin": LayoutDashboard,
+  "/admin/bi": Activity,
+  "/admin/google": Plug,
+  "/admin/orders": ShoppingCart,
+  "/admin/pos": ShoppingCart,
+  "/admin/shop": ShoppingCart,
+  "/admin/billing": IndianRupee,
+  "/admin/retail": Megaphone,
+  "/admin/stock": Package,
+  "/admin/packages": Package,
+  "/admin/partners": Handshake,
+  "/admin/leads": Users,
+  "/admin/pipeline": KanbanSquare,
+  "/admin/whatsapp": MessageCircle,
+  "/admin/crm": Users,
+  "/admin/customers": Contact,
+  "/admin/comments": MessageSquare,
+  "/admin/tickets": Ticket,
+  "/admin/subscribers": Mail,
+  "/admin/notify": Bell,
+  "/admin/proof": Star,
+  "/admin/pages": LayoutTemplate,
+  "/admin/cms": Blocks,
+  "/admin/blog": FileText,
+  "/admin/media": Image,
+  "/admin/forms": ClipboardList,
+  "/admin/boards": Trello,
+  "/admin/todos": ListChecks,
+  "/admin/calendar": CalendarClock,
+  "/admin/schedule": CalendarClock,
+  "/admin/services": ClipboardList,
+  "/admin/people": Users,
+  "/admin/ops": Activity,
+  "/admin/scale": ShieldCheck,
+  "/admin/flows": Workflow,
+  "/admin/hooks": Plug,
+  "/admin/keys": KeyRound,
+  "/admin/learn": GraduationCap,
+  "/admin/flags": ShieldCheck,
+  "/admin/routes": Route,
+  "/admin/settings": Settings,
+};
+
+const GROUPS = NAV_GROUPS;
 
 export function AdminDrawer({ email, role, visible }: { email: string; role: string; visible: string[] | null }) {
   const [open, setOpen] = useState(false);
@@ -82,20 +69,23 @@ export function AdminDrawer({ email, role, visible }: { email: string; role: str
   const list = (
     <nav aria-label="Admin" className="grid gap-3">
       {GROUPS.map((g) => {
-        const items = g.items.filter(([l, h, , p]) => can(p) && (!visible || visible.includes(h) || h === "/admin/settings"));
+        const items = g.items.filter((it) => can(it.perm) && (!visible || visible.includes(it.href) || it.href === "/admin/settings"));
         if (!items.length) return null;
         return (
         <div key={g.label}>
           <p className="px-2 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">{g.label}</p>
           <div className="grid gap-0.5">
-            {items.map(([l, h, Icon]) => (
-              <Link key={h} href={h} onClick={() => setOpen(false)} aria-current={active(h) ? "page" : undefined}
-                className={`flex min-h-[44px] items-center gap-2.5 rounded-xl px-3 text-sm font-semibold transition-colors ${active(h)
+            {items.map((it) => {
+              const Icon = ICONS[it.href] ?? LayoutDashboard;
+              return (
+              <Link key={it.href} href={it.href} onClick={() => setOpen(false)} aria-current={active(it.href) ? "page" : undefined}
+                className={`flex min-h-[44px] items-center gap-2.5 rounded-xl px-3 text-sm font-semibold transition-colors ${active(it.href)
                   ? "bg-brand/10 text-brand-deep dark:bg-brand/20"
                   : "hover:bg-black/5 dark:hover:bg-white/10"}`}>
-                <Icon size={17} className="shrink-0 text-brand-deep" />{l}
+                <Icon size={17} className="shrink-0 text-brand-deep" />{it.label}
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
         );

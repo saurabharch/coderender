@@ -13,7 +13,7 @@ import { QuickbarEditor } from "@/components/quickbar-editor";
 import { AtSign, Ban, Calculator, DatabaseBackup, Flag, IndianRupee, Mail, MonitorSmartphone, Palette, Phone, Puzzle, ReceiptText, ShieldCheck, SlidersHorizontal, Store, Timer, Users, Zap } from "lucide-react";
 import { BRAND_DEFAULTS } from "@/lib/brand";
 import { BrandingFields } from "@/components/branding-form";
-import { DASHBOARD_ROUTES, businessIndustry, listIndustries, saveIndustry, setIndustryActive, setIndustryRoutes, visibleRoutes } from "@/lib/industry";
+import { DASHBOARD_ROUTES, businessIndustry, businessMode, listIndustries, saveIndustry, setIndustryActive, setIndustryRoutes, setModeRoutes, visibleForMode, visibleRoutes } from "@/lib/industry";
 
 async function save(form: FormData) {
   "use server";
@@ -245,6 +245,16 @@ async function saveIndustryRoutes(form: FormData) {  "use server";
   revalidatePath("/admin/settings");
 }
 
+async function saveModeRoutes(form: FormData) {  "use server";
+  await requireTeam();
+  const { setModeRoutes: write, DASHBOARD_ROUTES: all } = await import("@/lib/industry");
+  const mode = String(form.get("mode") || "");
+  const known = new Set(all.map((r) => r.href));
+  const picked = form.getAll("route").map(String).filter((h) => known.has(h));
+  write(mode, picked);
+  revalidatePath("/admin/settings");
+}
+
 async function saveQuickbar(form: FormData) {
   "use server";
   await requireTeam();
@@ -461,6 +471,31 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                   })}
                 </div>
                 <button className="mt-1 min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Save routes</button>
+              </form>
+            </li>
+          );
+        })}
+      </ul>
+      <h2 className="mt-6 font-bold">Drawer groups by business mode <span className="text-xs font-normal text-zinc-500">(global; intersects industry lists{businessMode() ? ` · operating: ${businessMode()}` : ""})</span></h2>
+      <ul className="mt-2 max-w-xl space-y-1 text-sm">
+        {(["offline", "online", "hybrid"] as const).map((m) => {
+          const vis = visibleForMode(m);
+          return (
+            <li key={m}>
+              <form action={saveModeRoutes} className="rounded-xl border border-dashed border-black/10 p-2 dark:border-white/10">
+                <input type="hidden" name="mode" value={m} />
+                <p className="px-1 text-xs font-bold capitalize text-zinc-500">{m} businesses {vis ? `(${vis.length} shown)` : "(all shown)"}</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {DASHBOARD_ROUTES.map((r) => {
+                    const on = vis ? vis.includes(r.href) : true;
+                    return (
+                      <label key={r.href} className="flex min-h-[36px] cursor-pointer items-center gap-1 rounded-full border border-black/15 px-2 text-[11px] dark:border-white/20">
+                        <input type="checkbox" name="route" value={r.href} defaultChecked={on} className="h-4 w-4" />{r.label}
+                      </label>
+                    );
+                  })}
+                </div>
+                <button className="mt-1 min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Save {m} routes</button>
               </form>
             </li>
           );
