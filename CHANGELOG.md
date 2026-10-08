@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.84.0] - 2026-10-08
+## [0.85.0] - 2026-10-08
+- GST depth## [0.84.0] - 2026-10-08
 - Receivables aging## [0.83.2] - 2026-10-08
 - Balanced books proof## [0.83.1] - 2026-10-08
 - Receipt width## [0.83.0] - 2026-10-08
