@@ -7,8 +7,10 @@ cd "$ROOT"
 PORT="${PORT:-3100}"
 PUBLIC="${PUBLIC_URL:-https://coderender.optyx.shop/}"
 
-echo "==> gate"
-bash scripts/ci.sh
+echo "==> gate (lint+typecheck+test; the build below is the single artifact reload serves)"
+npm run lint
+npm run typecheck
+npm test
 
 echo "==> prisma migrate (Linux runners only; skipped on Android)"
 if [ "$(uname -m)" != "aarch64" ] || [ ! -d /data/data/com.termux ]; then
