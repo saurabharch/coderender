@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.89.0] - 2026-10-09
+## [0.90.0] - 2026-10-09
+- Customer statement## [0.89.0] - 2026-10-09
 - Udhari reminders## [0.88.0] - 2026-10-09
 - Staff bonuses## [0.87.0] - 2026-10-09
 - Quote versioning## [0.86.0] - 2026-10-08
