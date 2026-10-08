@@ -2,7 +2,7 @@
 
 Parent: [Wayfinder map: POS advance on current infra](163-pos-advance-map.md)
 Labels: wayfinder:task
-Status: doing
+Status: done
 Assignee: opencode
 Blocked-by: (none — graduated from fog on owner direction)
 
@@ -17,3 +17,18 @@ with the web build as the on-device artifact and the rest in CI?
   then the same four gates as `scripts/ci.sh`. No Termux paths, no secrets.
 - Secrets/prod deploy stays local (`deploy.sh`): documents required secrets
   without creating them. Native/device builds stay out (no runners).
+
+## Resolution
+
+Workflows already existed (deploy-pack commit) but CI was red on main.
+Fixed three real defects found by turning it green:
+1. `tests/scan.test.ts` hardcoded a Termux-only tmp path → portable
+   `TMPDIR/os.tmpdir()` helper (also the only CI/local divergence in tests).
+2. Duplicate `startAt`/`dueAt` on `KanbanTask` in `prisma/schema.prisma`
+   (P1012) — invisible on-device since Prisma engines can't run here.
+3. `ci.yml` now supplies dummy `DATABASE_URL` (job env) and dummy
+   `POSTGRES_PASSWORD`/`WORKER_TICK_TOKEN` (compose config step only).
+Verified via the Actions API: `dc2a9eb completed / success`. Secrets/prod
+deploy stay local; native/device builds stay out (no runners).
+Note: an untracked `planning/10-master-POS-Advancement.md` appeared on disk
+mid-ticket (not authored here); deliberately left untracked.

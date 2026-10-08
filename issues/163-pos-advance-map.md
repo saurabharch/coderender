@@ -32,7 +32,7 @@ broken. Done when each frontier ticket is live-proved with chain green.
 
 ## Not yet specified
 
-- GitHub Actions CI (needs secrets + Linux runner; local scripts hardened first).
+- GitHub Actions CI: done via [GitHub Actions for checks and builds](172-github-actions-ci.md) — green on main.
 - Native shells (Capacitor/Tauri AAB/IPA/desktop) — fog until a non-Termux
   runner exists; PWA is the device story.
 - Plan-09 later phases (credit ledger depth, label designer, PDF themes,
