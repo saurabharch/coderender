@@ -1,6 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CalendarCheck, ChevronRight, MessageCircle, Phone, Tag } from "lucide-react";
+
+function BlockActionIcon({ label }: { label: string }) {
+  const t = label.toLowerCase();
+  const Icon = /whatsapp|chat/.test(t) ? MessageCircle
+    : /call|phone|tel/.test(t) ? Phone
+    : /price|pricing|offer|coupon|audit|pack/.test(t) ? Tag
+    : /book|demo|contact|meet|start|enquire/.test(t) ? CalendarCheck
+    : ChevronRight;
+  return <Icon size={13} className="shrink-0 opacity-80" />;
+}
 
 export interface Block {
   kind: "table" | "links" | "buttons" | "bars" | "service";
@@ -156,8 +167,9 @@ export function Blocks({ blocks }: { blocks?: Block[] }) {
               {(b.items ?? []).map((x) => (
                 <a key={x.label} href={x.href}
                   className={b.kind === "buttons"
-                    ? "inline-flex min-h-[36px] items-center rounded-full bg-zinc-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900"
-                    : "inline-flex min-h-[36px] items-center rounded-full border border-black/15 px-3 text-xs font-semibold dark:border-white/20"}>
+                    ? "inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-zinc-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900"
+                    : "inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-black/15 px-3 text-xs font-semibold dark:border-white/20"}>
+                  <BlockActionIcon label={x.label} />
                   {x.label}
                 </a>
               ))}

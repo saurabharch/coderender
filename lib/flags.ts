@@ -11,6 +11,8 @@ export const SERVICE_FLAGS: Record<string, { label: string; def: boolean }> = {
   udhari: { label: "Credit sales (udhari)", def: true },
   discount_override: { label: "Cashier discount override (bill)", def: false },
   catalog_wa: { label: "WhatsApp catalogue sends", def: true },
+  share_whatsapp: { label: "Bot shares WhatsApp chat button", def: true },
+  share_call: { label: "Bot shares voice-call button", def: true },
 };
 
 export function flagOn(key: string): boolean {

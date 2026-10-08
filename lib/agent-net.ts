@@ -29,12 +29,19 @@ const tools: Record<string, Tool> = {
   },
   pricing_estimate: {
     name: "pricing_estimate",
-    desc: "DRAFT ladder prices (live from site settings + configured packs)",
+    desc: "DRAFT ladder prices (live from site settings + configured packs + offers)",
     run: async () => {
       const { ladderLine } = await import("./pricing");
       const { plansBriefing } = await import("./catalog");
+      const { listCoupons } = await import("./commerce");
       const packs = plansBriefing();
-      return ladderLine() + (packs ? `\nConfigured packs:\n${packs}` : "");
+      const offers = (listCoupons() as { code: string; kind: string; value: number; minOrder: number; active: number }[])
+        .filter((c) => c.active)
+        .map((c) => `${c.code} saves ${c.kind === "pct" ? `${c.value}%` : `₹${(c.value / 100).toFixed(0)}`}${c.minOrder > 0 ? ` on ₹${(c.minOrder / 100).toFixed(0)}+` : ""}`)
+        .slice(0, 3);
+      return ladderLine()
+        + (packs ? `\nConfigured packs:\n${packs}` : "")
+        + (offers.length > 0 ? `\nCurrent offers: ${offers.join(" · ")}` : "");
     },
   },
   kanban_overview: {
@@ -369,6 +376,21 @@ async function accountAnswer(
   return { ...r, scope };
 }
 
+// Flag-gated contact buttons for fallback replies (settings toggles,
+// default ON). Never throws — contact buttons must not break answers.
+export async function contactBlocks(): Promise<{ kind: "buttons"; title: string; items: { label: string; href: string }[] } | null> {
+  try {
+    const { flagOn } = await import("./flags");
+    const { CONTACT } = await import("./site");
+    const items: { label: string; href: string }[] = [];
+    if (flagOn("share_whatsapp")) items.push({ label: "WhatsApp us", href: CONTACT.whatsapp });
+    if (flagOn("share_call")) items.push({ label: `Call ${CONTACT.phone}`, href: `tel:${CONTACT.phone.replace(/\s/g, "")}` });
+    return items.length > 0 ? { kind: "buttons", title: "Talk to us", items } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function runNetwork(opts: {
   userId: number;
   message: string;
@@ -649,10 +671,18 @@ export async function runNetwork(opts: {
       },
     ];
     if (pkgs.length > 0) {
+      const { planServices } = await import("./catalog");
       blocks.push({
-        kind: "table", title: `${svcEarly.title} packages (DRAFT, final quote in writing)`,
-        columns: ["Package", "Price", "Timeline", "Best for"],
-        rows: pkgs.map((p) => [p.name, `₹${p.price.toLocaleString("en-IN")}${p.per === "one-time" ? "" : p.per}`, p.timeline, p.bestFor]),
+        kind: "table", title: `${svcEarly.title} packages (final quote in writing)`,
+        columns: ["Package", "Price", "Services", "Best for"],
+        rows: pkgs.map((p) => {
+          const svcs = (() => {
+            try {
+              return planServices(p.id).map((s) => s.title).join(", ");
+            } catch { return ""; }
+          })();
+          return [p.name, `₹${p.price.toLocaleString("en-IN")}${p.per === "one-time" ? "" : p.per}`, svcs || "—", p.bestFor];
+        }),
       });
     }
     if (rel) {
@@ -772,6 +802,10 @@ export async function runNetwork(opts: {
   const out: AgentReply = { ...r, scope, source: r.text ? "ai" : undefined };
   if (!isTeam && svc) {
     out.blocks = await serviceBlocks();
+  }
+  const contact = await contactBlocks();
+  if (!isTeam && scope === "support" && contact && !(out.blocks ?? []).some((b) => b.kind === "buttons")) {
+    out.blocks = [...(out.blocks ?? []), contact];
   }
   return out;
 }

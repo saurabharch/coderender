@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw, History, Check, ChevronRight, Square } from "lucide-react";
+import { Bot, X, Send, ShieldCheck, ThumbsUp, ThumbsDown, ArrowLeft, RotateCcw, History, Check, ChevronRight, ChevronLeft, Square, MessageCircle, Phone, Tag, CalendarCheck } from "lucide-react";
 
 import { Blocks, RichText, type Block } from "./rich-blocks";
 import { SliderWidget } from "./slider-captcha";
@@ -52,6 +52,76 @@ function loadSaved(): { threadId?: number; turns: Turn[] } {
   } catch {
     return { turns: [] };
   }
+}
+
+function ActionIcon({ label }: { label: string }) {
+  const t = label.toLowerCase();
+  const Icon = /whatsapp|chat/.test(t) ? MessageCircle
+    : /call|phone|tel/.test(t) ? Phone
+    : /price|pricing|offer|coupon|audit/.test(t) ? Tag
+    : /book|demo|contact|meet/.test(t) ? CalendarCheck
+    : ChevronRight;
+  return <Icon size={13} className="shrink-0 opacity-70" />;
+}
+
+function OptionStrip({ opts, multi, picked, onTap, onSubmit, submitLabel, back, onBack }: {
+  opts: Opt[]; multi: boolean; picked: string[];
+  onTap: (id: string, label: string) => void; onSubmit: () => void; submitLabel?: string;
+  back: boolean; onBack: () => void;
+}) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const nudge = (dir: number) => scroller.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
+  const wide = opts.length > 4;
+  const btn = (wide
+    ? "flex min-h-[44px] w-40 shrink-0 snap-start flex-col items-start justify-center gap-0.5 rounded-2xl border px-3 py-2 text-left text-xs font-semibold"
+    : "flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-xs font-semibold");
+  const onCls = "border-brand bg-brand-soft dark:bg-white/10";
+  const offCls = "border-black/15 dark:border-white/20";
+  return (
+    <div className="mt-2 flex items-center gap-1" role="group" aria-label="Suggested replies">
+      {wide && (
+        <button onClick={() => nudge(-1)} aria-label="Scroll options left"
+          className="flex min-h-[44px] min-w-[36px] shrink-0 items-center justify-center rounded-full border border-black/15 dark:border-white/20">
+          <ChevronLeft size={15} />
+        </button>
+      )}
+      <div ref={scroller} className={wide ? "flex snap-x gap-2 overflow-x-auto pb-1" : "flex flex-wrap gap-2"}>
+        {back && (
+          <button onClick={onBack} className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-black/15 px-4 text-xs font-semibold dark:border-white/20">
+            <ArrowLeft size={13} /> Back
+          </button>
+        )}
+        {opts.map((o) => {
+          const on = picked.includes(o.id);
+          return (
+            <button key={o.id} onClick={() => onTap(o.id, o.label)}
+              aria-pressed={multi ? on : undefined}
+              className={`${btn} ${on ? onCls : offCls}`}>
+              <span className="flex items-center gap-1.5">
+                {multi
+                  ? (on ? <Check size={13} className="shrink-0" /> : <Square size={13} className="shrink-0 opacity-50" />)
+                  : <ActionIcon label={o.label} />}
+                <span className={wide ? "" : ""}>{o.label}</span>
+              </span>
+              {wide && multi && <span className="text-[10px] font-normal text-zinc-500">{on ? "selected" : "tap to select"}</span>}
+            </button>
+          );
+        })}
+        {multi && (
+          <button onClick={onSubmit} disabled={picked.length === 0}
+            className="flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white disabled:opacity-50">
+            <Send size={12} /> {submitLabel || "Submit"} ({picked.length})
+          </button>
+        )}
+      </div>
+      {wide && (
+        <button onClick={() => nudge(1)} aria-label="Scroll options right"
+          className="flex min-h-[44px] min-w-[36px] shrink-0 items-center justify-center rounded-full border border-black/15 dark:border-white/20">
+          <ChevronRight size={15} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 function AgentAvatar({ size = "md" }: { size?: "md" | "lg" }) {
@@ -522,32 +592,13 @@ export function ChatWidget() {
                       )}
                     </div>
                     {t.role === "assistant" && t.options && t.options.length > 0 && t.optKey !== undefined && t.optKey === activeKey && !t.used && (
-                      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Suggested replies">
-                        {t.back && (
-                          <button onClick={() => goBack(t.optKey as string)} className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-black/15 px-4 text-xs font-semibold dark:border-white/20">
-                            <ArrowLeft size={13} /> Back
-                          </button>
-                        )}
-                        {t.options.map((o) => {
-                          const on = picked.includes(o.id);
-                          return (
-                            <button key={o.id} onClick={() => tapOption(t.optKey as string, o.id, o.label)}
-                              aria-pressed={t.multi ? on : undefined}
-                              className={`flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-xs font-semibold ${on ? "border-brand bg-brand-soft dark:bg-white/10" : "border-black/15 dark:border-white/20"}`}>
-                              {t.multi
-                                ? (on ? <Check size={13} className="shrink-0" /> : <Square size={13} className="shrink-0 opacity-50" />)
-                                : <ChevronRight size={13} className="shrink-0 opacity-60" />}
-                              {o.label}
-                            </button>
-                          );
-                        })}
-                        {t.multi && (
-                          <button onClick={() => submitMulti(t.optKey as string)} disabled={picked.length === 0}
-                            className="flex min-h-[44px] items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white disabled:opacity-50">
-                            <Send size={12} /> {t.submitLabel || "Submit"} ({picked.length})
-                          </button>
-                        )}
-                      </div>
+                      <OptionStrip
+                        opts={t.options} multi={!!t.multi} picked={picked}
+                        onTap={(id, label) => void tapOption(t.optKey as string, id, label)}
+                        onSubmit={() => void submitMulti(t.optKey as string)}
+                        submitLabel={t.submitLabel} back={!!t.back}
+                        onBack={() => goBack(t.optKey as string)}
+                      />
                     )}
                     {t.role === "assistant" && (
                       <span className="mt-1.5 flex flex-wrap gap-1">
