@@ -1,5 +1,8 @@
 # Wayfinder map: finish plans, todos, phases, tasks, issues; responsive UI everywhere
 
+Status: doing
+Assignee: opencode
+
 ## Destination
 
 Zero open issues, zero unchecked boxes, every planning doc mapped to shipped
@@ -16,14 +19,15 @@ responsive sweep of all admin routes passes.
 
 ## Decisions so far
 
+- [Responsive sweep level 1](169-responsive-sweep-L1.md): 41/41 drawer routes 200, viewport meta, nav markers, zero fixed widths — no failures.
 - [Planning-doc mapping](170-planning-doc-mapping.md): all 15 planning docs shipped or explicitly deferred; zero unchecked boxes; deliberate partials documented.
 
 - Ticket 147 (recruit pipeline + training): closed, v0.71.0. Duplicate tone keys caused a red typecheck mid-ticket; fixed before build.
 
 ## Not yet specified
 
-- Responsive sweep scope: full admin route list + what "passes" means per page.
 - HR leftovers: bonus/incentives, payroll exception engine, audit of hire/exit.
+- Level 2 device render lives in [Responsive sweep level 2](171-responsive-sweep-L2.md) — the map's last frontier item.
 
 ## Out of scope
 
