@@ -1,7 +1,8 @@
 # Wayfinder map: POS advance on current infra
 
 Labels: wayfinder:map
-Status: doing
+Status: done
+Assignee: opencode
 
 ## Destination
 
@@ -24,6 +25,10 @@ broken. Done when each frontier ticket is live-proved with chain green.
 ## Decisions so far
 
 - [Sidebar mode-based groups](165-sidebar-mode-groups.md): unified catalog + mode matrices + intersection, live-proved.
+- [POS offline catalog fallback](166-pos-offline-catalog.md): cached scan/search/estimate, server re-prices on sync.
+- [PWA shell + release hardening](167-pwa-shell-release-hardening.md): offline shell + build-then-reload deploy + gated releases, live-proved.
+- [POS anomaly triage](164-pos-anomaly-triage.md): print traced to receipt width/logo causes.
+- [POS receipt width + logo](168-pos-receipt-width-logo.md): 58/72/80 pref + @page size + logo line, live-proved.
 
 ## Not yet specified
 
