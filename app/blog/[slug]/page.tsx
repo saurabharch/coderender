@@ -16,8 +16,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = getDb().prepare("SELECT * FROM Post WHERE slug=? AND published=1").get(slug) as
-    { title: string; body: string; cover: string; createdAt: string } | undefined;
+    { id: number; title: string; body: string; cover: string; createdAt: string } | undefined;
   if (!post) notFound();
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    getDb().prepare("INSERT INTO PostView (postId, day, views) VALUES (?,?,1) ON CONFLICT(postId, day) DO UPDATE SET views=views+1")
+      .run(post.id, day);
+  } catch { /* analytics never break reads */ }
   return (
     <div className="wrap section max-w-3xl">
       {post.cover ? (

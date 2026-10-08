@@ -112,7 +112,9 @@ export function getDb(): DatabaseSync {
       title TEXT NOT NULL, excerpt TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
       published INTEGER NOT NULL DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
-    db.exec(`CREATE TABLE IF NOT EXISTS Comment (
+    db.exec(`CREATE TABLE IF NOT EXISTS PostView (
+      postId INTEGER NOT NULL, day TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (postId, day))`);    db.exec(`CREATE TABLE IF NOT EXISTS Comment (
       id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, name TEXT NOT NULL,
       body TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
       resourceType TEXT NOT NULL DEFAULT '', resourceId TEXT NOT NULL DEFAULT '',

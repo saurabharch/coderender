@@ -270,15 +270,21 @@ export default function Home() {
             { ini: "DK", t: "Clinic owner (placeholder)", d: "Before: empty new calendar. After: full books in 3 months on reviews.", real: false },
             { ini: "GR", t: "Gym owner (placeholder)", d: "Before: quiet trial desk. After: trials doubled with instant replies.", real: false },
           ]).map(({ ini, t, d, real }) => (
-            <figure key={t} className="glass rounded-2xl p-5">
+            <figure key={t} className="glass relative overflow-hidden rounded-2xl p-5">
+              <span aria-hidden className="pointer-events-none absolute -top-3 right-2 text-[64px] font-extrabold leading-none text-brand/15">”</span>
               <div className="flex items-center gap-3">
-                <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-deep dark:bg-white/10">{ini}</span>
-                <div>
-                  <figcaption className="text-sm font-semibold">— {t}</figcaption>
-                  <p aria-label="5 out of 5 stars" className="flex gap-0.5">{[0,1,2,3,4].map((i) => <Star key={i} size={12} className="fill-amber-400 text-amber-400" />)}</p>
+                <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-deep dark:bg-white/10">{ini}</span>
+                <div className="min-w-0">
+                  <figcaption className="truncate text-sm font-semibold">— {t}</figcaption>
+                  {real ? (
+                    <p className="mt-0.5 inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">✓ Verified client</p>
+                  ) : (
+                    <p className="mt-0.5 inline-block rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-semibold text-zinc-500 dark:bg-white/10">Sample story</p>
+                  )}
                 </div>
               </div>
-              <blockquote className="mt-3 text-sm">“{d}”</blockquote>
+              <blockquote className="mt-3 text-sm">{d}</blockquote>
+              <p aria-label="5 out of 5 stars" className="mt-2 flex gap-0.5">{[0,1,2,3,4].map((i) => <Star key={i} size={12} className="fill-amber-400 text-amber-400" />)}</p>
             </figure>
           ))}
         </div>

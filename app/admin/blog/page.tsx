@@ -42,6 +42,14 @@ async function moderate(form: FormData) {
 export default async function BlogAdmin() {
   const posts = getDb().prepare("SELECT * FROM Post ORDER BY id DESC LIMIT 100").all() as
     { id: number; slug: string; title: string; excerpt: string; body: string; published: number }[];
+  const views = Object.fromEntries(getDb().prepare(
+    "SELECT postId, COALESCE(SUM(views),0) v FROM PostView GROUP BY postId").all()
+    .map((r) => [(r as { postId: number }).postId, (r as { v: number }).v])) as Record<number, number>;
+  const comments = Object.fromEntries(getDb().prepare(
+    "SELECT postId, COUNT(*) n FROM Comment WHERE status='approved' GROUP BY postId").all()
+    .map((r) => [(r as { postId: number }).postId, (r as { n: number }).n])) as Record<number, number>;
+  const top = [...posts].filter((p) => p.published)
+    .sort((a, b) => (views[b.id] ?? 0) - (views[a.id] ?? 0)).slice(0, 3);
   const pending = getDb().prepare(
     "SELECT c.id, c.name, c.body, p.title FROM Comment c JOIN Post p ON p.id=c.postId WHERE c.status='pending' ORDER BY c.id DESC LIMIT 50").all() as
     { id: number; name: string; body: string; title: string }[];
@@ -61,10 +69,20 @@ export default async function BlogAdmin() {
         <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save post</button>
       </form>
       <h2 className="mt-6 font-bold">Posts ({posts.length})</h2>
+      {top.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+          {top.map((p, i) => (
+            <span key={p.id} className="rounded-full bg-brand/10 px-3 py-1.5 font-semibold text-brand-deep">
+              #{i + 1} {p.title.slice(0, 28)} · {views[p.id] ?? 0} views
+            </span>
+          ))}
+        </div>
+      )}
       <ul className="mt-2 space-y-1 text-sm">
         {posts.map((p) => (
           <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 p-2 dark:border-white/10">
-            <span><a className="underline" href={`/blog/${p.slug}`}>{p.title}</a> · {p.published ? "live" : "draft"}</span>
+            <span><a className="underline" href={`/blog/${p.slug}`}>{p.title}</a> · {p.published ? "live" : "draft"}
+              <span className="text-xs text-zinc-500"> · {views[p.id] ?? 0} views · {comments[p.id] ?? 0} comments</span></span>
             <form action={remove}><input type="hidden" name="id" value={p.id} />
               <button className="min-h-[44px] rounded-xl border border-black/15 px-3 dark:border-white/20">Delete</button></form>
           </li>
