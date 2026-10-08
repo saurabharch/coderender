@@ -20,6 +20,31 @@ export function toBase(qty: number, unit: string, perPack = 1): { qty: number; u
 
 export interface TaxSplit { cgst: number; sgst: number; igst: number; total: number }
 
+// HSN/SAC: 4–8 digits, trimmed. Anything else stores as empty (never junk).
+export function parseHsn(v: unknown): string {
+  const s = String(v ?? "").replace(/\D/g, "").slice(0, 8);
+  return s.length >= 4 ? s : "";
+}
+
+// Composition levy: flat pct on turnover, never collected as tax.
+export function compositionDue(turnover: number, ratePct: number): number {
+  const r = Math.max(0, ratePct);
+  if (r === 0 || turnover <= 0) return 0;
+  return Math.round((Math.max(0, turnover) * r) / 100);
+}
+
+export interface DatedRate { pct: number; startsAt: string; endsAt: string }
+
+// Effective library rate for a day: dated window wins, else undated rows,
+// highest pct on ties (conservative). Empty = no rate.
+export function rateEffective(rates: DatedRate[], day: string): number | null {
+  const d = day.slice(0, 10);
+  const dated = rates.filter((r) => r.startsAt && r.startsAt <= d && (!r.endsAt || r.endsAt >= d));
+  const pool = dated.length ? dated : rates.filter((r) => !r.startsAt && !r.endsAt);
+  if (!pool.length) return null;
+  return Math.max(...pool.map((r) => Math.max(0, r.pct)));
+}
+
 // ratePct like 18; inter=true → IGST else CGST+SGST halves. Inclusive backs tax out.
 export function splitTax(amount: number, ratePct: number, inter: boolean, inclusive: boolean): TaxSplit {
   const r = Math.max(0, ratePct);

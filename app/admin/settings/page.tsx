@@ -141,8 +141,19 @@ async function saveTaxRate(form: FormData) {  "use server";
     pct: Math.max(0, Number(form.get("pct") || 0)),
     inter: form.get("inter") === "on",
     inclusive: form.get("inclusive") !== "off",
+    startsAt: String(form.get("startsAt") || ""),
+    endsAt: String(form.get("endsAt") || ""),
   });
   revalidatePath("/admin/settings");
+}
+
+async function saveComposition(form: FormData) {  "use server";
+  await requireTeam();
+  // Composition scheme: flat levy on turnover, never collected as tax.
+  // No statutory rates are seeded here — the owner sets their own scheme.
+  setPref("tax_composition", form.get("tax_composition") === "on" ? "on" : "off");
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/shop");
 }
 
 async function toggleTaxRate(form: FormData) {  "use server";
@@ -524,9 +535,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {tab === "tax" && (<>
       <h2 className="mt-6 font-bold">Tax rates (GST-ready: rate table, CGST/SGST vs IGST per bill)</h2>
       <ul className="mt-2 max-w-xl space-y-1 text-sm">
-        {(listTaxes() as { id: number; name: string; pct: number; inter: number; inclusive: number; active: number }[]).map((t) => (
+        {(listTaxes() as { id: number; name: string; pct: number; inter: number; inclusive: number; active: number; startsAt: string; endsAt: string }[]).map((t) => (
           <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
-            <span>{t.name} · {t.pct}% · {t.inter ? "IGST" : "CGST+SGST"} · {t.inclusive ? "inclusive" : "exclusive"}</span>
+            <span>{t.name} · {t.pct}% · {t.inter ? "IGST" : "CGST+SGST"} · {t.inclusive ? "inclusive" : "exclusive"}{(t.startsAt || t.endsAt) ? ` · ${t.startsAt || "…"}→${t.endsAt || "…"}` : ""}</span>
             <form action={toggleTaxRate} className="flex items-center gap-2">
               <input type="hidden" name="id" value={t.id} />
               <span className={t.active ? "text-xs font-bold text-emerald-700" : "text-xs text-zinc-400"}>{t.active ? "applied" : "off"}</span>
@@ -542,7 +553,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
         <label className="flex min-h-[44px] items-center gap-2 text-sm">
           <input type="checkbox" name="inter" value="on" className="h-5 w-5" /> Inter-state (IGST)</label>
+        <label className="grid gap-1 text-sm">From<input name="startsAt" type="date"
+          className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
+        <label className="grid gap-1 text-sm">To<input name="endsAt" type="date"
+          className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20" /></label>
         <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Add rate</button>
+      </form>
+      <form action={saveComposition} className="mt-2 flex max-w-xl flex-wrap items-center gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        <label className="flex min-h-[44px] items-center gap-2 text-sm">
+          <input type="checkbox" name="tax_composition" value="on" defaultChecked={getPref("tax_composition", "off") === "on"} className="h-5 w-5" />
+          Composition scheme (flat levy on turnover — tax is never collected on bills)</label>
+        <button className="min-h-[44px] rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save scheme</button>
       </form>
       </>)}
       {tab === "flags" && (<>

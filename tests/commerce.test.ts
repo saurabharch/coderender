@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { couponOff, orderCan, quoteCart, resolvePrice, splitTax, toBase } from "@/lib/commerce-core";
+import { compositionDue, couponOff, orderCan, parseHsn, quoteCart, rateEffective, resolvePrice, splitTax, toBase } from "@/lib/commerce-core";
 
 describe("commerce-core", () => {
   it("converts units to base", () => {
@@ -67,5 +67,31 @@ describe("resolvePrice", () => {
     expect(resolvePrice(10000, bulk, { channel: "wholesale", qty: 10 }).price).toBe(5000);
     const expired = [{ priceType: "sale", amount: 1000, minQty: 0, startsAt: "2000-01-01", endsAt: "2000-02-01", active: 1 }];
     expect(resolvePrice(10000, expired, {}).source).toBe("base");
+  });
+});
+
+describe("gst depth", () => {
+  it("parses HSN codes, rejecting junk", () => {
+    expect(parseHsn("3004")).toBe("3004");
+    expect(parseHsn(" 90189099 ")).toBe("90189099");
+    expect(parseHsn("12")).toBe("");
+    expect(parseHsn("abc")).toBe("");
+    expect(parseHsn(undefined)).toBe("");
+  });
+
+  it("computes composition levy on turnover only", () => {
+    expect(compositionDue(100000, 1)).toBe(1000);
+    expect(compositionDue(0, 1)).toBe(0);
+    expect(compositionDue(100000, 0)).toBe(0);
+  });
+
+  it("picks the effective dated rate", () => {
+    const rates = [
+      { pct: 18, startsAt: "", endsAt: "" },
+      { pct: 12, startsAt: "2026-04-01", endsAt: "" },
+    ];
+    expect(rateEffective(rates, "2026-05-01")).toBe(12);
+    expect(rateEffective(rates, "2026-01-01")).toBe(18);
+    expect(rateEffective([], "2026-05-01")).toBe(null);
   });
 });

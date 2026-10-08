@@ -1,8 +1,8 @@
 // Commerce foundation: units, tax, coupons, customers, products, orders.
 // Reuses ledger/notify/flows by event — catalog (services/packages) untouched.
 // Money in paise; math lives in commerce-core.
-import { getDb } from "./store";
-import { couponOff, orderCan, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
+import { getDb, getPref } from "./store";
+import { couponOff, orderCan, parseHsn, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
 import { fefoLots, heldProducts, levelOf, openProductStock, releaseStock, reservedFor, reserveStock, setProductStock } from "./inventory";
 import { eanFromId } from "./barcode-core";
 import { bankMove } from "./billing";
@@ -16,7 +16,7 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Customer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', cgroup TEXT NOT NULL DEFAULT 'retail', tags TEXT NOT NULL DEFAULT '', credit INTEGER NOT NULL DEFAULT 0, balance INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE Customer ADD COLUMN termsDays INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE Customer ADD COLUMN balanceSince TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
-  db.exec(`CREATE TABLE IF NOT EXISTS Product (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sku TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'physical', price INTEGER NOT NULL DEFAULT 0, mrp INTEGER NOT NULL DEFAULT 0, unit TEXT NOT NULL DEFAULT 'pc', perPack INTEGER NOT NULL DEFAULT 1, taxPct REAL NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', media TEXT NOT NULL DEFAULT '[]', seo TEXT NOT NULL DEFAULT '{}', attrs TEXT NOT NULL DEFAULT '{}', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Product (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sku TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'physical', price INTEGER NOT NULL DEFAULT 0, mrp INTEGER NOT NULL DEFAULT 0, unit TEXT NOT NULL DEFAULT 'pc', perPack INTEGER NOT NULL DEFAULT 1, taxPct REAL NOT NULL DEFAULT 0, hsn TEXT NOT NULL DEFAULT '', stock INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', media TEXT NOT NULL DEFAULT '[]', seo TEXT NOT NULL DEFAULT '{}', attrs TEXT NOT NULL DEFAULT '{}', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ShopOrder (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', subtotal INTEGER NOT NULL DEFAULT 0, discount INTEGER NOT NULL DEFAULT 0, tax INTEGER NOT NULL DEFAULT 0, grand INTEGER NOT NULL DEFAULT 0, coupon TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT 'admin', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE ShopOrder ADD COLUMN ikey TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_order_ikey ON ShopOrder(ikey) WHERE ikey != ''"); } catch { /* exists */ }  db.exec(`CREATE TABLE IF NOT EXISTS OrderLine (id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER NOT NULL, productId INTEGER NOT NULL DEFAULT 0, name TEXT NOT NULL, qty REAL NOT NULL DEFAULT 1, price INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0)`);
@@ -32,6 +32,9 @@ export function commerceTables(): void {
   try { db.exec("ALTER TABLE ProductLot ADD COLUMN active INTEGER NOT NULL DEFAULT 1"); } catch { /* exists */ }
   db.exec(`CREATE TABLE IF NOT EXISTS ProductExt (productId INTEGER PRIMARY KEY, kind TEXT NOT NULL DEFAULT '', payload TEXT NOT NULL DEFAULT '{}', updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE Product ADD COLUMN avail TEXT NOT NULL DEFAULT 'in_stock'"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE Product ADD COLUMN hsn TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE TaxRate ADD COLUMN startsAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE TaxRate ADD COLUMN endsAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_lot_product ON ProductLot(productId)`);
   db.exec(`CREATE TABLE IF NOT EXISTS ProductChannel (productId INTEGER NOT NULL, channel TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, onlinePrice INTEGER NOT NULL DEFAULT 0, minQty REAL NOT NULL DEFAULT 0, maxQty REAL NOT NULL DEFAULT 0, PRIMARY KEY (productId, channel))`);
   db.exec(`CREATE TABLE IF NOT EXISTS BundleItem (bundleId INTEGER NOT NULL, productId INTEGER NOT NULL, qty REAL NOT NULL DEFAULT 1, PRIMARY KEY (bundleId, productId))`);
@@ -81,16 +84,17 @@ export function listTaxes(activeOnly = false) {
   return getDb().prepare(`SELECT * FROM TaxRate ${activeOnly ? "WHERE active=1" : ""} ORDER BY pct`).all();
 }
 
-export function saveTax(input: { id?: number; name: string; pct: number; inter?: boolean; inclusive?: boolean; active?: boolean }): number {
+export function saveTax(input: { id?: number; name: string; pct: number; inter?: boolean; inclusive?: boolean; active?: boolean; startsAt?: string; endsAt?: string }): number {
   commerceTables();
   const db = getDb();
+  const day = (v: string | undefined) => (/^\d{4}-\d{2}-\d{2}$/.test(v ?? "") ? (v as string) : "");
   if (input.id) {
-    db.prepare("UPDATE TaxRate SET name=?, pct=?, inter=?, inclusive=?, active=? WHERE id=?")
-      .run(input.name.slice(0, 60), input.pct, input.inter ? 1 : 0, input.inclusive === false ? 0 : 1, input.active === false ? 0 : 1, input.id);
+    db.prepare("UPDATE TaxRate SET name=?, pct=?, inter=?, inclusive=?, active=?, startsAt=?, endsAt=? WHERE id=?")
+      .run(input.name.slice(0, 60), input.pct, input.inter ? 1 : 0, input.inclusive === false ? 0 : 1, input.active === false ? 0 : 1, day(input.startsAt), day(input.endsAt), input.id);
     return input.id;
   }
-  const r = db.prepare("INSERT INTO TaxRate (name, pct, inter, inclusive) VALUES (?,?,?,?)")
-    .run(input.name.slice(0, 60), input.pct, input.inter ? 1 : 0, input.inclusive === false ? 0 : 1);
+  const r = db.prepare("INSERT INTO TaxRate (name, pct, inter, inclusive, startsAt, endsAt) VALUES (?,?,?,?,?,?)")
+    .run(input.name.slice(0, 60), input.pct, input.inter ? 1 : 0, input.inclusive === false ? 0 : 1, day(input.startsAt), day(input.endsAt));
   return Number(r.lastInsertRowid);
 }
 
@@ -169,7 +173,7 @@ export const BARCODES = ["", "isbn", "imei", "ean", "upc", "custom"];
 
 export function saveProduct(input: {
   id?: number; name: string; sku?: string; kind?: string; price?: number; mrp?: number;
-  unit?: string; perPack?: number; taxPct?: number; stock?: number; status?: string;
+  unit?: string; perPack?: number; taxPct?: number; hsn?: string; stock?: number; status?: string;
   media?: string[]; seo?: Record<string, string>; attrs?: Record<string, string>;
   category?: string; subcategory?: string; shortDesc?: string; description?: string;
   specs?: Record<string, string>; images?: string[]; videos?: string[];
@@ -204,14 +208,14 @@ export function saveProduct(input: {
   const vals = [input.name.slice(0, 150), keepStr(input.sku, "sku"), keepStr(input.kind, "kind", "physical"),
     Math.max(0, Math.round(keep(input.price, "price", 0))), Math.max(0, Math.round(keep(input.mrp, "mrp", 0))),
     keepStr(input.unit, "unit", "pc"), Math.max(1, Math.round(keep(input.perPack, "perPack", 1))),
-    Math.max(0, keep(input.taxPct, "taxPct", 0) as number), stockCell,
+    Math.max(0, keep(input.taxPct, "taxPct", 0) as number), parseHsn(keepStr(input.hsn, "hsn", "")), stockCell,
     keepStr(input.status, "status", "active"), media, seo, attrs,
     keepStr(input.category, "category"), keepStr(input.subcategory, "subcategory"),
     keepStr(input.shortDesc, "shortDesc"), keepStr(input.description, "description"), specs, images, videos,
     keepStr(input.barcode, "barcode"), input.barcodeType !== undefined ? bt : keepStr(input.barcodeType, "barcodeType"), keepStr(input.bin, "bin"), behavior];
-  const cols = `name=?, sku=?, kind=?, price=?, mrp=?, unit=?, perPack=?, taxPct=?, stock=?, status=?, media=?, seo=?, attrs=?,
+  const cols = `name=?, sku=?, kind=?, price=?, mrp=?, unit=?, perPack=?, taxPct=?, hsn=?, stock=?, status=?, media=?, seo=?, attrs=?,
     category=?, subcategory=?, shortDesc=?, description=?, specs=?, images=?, videos=?, barcode=?, barcodeType=?, bin=?, behavior=?`;
-  const names = `name, sku, kind, price, mrp, unit, perPack, taxPct, stock, status, media, seo, attrs,
+  const names = `name, sku, kind, price, mrp, unit, perPack, taxPct, hsn, stock, status, media, seo, attrs,
     category, subcategory, shortDesc, description, specs, images, videos, barcode, barcodeType, bin, behavior`;
   if (input.id) {
     db.prepare(`UPDATE Product SET ${cols} WHERE id=?`).run(...vals, input.id);
@@ -624,6 +628,7 @@ export function quote(input: { lines: { productId: number; qty: number }[]; coup
     const c = db.prepare("SELECT cgroup FROM Customer WHERE id=?").get(input.customerId) as { cgroup: string } | undefined;
     cgroup = c?.cgroup ?? "";
   }
+  const composition = getPref("tax_composition", "off") === "on";
   const lines = input.lines.slice(0, 50).map((l) => {
     const p = db.prepare("SELECT id, price, taxPct FROM Product WHERE id=? AND status='active'").get(l.productId) as
       { id: number; price: number; taxPct: number } | undefined;
@@ -631,7 +636,8 @@ export function quote(input: { lines: { productId: number; qty: number }[]; coup
     if (!channelEnabled(l.productId, ch) && ch !== "retail") throw new Error(`product ${l.productId} not sold on ${ch}`);
     const qty = Math.max(0.001, l.qty);
     const { price } = priceFor(l.productId, { channel: ch, qty, cgroup });
-    return { productId: p.id, qty, price, taxPct: p.taxPct };
+    // Composition scheme: tax is never collected, only levied on turnover.
+    return { productId: p.id, qty, price, taxPct: composition ? 0 : p.taxPct };
   });
   const coupon = input.coupon ? getCoupon(input.coupon) ?? undefined : undefined;
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);

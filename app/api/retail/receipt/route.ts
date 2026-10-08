@@ -33,6 +33,7 @@ export async function GET(req: Request) {
     meta: {
       width: parseReceiptWidth(biz("receipt_width") || "72"),
       logo: biz("brand_logo_light"),
+      composition: biz("tax_composition") === "on",
     },
   });
 }

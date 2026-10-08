@@ -8,7 +8,7 @@ export interface ReceiptData {
   lines: { productId: number; name: string; qty: number; price: number; total: number }[];
   payments: { method: string; amount: number; status: string }[];
   business: { name: string; address: string; city: string; state: string; pin: string; gstin: string; phone: string; email: string };
-  meta?: { width?: string; logo?: string };
+  meta?: { width?: string; logo?: string; composition?: boolean };
 }
 
 // Customer copy: business, CRN + tracking barcode, billable lines, money,
@@ -41,6 +41,7 @@ export function PosReceipt({ data, tendered, change, onNew }: {
         {addr ? <p className="text-xs text-zinc-600">{addr}</p> : null}
         {(b.phone || b.email) && <p className="text-xs text-zinc-600">{[b.phone, b.email].filter(Boolean).join(" · ")}</p>}
         {b.gstin ? <p className="font-mono text-xs text-zinc-600">GSTIN {b.gstin}</p> : null}
+        {data.meta?.composition ? <p className="text-xs font-bold text-zinc-600">Composition scheme — tax not collected</p> : null}
       </div>
       <hr className="my-2 border-dashed border-black/20" />
       <p className="flex justify-between font-mono text-xs"><span>{data.crn}</span><span>{o.createdAt.slice(0, 16).replace("T", " ")}</span></p>
