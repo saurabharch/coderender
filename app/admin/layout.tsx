@@ -3,6 +3,7 @@ import { impersonator, sessionUser } from "@/lib/auth";
 import { AdminDrawer } from "@/components/admin-drawer";
 import { MantineShell } from "@/components/mantine-shell";
 import { StaffQuickBar } from "@/components/staff-quickbar";
+import { BrandTheme } from "@/components/brand-theme";
 
 async function stopImpersonate() {
   "use server";
@@ -40,7 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       )}
       <div className="gap-6 md:flex">
         <AdminDrawer email={user.email} role={user.role} />
-        <div className="min-w-0 flex-1"><MantineShell>{children}<StaffQuickBar /></MantineShell></div>
+        <div className="min-w-0 flex-1"><MantineShell>{children}<StaffQuickBar /><BrandTheme admin /></MantineShell></div>
       </div>
     </div>
   );

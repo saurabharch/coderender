@@ -6,7 +6,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: { DEFAULT: "#0d9488", soft: "#ccfbf1", deep: "#0f766e" },
+        brand: {
+          DEFAULT: "rgb(var(--brand) / <alpha-value>)",
+          soft: "rgb(var(--brand-soft) / <alpha-value>)",
+          deep: "rgb(var(--brand-deep) / <alpha-value>)",
+        },
       },
     },
   },

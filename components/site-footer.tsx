@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Phone, Mail, MessageCircle, QrCode, Type, Calculator, MapPin, Info, Briefcase, Handshake, HelpCircle, MessageSquare, ShieldCheck, FileText, RotateCcw, LifeBuoy, Siren, ScrollText, type LucideIcon } from "lucide-react";
 import { CONTACT } from "@/lib/site";
 import pkg from "@/package.json";
-import { Logo } from "./logo";
+import { BrandLogo } from "./brand-theme";
 import { NewsletterForm } from "./newsletter-form";
 
 const APP_VERSION = pkg.version;
@@ -63,7 +63,7 @@ export function SiteFooter() {
       <div className="relative mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-8 md:grid-cols-[1.3fr_1fr_1fr]">
           <div>
-            <Logo />
+            <BrandLogo />
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               Transform your business with seamless multi-channel automation solutions.
             </p>

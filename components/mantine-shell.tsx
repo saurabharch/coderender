@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -29,13 +29,6 @@ const brand: MantineColorsTuple = [
   "#effdf9", "#ccfbf1", "#99f0dd", "#5ee3c3", "#2dd0a5",
   "#0d9488", "#0f766e", "#115e59", "#134e4a", "#042f2e",
 ];
-
-const theme = createTheme({
-  primaryColor: "brand",
-  colors: { brand },
-  fontFamily: "var(--font-body), system-ui, sans-serif",
-  headings: { fontFamily: "var(--font-display), system-ui, sans-serif" },
-});
 
 // next-themes (class) → Mantine scheme bridge. One direction only.
 function SchemeBridge() {
@@ -77,9 +70,29 @@ const SEARCH_ACTIONS: SpotlightActionData[] = [
 
 export function MantineShell({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
+  const [brandTuple, setBrandTuple] = useState<MantineColorsTuple | null>(null);
   useEffect(() => {
     setReady(true);
   }, []);
+  // Dashboard-scoped brand primary (respects the kit scope). Falls back to
+  // the house tuple until the kit loads.
+  useEffect(() => {
+    fetch("/api/brand").then((r) => r.json()).then((d) => {
+      if (d.brand_scope === "public") return;
+      if (typeof d.brand_primary === "string") {
+        import("@/lib/brand").then(({ hexToTuple }) => {
+          const t = hexToTuple(d.brand_primary);
+          if (t && t.length === 10) setBrandTuple(t as unknown as MantineColorsTuple);
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }, []);
+  const liveTheme = useMemo(() => createTheme({
+    primaryColor: "brand",
+    colors: { brand: brandTuple ?? brand },
+    fontFamily: "var(--font-body), system-ui, sans-serif",
+    headings: { fontFamily: "var(--font-display), system-ui, sans-serif" },
+  }), [brandTuple]);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -94,7 +107,7 @@ export function MantineShell({ children }: { children: React.ReactNode }) {
   // self-gates the same way). Providers mount client-side only.
   if (!ready) return <>{children}</>;
   return (
-    <MantineProvider theme={theme} defaultColorScheme="light">
+    <MantineProvider theme={liveTheme} defaultColorScheme="light">
       <SchemeBridge />
       <ProgressBridge />
       <NavigationProgress />

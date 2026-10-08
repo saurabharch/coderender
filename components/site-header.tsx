@@ -8,7 +8,7 @@ import { SERVICES } from "@/lib/services";
 import { NAV_ICONS, VERTICAL_ICONS, SERVICE_ICONS, TOOL_ICONS, palette, orb } from "@/lib/nav-icons";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileMenu, type MenuSection } from "./mobile-menu";
-import { Logo } from "./logo";
+import { BrandLogo } from "./brand-theme";
 
 interface SubItem {
   h: string;
@@ -102,7 +102,7 @@ export function SiteHeader({ announcement }: { announcement?: string }) {
       </div>
       <header className={`sticky top-0 z-40 border-b border-black/10 bg-white/90 backdrop-blur transition-shadow dark:border-white/10 dark:bg-black/80 ${scrolled ? "shadow-lg" : ""}`}>
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
-          <Link href="/" aria-label="coderender home"><Logo wordmark="desktop" /></Link>
+          <Link href="/" aria-label="coderender home"><BrandLogo wordmark="desktop" /></Link>
           <nav className="hidden items-center gap-0 text-[13px] md:flex lg:gap-1 lg:text-sm" aria-label="Primary">
             {menus.map((m) => (
               <div key={m.label} className="group relative">

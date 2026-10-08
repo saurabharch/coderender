@@ -9,7 +9,10 @@ import { sessionUser } from "@/lib/auth";
 import { requireTeam } from "@/lib/auth";
 import { SubTabs } from "@/components/admin-ui";
 import { QUICKBAR_ACTIONS, QUICKBAR_ROLES, quickbarCustom } from "@/lib/quickbar";
-import { AtSign, Ban, Calculator, DatabaseBackup, Flag, IndianRupee, Mail, MonitorSmartphone, Phone, Puzzle, ReceiptText, ShieldCheck, SlidersHorizontal, Store, Timer, Users, Zap } from "lucide-react";
+import { QuickbarEditor } from "@/components/quickbar-editor";
+import { AtSign, Ban, Calculator, DatabaseBackup, Flag, IndianRupee, Mail, MonitorSmartphone, Palette, Phone, Puzzle, ReceiptText, ShieldCheck, SlidersHorizontal, Store, Timer, Users, Zap } from "lucide-react";
+import { BRAND_DEFAULTS } from "@/lib/brand";
+import { BrandingFields } from "@/components/branding-form";
 
 async function save(form: FormData) {
   "use server";
@@ -180,6 +183,27 @@ async function resetQuickbarRole(form: FormData) {  "use server";
   redirect("/admin/settings?tab=quickbar");
 }
 
+async function saveBrand(form: FormData) {  "use server";
+  await requireTeam();
+  const get = (k: string) => String(form.get(k) ?? "").slice(0, 500);
+  const out: Record<string, string> = {};
+  for (const k of ["brand_logo_light", "brand_logo_dark", "brand_stamp_light", "brand_stamp_dark",
+    "brand_banner_light", "brand_banner_dark",
+    "brand_pwa_192", "brand_pwa_512", "brand_pwa_maskable", "brand_pwa_apple"]) {
+    out[k] = get(k);
+  }
+  out.brand_logo_opacity = String(Math.min(100, Math.max(10, Number(form.get("brand_logo_opacity") || 100) || 100)));
+  const primary = get("brand_primary");
+  out.brand_primary = /^#[0-9a-f]{6}$/i.test(primary) ? primary.toLowerCase() : "#0d9488";
+  const { FONT_STACKS, BRAND_SCOPES } = await import("@/lib/brand");
+  out.brand_font = FONT_STACKS.some((f) => f.id === form.get("brand_font")) ? String(form.get("brand_font")) : "default";
+  const scope = String(form.get("brand_scope") || "both");
+  out.brand_scope = (BRAND_SCOPES as readonly string[]).includes(scope) ? scope : "both";
+  for (const [k, v] of Object.entries(out)) setPref(k, v);
+  revalidatePath("/admin/settings");
+  redirect("/admin/settings?tab=branding&saved=1");
+}
+
 async function saveQuickbar(form: FormData) {
   "use server";
   await requireTeam();
@@ -213,10 +237,12 @@ async function savePrices(form: FormData) {  "use server";
   revalidatePath("/pricing");
 }
 
-const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices", "quickbar"] as const;
+const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices", "quickbar", "branding"] as const;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; saved?: string }> }) {
   const sp = await searchParams;
+  const brandInit: Record<string, string> = {};
+  for (const [k, fb] of Object.entries(BRAND_DEFAULTS)) brandInit[k] = getPref(k, fb);
   const raw = sp.tab ?? "general";
   const tab = (SETTING_TABS as readonly string[]).includes(raw) ? raw : "general";
   const saved = sp.saved === "1";
@@ -244,6 +270,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         { id: "flags", label: "Flags", Icon: Flag, href: "/admin/settings?tab=flags" },
         { id: "prices", label: "Prices", Icon: IndianRupee, href: "/admin/settings?tab=prices" },
         { id: "quickbar", label: "Quick bar", Icon: Zap, href: "/admin/settings?tab=quickbar" },
+        { id: "branding", label: "Branding", Icon: Palette, href: "/admin/settings?tab=branding" },
       ]} />
       {tab === "general" && (<>
       <form action={save} className="mt-4 grid max-w-xl gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
@@ -394,38 +421,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {tab === "quickbar" && (<>
       {saved && <p role="status" className="mb-2 rounded-xl bg-emerald-500/15 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">Quick bar saved ✓ — staff bars update on next focus.</p>}
       <h2 className="font-bold">Staff quick bar <span className="text-xs font-normal text-zinc-500">(mobile floating buttons per role — scan stays central)</span></h2>
-      <form action={saveQuickbar} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 dark:border-white/10">
-        {QUICKBAR_ROLES.map((role) => {
-          const cur = (quickbarCustom()[role] ?? []);
-          return (
-            <fieldset key={role} className="grid gap-1 rounded-xl border border-black/10 p-2 dark:border-white/10">
-              <legend className="flex items-center gap-2 px-1 text-sm font-bold capitalize">{role}{cur.length === 0 && <span className="font-normal text-zinc-500"> (defaults)</span>}
-                {cur.length > 0 && (
-                  <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] text-brand-deep">custom</span>
-                )}</legend>
-              <div className="flex flex-wrap gap-1.5">
-                {QUICKBAR_ACTIONS.map((a) => (
-                  <label key={a.id} className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl border border-black/15 px-3 text-sm dark:border-white/20">
-                    <input type="checkbox" name={`qb_${role}`} value={a.id} defaultChecked={cur.includes(a.id)} className="h-5 w-5" />
-                    {a.label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          );
-        })}
-        <div className="flex flex-wrap gap-1.5">
-          <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save quick bar</button>
-        </div>
-        <p className="text-xs text-zinc-500">Reset one role to defaults:</p>
-        <div className="flex flex-wrap gap-1.5">
-          {QUICKBAR_ROLES.filter((role) => (quickbarCustom()[role] ?? []).length > 0).map((role) => (
-            <form key={role} action={resetQuickbarRole}>
-              <input type="hidden" name="role" value={role} />
-              <button className="min-h-[44px] rounded-full border border-black/15 px-3 text-xs font-semibold capitalize dark:border-white/20">↺ {role}</button>
-            </form>
-          ))}
-        </div>
+      <QuickbarEditor initial={quickbarCustom()} save={saveQuickbar} resetRole={resetQuickbarRole} />
+      </>)}
+      {tab === "branding" && (<>
+      {saved && <p role="status" className="mb-2 rounded-xl bg-emerald-500/15 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">Branding saved ✓ — live on next visit.</p>}
+      <h2 className="font-bold">Branding & Theme <span className="text-xs font-normal text-zinc-500">(logos, banners, app icons, palette, type)</span></h2>
+      <form action={saveBrand} className="mt-2 grid max-w-xl gap-3">
+        <BrandingFields initial={brandInit} />
+        <button className="min-h-[48px] w-fit rounded-xl bg-brand px-6 text-sm font-semibold text-white">Save branding</button>
       </form>
       </>)}
       {tab === "prices" && (<>

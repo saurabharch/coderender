@@ -2,7 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light dark; }
+:root {
+  color-scheme: light dark;
+  --brand: 13 148 136;
+  --brand-soft: 204 251 241;
+  --brand-deep: 15 118 110;
+}
 
 html { scroll-behavior: smooth; }
 
