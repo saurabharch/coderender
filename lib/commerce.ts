@@ -2,7 +2,7 @@
 // Reuses ledger/notify/flows by event — catalog (services/packages) untouched.
 // Money in paise; math lives in commerce-core.
 import { getDb, getPref } from "./store";
-import { couponOff, orderCan, parseHsn, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
+import { couponOff, orderCan, parseHsn, quoteCan, quoteCart, resolvePrice, type CouponDef, type PriceRow, type Quote } from "./commerce-core";
 import { fefoLots, heldProducts, levelOf, openProductStock, releaseStock, reservedFor, reserveStock, setProductStock } from "./inventory";
 import { eanFromId } from "./barcode-core";
 import { bankMove } from "./billing";
@@ -16,6 +16,10 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Customer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', cgroup TEXT NOT NULL DEFAULT 'retail', tags TEXT NOT NULL DEFAULT '', credit INTEGER NOT NULL DEFAULT 0, balance INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE Customer ADD COLUMN termsDays INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE Customer ADD COLUMN balanceSince TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+  db.exec(`CREATE TABLE IF NOT EXISTS Quote (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL DEFAULT 0, no TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', version INTEGER NOT NULL DEFAULT 1, validUntil TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', acceptedOrderId INTEGER NOT NULL DEFAULT 0, createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_no ON Quote(no) WHERE no != ''"); } catch { /* exists */ }
+  db.exec(`CREATE TABLE IF NOT EXISTS QuoteLine (id INTEGER PRIMARY KEY AUTOINCREMENT, quoteId INTEGER NOT NULL, version INTEGER NOT NULL DEFAULT 1, productId INTEGER NOT NULL DEFAULT 0, name TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 1, price INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_quoteline_quote ON QuoteLine(quoteId, version)`);
   db.exec(`CREATE TABLE IF NOT EXISTS Product (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sku TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'physical', price INTEGER NOT NULL DEFAULT 0, mrp INTEGER NOT NULL DEFAULT 0, unit TEXT NOT NULL DEFAULT 'pc', perPack INTEGER NOT NULL DEFAULT 1, taxPct REAL NOT NULL DEFAULT 0, hsn TEXT NOT NULL DEFAULT '', stock INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', media TEXT NOT NULL DEFAULT '[]', seo TEXT NOT NULL DEFAULT '{}', attrs TEXT NOT NULL DEFAULT '{}', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS ShopOrder (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', subtotal INTEGER NOT NULL DEFAULT 0, discount INTEGER NOT NULL DEFAULT 0, tax INTEGER NOT NULL DEFAULT 0, grand INTEGER NOT NULL DEFAULT 0, coupon TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT 'admin', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE ShopOrder ADD COLUMN ikey TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
@@ -648,6 +652,110 @@ export function quote(input: { lines: { productId: number; qty: number }[]; coup
     ? { ...coupon, kind: "flat", value: couponOff(subtotal, coupon).off + manual, maxOff: undefined }
     : manual > 0 ? { code: "MANUAL", kind: "flat", value: manual } : undefined;
   return quoteCart(lines, { inter: !!input.inter, inclusive: true, coupon: combined });
+}
+
+// ---- quotes: versioned offers, immutable once written ----
+export interface QuoteInput {
+  customerId?: number; lines: { productId: number; qty: number }[];
+  coupon?: string; inter?: boolean; notes?: string; validDays?: number;
+}
+
+function quoteNo(id: number): string {
+  return `QT-${String(id).padStart(5, "0")}`;
+}
+
+// Snapshot current prices into a new versioned quote (status draft).
+export async function quoteCreate(input: QuoteInput): Promise<number> {
+  commerceTables();
+  const db = getDb();
+  const q = quote({ lines: input.lines, coupon: input.coupon, inter: input.inter });
+  if (!q.lines.length) throw new Error("empty quote");
+  const valid = Math.min(90, Math.max(1, Math.round(input.validDays ?? 15)));
+  const until = new Date(Date.now() + valid * 86400000).toISOString().slice(0, 10);
+  const r = db.prepare("INSERT INTO Quote (customerId, status, version, validUntil, notes) VALUES (?,?,?,?,?)")
+    .run(input.customerId ?? 0, "draft", 1, until, (input.notes ?? "").slice(0, 500));
+  const id = Number(r.lastInsertRowid);
+  db.prepare("UPDATE Quote SET no=? WHERE id=?").run(quoteNo(id), id);
+  const ins = db.prepare("INSERT INTO QuoteLine (quoteId, version, productId, name, qty, price, total) VALUES (?,?,?,?,?,?,?)");
+  for (const l of q.lines) {
+    const p = db.prepare("SELECT name FROM Product WHERE id=?").get(l.productId) as { name: string } | undefined;
+    ins.run(id, 1, l.productId, (p?.name ?? "").slice(0, 150), l.qty, l.price, l.price * l.qty);
+  }
+  return id;
+}
+
+// New version, old rows kept: a quoted version is never mutated.
+export async function quoteRevise(id: number, input: QuoteInput): Promise<number> {
+  commerceTables();
+  const db = getDb();
+  const cur = db.prepare("SELECT version, status FROM Quote WHERE id=?").get(id) as
+    { version: number; status: string } | undefined;
+  if (!cur) throw new Error("no quote");
+  if (cur.status === "accepted") throw new Error("accepted quotes are final");
+  const q = quote({ lines: input.lines, coupon: input.coupon, inter: input.inter });
+  if (!q.lines.length) throw new Error("empty quote");
+  const v = cur.version + 1;
+  const ins = db.prepare("INSERT INTO QuoteLine (quoteId, version, productId, name, qty, price, total) VALUES (?,?,?,?,?,?,?)");
+  for (const l of q.lines) {
+    const p = db.prepare("SELECT name FROM Product WHERE id=?").get(l.productId) as { name: string } | undefined;
+    ins.run(id, v, l.productId, (p?.name ?? "").slice(0, 150), l.qty, l.price, l.price * l.qty);
+  }
+  db.prepare("UPDATE Quote SET version=?, notes=? WHERE id=?").run(v, (input.notes ?? "").slice(0, 500), id);
+  return v;
+}
+
+export function quoteStatus(id: number, to: string): void {
+  commerceTables();
+  const db = getDb();
+  const cur = db.prepare("SELECT status FROM Quote WHERE id=?").get(id) as { status: string } | undefined;
+  if (!cur) throw new Error("no quote");
+  if (!quoteCan(cur.status, to)) throw new Error(`${cur.status} → ${to} not allowed`);
+  db.prepare("UPDATE Quote SET status=? WHERE id=?").run(to, id);
+}
+
+// Acceptance mints a live order. Totals must still match the quoted version —
+// drifted prices refuse with "revise first" instead of silently changing.
+export async function quoteAccept(id: number): Promise<number> {
+  commerceTables();
+  const db = getDb();
+  const cur = db.prepare("SELECT * FROM Quote WHERE id=?").get(id) as
+    { id: number; customerId: number; no: string; status: string; version: number; notes: string } | undefined;
+  if (!cur) throw new Error("no quote");
+  if (cur.status !== "approved") throw new Error("only approved quotes can be accepted");
+  const rows = db.prepare("SELECT productId, qty, price FROM QuoteLine WHERE quoteId=? AND version=?").all(id, cur.version) as
+    { productId: number; qty: number; price: number }[];
+  if (!rows.length) throw new Error("quote has no lines");
+  const live = quote({ lines: rows.map((r) => ({ productId: r.productId, qty: r.qty })) });
+  const quoted = rows.reduce((s, r) => s + r.price * r.qty, 0);
+  const liveNet = live.subtotal - live.discount;
+  if (liveNet !== quoted) throw new Error(`prices changed since v${cur.version} — revise first`);
+  const orderId = await createOrder({
+    customerId: cur.customerId || undefined,
+    lines: rows.map((r) => ({ productId: r.productId, qty: r.qty })),
+    channel: "quote", notes: `accepted ${cur.no} v${cur.version}${cur.notes ? ` · ${cur.notes}` : ""}`.slice(0, 500),
+  });
+  await setOrderStatus(orderId, "confirmed");
+  db.prepare("UPDATE Quote SET status='accepted', acceptedOrderId=? WHERE id=?").run(orderId, id);
+  return orderId;
+}
+
+export function getQuote(id: number) {
+  commerceTables();
+  const db = getDb();
+  const q = db.prepare("SELECT * FROM Quote WHERE id=?").get(id);
+  if (!q) return null;
+  const versions = db.prepare("SELECT DISTINCT version FROM QuoteLine WHERE quoteId=? ORDER BY version").all(id) as { version: number }[];
+  const lines = db.prepare("SELECT * FROM QuoteLine WHERE quoteId=? ORDER BY version, id").all(id);
+  return { ...q as object, versions: versions.map((v) => v.version), lines };
+}
+
+export function listQuotes(status = ""): unknown[] {
+  commerceTables();
+  const db = getDb();
+  const grand = "(SELECT COALESCE(SUM(total),0) FROM QuoteLine l WHERE l.quoteId=q.id AND l.version=q.version) grand";
+  return status
+    ? db.prepare(`SELECT q.*, ${grand} FROM Quote q WHERE status=? ORDER BY id DESC LIMIT 100`).all(status)
+    : db.prepare(`SELECT q.*, ${grand} FROM Quote q ORDER BY id DESC LIMIT 100`).all();
 }
 
 export async function createOrder(input: {

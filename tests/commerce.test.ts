@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compositionDue, couponOff, orderCan, parseHsn, quoteCart, rateEffective, resolvePrice, splitTax, toBase } from "@/lib/commerce-core";
+import { compositionDue, couponOff, orderCan, parseHsn, quoteCan, quoteCart, rateEffective, resolvePrice, splitTax, toBase } from "@/lib/commerce-core";
 
 describe("commerce-core", () => {
   it("converts units to base", () => {
@@ -93,5 +93,16 @@ describe("gst depth", () => {
     expect(rateEffective(rates, "2026-05-01")).toBe(12);
     expect(rateEffective(rates, "2026-01-01")).toBe(18);
     expect(rateEffective([], "2026-05-01")).toBe(null);
+  });
+});
+
+describe("quote status machine", () => {
+  it("walks draft to accepted, never mutating finals", () => {
+    expect(quoteCan("draft", "sent")).toBe(true);
+    expect(quoteCan("sent", "approved")).toBe(true);
+    expect(quoteCan("approved", "accepted")).toBe(true);
+    expect(quoteCan("accepted", "sent")).toBe(false);
+    expect(quoteCan("draft", "accepted")).toBe(false);
+    expect(quoteCan("rejected", "approved")).toBe(false);
   });
 });

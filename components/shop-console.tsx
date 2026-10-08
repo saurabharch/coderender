@@ -19,6 +19,11 @@ interface Coupon { code: string; kind: string; value: number; active: number }
 export function ShopConsole() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  interface QuoteRow { id: number; no: string; status: string; version: number; grand: number; validUntil: string; acceptedOrderId: number }
+  const [quotes, setQuotes] = useState<QuoteRow[]>([]);
+  const [qlines, setQlines] = useState<{ pid: string; qty: string }[]>([{ pid: "", qty: "1" }]);
+  const [qcust, setQcust] = useState("");
+  const [qedit, setQedit] = useState<number | null>(null);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState("");
@@ -85,14 +90,16 @@ export function ShopConsole() {
   const [channels, setChannels] = useState<Record<string, { enabled: boolean }>>({});
 
   async function load() {
-    const [p, o, c, h] = await Promise.all([
+    const [p, o, c, h, q] = await Promise.all([
       fetch("/api/shop/products").then((r) => r.json()).catch(() => null),
       fetch("/api/shop/orders").then((r) => r.json()).catch(() => null),
+      fetch("/api/shop/quotes").then((r) => r.json()).catch(() => null),
       fetch("/api/shop/pricing").then((r) => r.json()).catch(() => null),
       fetch("/api/finance?view=hero").then((r) => r.json()).catch(() => null),
     ]);
     if (p?.products) setProducts(p.products);
     if (o?.orders) setOrders(o.orders);
+    if (q?.quotes) setQuotes(q.quotes);
     if (c?.coupons) setCoupons(c.coupons);
     if (h?.slides) setSlides(h.slides);
     setLoaded(true);
@@ -207,6 +214,58 @@ export function ShopConsole() {
     setGenerating(false);
     setMsg(`Matrix done ✓ ${n} variants`);
     void load();
+  }
+
+  const quoteLines = () => qlines
+    .filter((l) => l.pid && Number(l.qty) > 0)
+    .map((l) => ({ productId: Number(l.pid), qty: Number(l.qty) }));
+
+  function quoteNext(status: string): string[] {
+    return status === "draft" ? ["sent"]
+      : status === "sent" ? ["approved", "rejected", "expired"]
+      : status === "approved" ? ["expired"] : [];
+  }
+
+  async function quoteSave(editId: number | null) {
+    const lines = quoteLines();
+    if (!lines.length) { setMsg("Add at least one line."); return; }
+    const body = editId === null
+      ? { op: "create", lines, ...(qcust.trim() ? { customerId: Number(qcust) } : {}) }
+      : { op: "revise", id: editId, lines };
+    const res = await fetch("/api/shop/quotes", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? (editId === null ? `Quoted ${d.quote?.no ?? ""} ✓` : `Saved v${d.version} ✓`) : (d.error ?? "failed"));
+    if (res.ok) { setQlines([{ pid: "", qty: "1" }]); setQcust(""); setQedit(null); void load(); }
+  }
+
+  async function quoteLoad(id: number) {
+    const d = await fetch(`/api/shop/quotes?id=${id}`).then((r) => r.json()).catch(() => null);
+    const q = d?.quote;
+    if (!q) { setMsg("quote gone"); return; }
+    const cur = (q.lines as { productId: number; qty: number; version: number }[]).filter((l) => l.version === q.version);
+    setQlines(cur.map((l) => ({ pid: String(l.productId), qty: String(l.qty) })));
+    setQedit(id);
+    setMsg(`Revising ${q.no} (currently v${q.version}) — saving writes a new version.`);
+  }
+
+  async function quoteMove(id: number, to: string) {
+    const res = await fetch("/api/shop/quotes", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "status", id, to }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Quote ${to} ✓` : (d.error ?? "failed"));
+    if (res.ok) void load();
+  }
+
+  async function quoteAcceptGo(id: number) {
+    const res = await fetch("/api/shop/quotes", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "accept", id }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Accepted → order #${d.orderId} ✓` : (d.error ?? "failed"));
+    if (res.ok) void load();
   }
 
   async function addCoupon() {
@@ -697,6 +756,62 @@ export function ShopConsole() {
                     <button key={to} onClick={() => void move(o.id, to)}
                       className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">{to}</button>
                   ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
+      <AdminCard>
+        <p className="font-bold">Quotes ({quotes.length}) <span className="text-xs font-normal text-zinc-500">(versioned offers — acceptance mints an order)</span></p>
+        <div className="mt-2 grid gap-1.5">
+          {qlines.map((l, i) => (
+            <div key={i} className="flex flex-wrap gap-1.5">
+              <div className="min-w-[140px] flex-1"><ProductPicker value={l.pid} placeholder="Product…" onPick={(x) => setQlines((ss) => ss.map((y, j) => (j === i ? { ...y, pid: x ? String(x.id) : "" } : y)))} /></div>
+              <input value={l.qty} onChange={(e) => setQlines((ss) => ss.map((y, j) => (j === i ? { ...y, qty: e.target.value } : y)))} placeholder="Qty" inputMode="decimal"
+                className="min-h-[44px] w-20 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              {qlines.length > 1 && (
+                <button onClick={() => setQlines((ss) => ss.filter((_, j) => j !== i))} aria-label="Remove line"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 dark:border-white/20">✕</button>
+              )}
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-1.5">
+            <button onClick={() => setQlines((ss) => [...ss, { pid: "", qty: "1" }])}
+              className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">+ Line</button>
+            <input value={qcust} onChange={(e) => setQcust(e.target.value)} placeholder="Customer id (optional)" inputMode="numeric"
+              className="min-h-[44px] w-40 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+            {qedit === null ? (
+              <button onClick={() => void quoteSave(null)} disabled={!qlines.some((l) => l.pid)}
+                className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">New quote</button>
+            ) : (
+              <>
+                <button onClick={() => void quoteSave(qedit)} disabled={!qlines.some((l) => l.pid)}
+                  className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save as new version</button>
+                <button onClick={() => { setQedit(null); setQlines([{ pid: "", qty: "1" }]); }}
+                  className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Cancel</button>
+              </>
+            )}
+          </div>
+        </div>
+        {quotes.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {quotes.map((q) => (
+              <li key={q.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span className="flex flex-wrap items-center gap-1.5">{q.no} v{q.version} · ₹{(q.grand / 100).toFixed(0)} · <StatusBadge status={q.status} />{q.acceptedOrderId ? ` → order #${q.acceptedOrderId}` : ""}</span>
+                <span className="flex flex-wrap gap-1">
+                  {quoteNext(q.status).map((to) => (
+                    <button key={to} onClick={() => void quoteMove(q.id, to)}
+                      className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">{to}</button>
+                  ))}
+                  {q.status === "approved" && (
+                    <button onClick={() => void quoteAcceptGo(q.id)}
+                      className="min-h-[44px] rounded-xl bg-brand px-3 text-xs font-semibold text-white">Accept → order</button>
+                  )}
+                  {q.status !== "accepted" && (
+                    <button onClick={() => void quoteLoad(q.id)}
+                      className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Revise</button>
+                  )}
                 </span>
               </li>
             ))}

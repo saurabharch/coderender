@@ -44,4 +44,4 @@ green and CI green.
 - [Receivables aging, terms, write-off](175-receivables-aging.md) — done (terms/overdue/statement/write-off live-proved)
 - [GST depth: HSN, composition, versioned rules](176-gst-depth.md) — done (HSN/composition/rate windows live-proved)
 - [CSV import pipeline](177-csv-import-pipeline.md) — done (preview UI + batch rollback live-proved)
-- [Quote versioning and acceptance](178-quote-versioning.md) — frontier
+- [Quote versioning and acceptance](178-quote-versioning.md) — done (versions immutable, accept mints linked order)

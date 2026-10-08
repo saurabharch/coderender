@@ -146,3 +146,17 @@ export function resolvePrice(base: number, rows: PriceRow[], opts: {
 export function orderCan(from: string, to: string): boolean {
   return (ORDER_FLOW[from] ?? []).includes(to);
 }
+
+export const QUOTE_FLOW: Record<string, string[]> = {
+  draft: ["sent", "cancelled"],
+  sent: ["approved", "rejected", "expired", "cancelled"],
+  approved: ["accepted", "expired"],
+  rejected: [],
+  expired: [],
+  accepted: [],
+  cancelled: [],
+};
+
+export function quoteCan(from: string, to: string): boolean {
+  return (QUOTE_FLOW[from] ?? []).includes(to);
+}
