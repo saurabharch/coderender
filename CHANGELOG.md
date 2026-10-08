@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.83.1] - 2026-10-08
+## [0.83.2] - 2026-10-08
+- Balanced books proof## [0.83.1] - 2026-10-08
 - Receipt width## [0.83.0] - 2026-10-08
 - PWA shell and gates## [0.82.0] - 2026-10-08
 - Offline catalog## [0.81.0] - 2026-10-08
