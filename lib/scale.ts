@@ -4,6 +4,10 @@ import { getDb } from "./store";
 import { buildCsv, hasPerm, parseCsv, rolePerms, royaltyDue, type Perm } from "./scale-core";
 
 export function scaleTables(): void {
+  try {
+    getDb().exec(`CREATE TABLE IF NOT EXISTS ImportBatch (id INTEGER PRIMARY KEY AUTOINCREMENT, what TEXT NOT NULL, total INTEGER NOT NULL DEFAULT 0, ok INTEGER NOT NULL DEFAULT 0, actor TEXT NOT NULL DEFAULT '', rolledBack INTEGER NOT NULL DEFAULT 0, at TEXT NOT NULL DEFAULT (datetime('now')))`);
+    getDb().exec(`CREATE TABLE IF NOT EXISTS ImportRow (batchId INTEGER NOT NULL, refId INTEGER NOT NULL, PRIMARY KEY (batchId, refId))`);
+  } catch { /* tables exist */ }
   const db = getDb();
   db.exec(`CREATE TABLE IF NOT EXISTS Channel (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'marketplace', active INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE TABLE IF NOT EXISTS Franchisee (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, territory TEXT NOT NULL DEFAULT '', branchId INTEGER NOT NULL DEFAULT 0, royaltyPct REAL NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, joinedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
@@ -127,11 +131,12 @@ export function exportCsv(what: "products" | "customers" | "stock"): string {
   return buildCsv(["id", "name", "sku", "kind", "price", "mrp", "unit", "taxPct", "stock", "status", "category", "barcode", "barcodeType"], rows);
 }
 
-export async function importCsv(what: "products" | "customers", text: string, actor = ""): Promise<{ ok: number; errors: string[] }> {
+export async function importCsv(what: "products" | "customers", text: string, actor = ""): Promise<{ ok: number; errors: string[]; batchId: number }> {
   scaleTables();
   const { headers, rows } = parseCsv(text.slice(0, 500000));
   const errors: string[] = [];
   let ok = 0;
+  const made: number[] = [];
   const db = getDb();
   if (what === "products") {
     if (!headers.includes("name") || !headers.includes("price")) throw new Error("need name,price columns");
@@ -154,7 +159,7 @@ export async function importCsv(what: "products" | "customers", text: string, ac
           barcode = v.normalized;
           barcodeType = ["isbn", "imei", "ean", "upc", "custom"].includes(r.barcodeType) ? r.barcodeType : undefined;
         }
-        saveProduct({
+        const pid = saveProduct({
           name: r.name, sku: r.sku ?? "", price: Math.max(0, Math.round(Number(r.price) || 0)),
           mrp: Math.max(0, Math.round(Number(r.mrp) || 0)), unit: r.unit || "pc",
           taxPct: Math.max(0, Number(r.taxPct) || 0), stock: Math.max(0, Math.round(Number(r.stock) || 0)),
@@ -164,9 +169,9 @@ export async function importCsv(what: "products" | "customers", text: string, ac
           barcodeType,
         });
         ok++;
+        made.push(pid);
         if (barcode) {
           const { assignBarcode } = await import("./barcode");
-          const pid = (db.prepare("SELECT id FROM Product WHERE name=? ORDER BY id DESC LIMIT 1").get(r.name) as { id: number }).id;
           try { assignBarcode({ code: barcode, productId: pid, primary: true }); } catch { /* row kept */ }
         }
       } catch (e) {
@@ -180,15 +185,70 @@ export async function importCsv(what: "products" | "customers", text: string, ac
       try {
         const r = rows[i];
         if (!r.name) throw new Error("name required");
-        saveCustomer({ name: r.name, phone: r.phone ?? "", email: r.email ?? "", cgroup: r.cgroup || "retail", tags: r.tags ?? "" });
+        made.push(saveCustomer({ name: r.name, phone: r.phone ?? "", email: r.email ?? "", cgroup: r.cgroup || "retail", tags: r.tags ?? "" }));
         ok++;
       } catch (e) {
         errors.push(`row ${i + 2}: ${e instanceof Error ? e.message : "bad row"}`);
       }
     }
   }
-  audit(actor, `import.${what}`, "", `${ok} ok, ${errors.length} errors`);
-  return { ok, errors: errors.slice(0, 20) };
+  const batchId = Number(db.prepare("INSERT INTO ImportBatch (what, total, ok, actor) VALUES (?,?,?,?)")
+    .run(what, Math.min(rows.length, 500), ok, actor.slice(0, 120)).lastInsertRowid);
+  if (made.length) {
+    const ins = db.prepare("INSERT OR IGNORE INTO ImportRow (batchId, refId) VALUES (?,?)");
+    for (const id of made) { try { ins.run(batchId, id); } catch { /* keep */ } }
+  }
+  audit(actor, `import.${what}`, String(batchId), `${ok} ok, ${errors.length} errors`);
+  return { ok, errors: errors.slice(0, 20), batchId };
+}
+
+export function listBatches(limit = 20) {
+  scaleTables();
+  return getDb().prepare("SELECT b.*, (SELECT COUNT(*) FROM ImportRow r WHERE r.batchId=b.id) refs FROM ImportBatch b ORDER BY b.id DESC LIMIT ?").all(limit);
+}
+
+// Guarded undo: removes batch rows that never touched trade (no order lines,
+// no live stock, no customer orders/balance). Touched rows are reported as
+// skipped, never force-deleted. Owner/manager-gated at the route.
+export function rollbackImport(batchId: number, actor = ""): { removed: number; skipped: number } {
+  scaleTables();
+  const db = getDb();
+  const batch = db.prepare("SELECT * FROM ImportBatch WHERE id=?").get(batchId) as
+    { id: number; what: string; rolledBack: number } | undefined;
+  if (!batch) throw new Error("no batch");
+  if (batch.rolledBack) throw new Error("already rolled back");
+  const refs = db.prepare("SELECT refId FROM ImportRow WHERE batchId=?").all(batchId) as { refId: number }[];
+  let removed = 0, skipped = 0;
+  db.exec("BEGIN");
+  try {
+    for (const { refId } of refs) {
+      if (batch.what === "products") {
+        const used = db.prepare("SELECT id FROM OrderLine WHERE productId=? LIMIT 1").get(refId);
+        const stocked = db.prepare("SELECT qty FROM StockLevel WHERE productId=?").all(refId) as { qty: number }[];
+        const live = stocked.some((s) => s.qty !== 0);
+        if (used || live) { skipped++; continue; }
+        db.prepare("DELETE FROM Barcode WHERE productId=?").run(refId);
+        db.prepare("DELETE FROM ProductPrice WHERE productId=?").run(refId);
+        db.prepare("DELETE FROM ProductVariant WHERE productId=?").run(refId);
+        db.prepare("DELETE FROM StockLevel WHERE productId=?").run(refId);
+        db.prepare("DELETE FROM Product WHERE id=?").run(refId);
+        removed++;
+      } else {
+        const ordered = db.prepare("SELECT id FROM ShopOrder WHERE customerId=? LIMIT 1").get(refId);
+        const bal = db.prepare("SELECT balance FROM Customer WHERE id=?").get(refId) as { balance: number } | undefined;
+        if (ordered || (bal && bal.balance !== 0)) { skipped++; continue; }
+        db.prepare("DELETE FROM Customer WHERE id=?").run(refId);
+        removed++;
+      }
+    }
+    db.prepare("UPDATE ImportBatch SET rolledBack=1 WHERE id=?").run(batchId);
+    db.exec("COMMIT");
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch { /* already out */ }
+    throw e;
+  }
+  audit(actor, `import.rollback`, String(batchId), `${removed} removed, ${skipped} skipped`);
+  return { removed, skipped };
 }
 
 // Dry-run: validate every row (incl. barcode check digits + duplicates)

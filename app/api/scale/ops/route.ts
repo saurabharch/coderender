@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { exportCsv, importCsv, recentAudit, roleMatrix } from "@/lib/scale";
+import { exportCsv, importCsv, listBatches, recentAudit, roleMatrix, rollbackImport } from "@/lib/scale";
 import { shopGate } from "@/lib/shop-auth";
 import { scaleGate } from "@/lib/scale-auth";
 
@@ -10,6 +10,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const view = url.searchParams.get("view") || "audit";
   if (view === "roles") return NextResponse.json({ matrix: roleMatrix() });
+  if (view === "batches") return NextResponse.json({ batches: listBatches() });
   const exp = url.searchParams.get("export");
   if (exp === "products" || exp === "customers" || exp === "stock") {
     return new Response(exportCsv(exp), {
@@ -32,13 +33,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "csv required" }, { status: 422 });
     return NextResponse.json({ ok: true, ...(await previewImport(body.import, body.csv)) });
   }
+  if (body?.rollback) {
+    const id = Number(body.rollback) || 0;
+    if (!id) return NextResponse.json({ error: "batch required" }, { status: 422 });
+    try {
+      return NextResponse.json({ ok: true, ...(await import("@/lib/scale").then((m) => m.rollbackImport(id, g.actor))) });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "rollback failed" }, { status: 422 });
+    }
+  }
   if (body?.import !== "products" && body?.import !== "customers")
     return NextResponse.json({ error: "import products|customers" }, { status: 422 });
   if (typeof body?.csv !== "string" || !body.csv.trim())
     return NextResponse.json({ error: "csv required" }, { status: 422 });
   try {
     const r = await importCsv(body.import, body.csv, g.actor);
-    return NextResponse.json({ ok: true, imported: r.ok, errors: r.errors });
+    return NextResponse.json({ ok: true, imported: r.ok, errors: r.errors, batchId: r.batchId });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "import failed" }, { status: 422 });
   }
