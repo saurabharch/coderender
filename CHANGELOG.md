@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.79.1] - 2026-10-08
+## [0.80.0] - 2026-10-08
+- Branding command center## [0.79.1] - 2026-10-08
 - Upload serving## [0.79.0] - 2026-10-08
 - Brand palette## [0.78.0] - 2026-10-08
 - Command center## [0.77.0] - 2026-10-08
