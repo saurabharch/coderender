@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.91.0] - 2026-10-09
+## [0.92.0] - 2026-10-09
+- Dues schedule UI## [0.91.0] - 2026-10-09
 - Installments and UI## [0.90.0] - 2026-10-09
 - Customer statement## [0.89.0] - 2026-10-09
 - Udhari reminders## [0.88.0] - 2026-10-09
