@@ -16,6 +16,9 @@ export function commerceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Customer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', cgroup TEXT NOT NULL DEFAULT 'retail', tags TEXT NOT NULL DEFAULT '', credit INTEGER NOT NULL DEFAULT 0, balance INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE Customer ADD COLUMN termsDays INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE Customer ADD COLUMN balanceSince TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+  db.exec(`CREATE TABLE IF NOT EXISTS DuePlan (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL, total INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS DueSlice (id INTEGER PRIMARY KEY AUTOINCREMENT, planId INTEGER NOT NULL, idx INTEGER NOT NULL DEFAULT 0, dueAt TEXT NOT NULL DEFAULT '', amount INTEGER NOT NULL DEFAULT 0, paid INTEGER NOT NULL DEFAULT 0)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_slice_plan ON DueSlice(planId)`);
   db.exec(`CREATE TABLE IF NOT EXISTS Quote (id INTEGER PRIMARY KEY AUTOINCREMENT, customerId INTEGER NOT NULL DEFAULT 0, no TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', version INTEGER NOT NULL DEFAULT 1, validUntil TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', acceptedOrderId INTEGER NOT NULL DEFAULT 0, createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_no ON Quote(no) WHERE no != ''"); } catch { /* exists */ }
   db.exec(`CREATE TABLE IF NOT EXISTS QuoteLine (id INTEGER PRIMARY KEY AUTOINCREMENT, quoteId INTEGER NOT NULL, version INTEGER NOT NULL DEFAULT 1, productId INTEGER NOT NULL DEFAULT 0, name TEXT NOT NULL DEFAULT '', qty REAL NOT NULL DEFAULT 1, price INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0)`);
@@ -1004,6 +1007,66 @@ export async function udhariStatement(customerId: number) {
   const orders = db.prepare("SELECT id, grand, status, channel, notes, createdAt FROM ShopOrder WHERE customerId=? AND channel='credit' ORDER BY id DESC LIMIT 50").all(customerId);
   const { timeline } = await import("./crm");
   return { customer, orders, events: timeline(customerId) };
+}
+
+// ---- installment plans: dated slices over a dues balance ----
+export function planDues(customerId: number, slices: { dueAt: string; amount: number }[]): number {
+  commerceTables();
+  const db = getDb();
+  const c = db.prepare("SELECT balance FROM Customer WHERE id=?").get(customerId) as { balance: number } | undefined;
+  if (!c) throw new Error("no customer");
+  if (!slices.length || slices.length > 24) throw new Error("1-24 slices");
+  const clean = slices.map((s, i) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s.dueAt)) throw new Error(`slice ${i + 1}: day like YYYY-MM-DD`);
+    const amt = Math.round(s.amount);
+    if (!(amt > 0)) throw new Error(`slice ${i + 1}: amount`);
+    return { dueAt: s.dueAt, amount: amt, idx: i + 1 };
+  });
+  const total = clean.reduce((s, x) => s + x.amount, 0);
+  if (total > c.balance) throw new Error("plan exceeds balance");
+  const pid = Number(db.prepare("INSERT INTO DuePlan (customerId, total) VALUES (?,?)").run(customerId, total).lastInsertRowid);
+  const ins = db.prepare("INSERT INTO DueSlice (planId, idx, dueAt, amount) VALUES (?,?,?,?)");
+  for (const s of clean) ins.run(pid, s.idx, s.dueAt, s.amount);
+  logCustomerSafe(customerId, `installment plan #${pid}: ${clean.length} slices`);
+  return pid;
+}
+
+export function getPlan(planId: number) {
+  commerceTables();
+  const db = getDb();
+  const plan = db.prepare("SELECT * FROM DuePlan WHERE id=?").get(planId);
+  if (!plan) return null;
+  return { ...plan as object, slices: db.prepare("SELECT * FROM DueSlice WHERE planId=? ORDER BY idx").all(planId) };
+}
+
+export function listPlans(customerId: number) {
+  commerceTables();
+  return getDb().prepare("SELECT * FROM DuePlan WHERE customerId=? ORDER BY id DESC LIMIT 20").all(customerId);
+}
+
+// Part-payment: allocate oldest-first, then collect once through the single
+// money path (balance + bank + ledger stay atomic there). Slices only move
+// after the collection succeeds — a failed collect changes nothing.
+export async function payPlan(planId: number, amount: number, method = "cash", accountId = 1): Promise<{ applied: { id: number; amount: number }[]; leftover: number; left: number }> {
+  commerceTables();
+  const db = getDb();
+  const plan = db.prepare("SELECT * FROM DuePlan WHERE id=?").get(planId) as
+    { id: number; customerId: number; status: string } | undefined;
+  if (!plan) throw new Error("no plan");
+  if (plan.status !== "open") throw new Error("plan is closed");
+  const slices = db.prepare("SELECT id, dueAt, amount, paid FROM DueSlice WHERE planId=?").all(planId) as
+    { id: number; dueAt: string; amount: number; paid: number }[];
+  const { allocateSlices } = await import("./credit-core");
+  const { applied, leftover } = allocateSlices(slices, amount);
+  if (!applied.length) throw new Error("nothing open on this plan");
+  const total = applied.reduce((s, a) => s + a.amount, 0);
+  const { left } = collectUdhari(plan.customerId, total, method, accountId);
+  const upd = db.prepare("UPDATE DueSlice SET paid = paid + ? WHERE id=?");
+  for (const a of applied) upd.run(a.amount, a.id);
+  const open = (db.prepare("SELECT COALESCE(SUM(amount - paid),0) s FROM DueSlice WHERE planId=?").get(planId) as { s: number }).s;
+  if (open <= 0) db.prepare("UPDATE DuePlan SET status='closed' WHERE id=?").run(planId);
+  logCustomerSafe(plan.customerId, `plan #${planId} paid ${total} (${applied.length} slices)`);
+  return { applied, leftover, left };
 }
 
 // Owner-only bad-debt write-off: balance shrinks, adjust leg posts, audited.

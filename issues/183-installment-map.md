@@ -20,7 +20,7 @@ lands on the right slice with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [Installment schedules + allocation](184-installment-schedules.md): oldest-first allocation + single-path collection live-proved.
 
 ## Not yet specified
 
@@ -34,5 +34,5 @@ lands on the right slice with chain green and CI green.
 
 ## Children
 
-- [Installment schedules + allocation](184-installment-schedules.md) — frontier
+- [Installment schedules + allocation](184-installment-schedules.md) — done
 - [Dues UI: pay-part + schedule view](185-dues-schedule-ui.md) — blocked by schedules engine

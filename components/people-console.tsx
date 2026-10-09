@@ -447,22 +447,22 @@ export function PeopleConsole() {
   useEffect(() => { void loadRuns(); }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function runPayroll() {
-    const step = async (body: Record<string, unknown>) => {
-      const r = await fetch("/api/people/ops", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
-      return { ok: r.ok, d: await r.json().catch(() => ({})) };
-    };
-    const opened = await step({ month });
-    if (!opened.ok) { setMsg(opened.d.error ?? "failed"); return; }
-    const id = opened.d.id;
-    for (const to of ["reviewed", "approved", "locked"]) {
-      const s = await step({ runstate: id, to });
-      if (!s.ok) { setMsg(`Stuck at ${to}: ${s.d.error ?? "failed"}`); void loadRuns(); return; }
-    }
-    const pay = await step({ pay: id });
-    setMsg(pay.ok ? `Paid ${pay.d.paid} staff ₹${(pay.d.total / 100).toFixed(0)} ✓ (reviewed → approved → locked → paid)` : (pay.d.error ?? "pay failed"));
-    void loadRuns();
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Run opened for ${month} ✓ — review, approve, lock, then pay below.` : (d.error ?? "failed"));
+    if (res.ok) void loadRuns();
+  }
+
+  async function payRunGo(id: number) {
+    if (!confirm("Pay this locked run from Cash? This posts to the ledger.")) return;
+    const res = await fetch("/api/people/ops", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pay: id }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Paid ${d.paid} staff ₹${(d.total / 100).toFixed(0)} ✓` : (d.error ?? "pay failed"));
+    if (res.ok) void loadRuns();
   }
 
   async function advanceRun(id: number, to: string) {
@@ -984,7 +984,7 @@ export function PeopleConsole() {
           <input value={month} onChange={(e) => setMonth(maskYearMonth(e.target.value))} placeholder="YYYY-MM" maxLength={7}
             className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
           <button onClick={() => void runPayroll()}
-            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Open + Pay</button>
+            className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Open run</button>
         </div>
         {runs.length > 0 && (
           <ul className="mt-2 space-y-1 text-sm">
@@ -996,6 +996,7 @@ export function PeopleConsole() {
                   {r.status === "draft" && <button onClick={() => void advanceRun(r.id, "reviewed")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Review</button>}
                   {r.status === "reviewed" && <button onClick={() => void advanceRun(r.id, "approved")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Approve</button>}
                   {r.status === "approved" && <button onClick={() => void advanceRun(r.id, "locked")} className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Lock</button>}
+                  {r.status === "locked" && <button onClick={() => void payRunGo(r.id)} className="min-h-[44px] rounded-xl bg-brand px-3 text-xs font-semibold text-white">Pay</button>}
                 </span>
               </li>
             ))}

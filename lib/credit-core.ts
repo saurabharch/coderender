@@ -43,3 +43,24 @@ export function udhariReminderText(name: string, balancePaise: number, daysOverd
   const who = name.trim() || "friend";
   return `Namaste ${who}, a friendly reminder: ₹${(Math.max(0, balancePaise) / 100).toFixed(0)} has been due for ${Math.max(0, daysOverdue)} day(s). Please pay at the counter or via UPI. — CodeRender`;
 }
+
+export interface SliceState { id: number; dueAt: string; amount: number; paid: number }
+export interface SliceHit { id: number; amount: number }
+
+// Oldest-first allocation across open slices (by due date, then id).
+// Never overpays a slice; leftover is returned, never lost.
+export function allocateSlices(slices: SliceState[], payment: number): { applied: SliceHit[]; leftover: number } {
+  let rest = Math.max(0, Math.round(payment) || 0);
+  const applied: SliceHit[] = [];
+  const open = [...slices]
+    .map((s) => ({ ...s, due: Math.max(0, s.amount - s.paid) }))
+    .filter((s) => s.due > 0)
+    .sort((a, b) => (a.dueAt < b.dueAt ? -1 : a.dueAt > b.dueAt ? 1 : a.id - b.id));
+  for (const s of open) {
+    if (rest <= 0) break;
+    const take = Math.min(s.due, rest);
+    applied.push({ id: s.id, amount: take });
+    rest -= take;
+  }
+  return { applied, leftover: rest };
+}

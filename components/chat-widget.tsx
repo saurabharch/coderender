@@ -489,12 +489,12 @@ export function ChatWidget() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Close AI chat" : "Chat with AI assistant"}
-        className="beam beam-rainbow fixed bottom-24 right-4 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-xl md:flex dark:bg-white dark:text-zinc-900"
+        className="beam beam-rainbow fixed bottom-8 right-6 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-xl md:flex dark:bg-white dark:text-zinc-900"
       >
         {open ? <X size={22} /> : <Bot size={22} />}
       </button>
       {open && (
-        <div className="fixed inset-x-0 bottom-0 top-0 z-50 mx-auto flex flex-col overflow-hidden border-black/10 bg-white shadow-2xl dark:border-white/15 dark:bg-zinc-950 md:inset-x-auto md:bottom-24 md:right-4 md:top-auto md:h-[640px] md:max-h-[80vh] md:w-[380px] md:rounded-3xl md:border" role="dialog" aria-label="AI assistant chat">
+        <div className="fixed inset-x-0 bottom-0 top-0 z-50 mx-auto flex flex-col overflow-hidden border-black/10 bg-white shadow-2xl dark:border-white/15 dark:bg-zinc-950 md:inset-x-auto md:bottom-24 md:right-6 md:top-auto md:h-[640px] md:max-h-[80vh] md:w-[380px] md:rounded-3xl md:border" role="dialog" aria-label="AI assistant chat">
           <div className="flex items-center gap-2 border-b border-black/10 px-4 py-3 dark:border-white/10">
             <AgentAvatar />
             <div className="flex-1">

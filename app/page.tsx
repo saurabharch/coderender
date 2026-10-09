@@ -75,8 +75,8 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          <div className="mt-8 flex justify-center"><IPhoneMock /></div>
-          <dl className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-2 text-center">
+          <div className="mt-8 flex justify-center md:mt-10"><IPhoneMock /></div>
+          <dl className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-2 text-center md:mt-12">
             {[{ v: <CountUp to={10} />, l: "local verticals" }, { v: <CountUp to={6} />, l: "core services" }, { v: <>24/7</>, l: "reply coverage" }].map(({ v, l }) => (
               <div key={l} className="rounded-2xl border border-black/10 px-2 py-3 dark:border-white/10">
                 <dt className="sr-only">{l}</dt>

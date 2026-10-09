@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { collectUdhari, creditSale, setCustomerTerms, udhariList, udhariStatement, writeOffUdhari } from "@/lib/commerce";
+import { collectUdhari, creditSale, getPlan, listPlans, payPlan, planDues, setCustomerTerms, udhariList, udhariStatement, writeOffUdhari } from "@/lib/commerce";
 import { shopGate } from "@/lib/shop-auth";
 import { sessionUser } from "@/lib/auth";
 
@@ -8,7 +8,8 @@ import { sessionUser } from "@/lib/auth";
 export async function GET(req: Request) {
   const deny = await shopGate(req, false);
   if (deny) return deny;
-  const id = Number(new URL(req.url).searchParams.get("statement") || 0);
+  const url = new URL(req.url);
+  const id = Number(url.searchParams.get("statement") || 0);
   if (id) {
     try {
       return NextResponse.json({ ok: true, ...(await udhariStatement(id)) });
@@ -16,6 +17,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 404 });
     }
   }
+  const planId = Number(url.searchParams.get("plan") || 0);
+  if (planId) {
+    const plan = getPlan(planId);
+    return plan ? NextResponse.json({ plan }) : NextResponse.json({ error: "no plan" }, { status: 404 });
+  }
+  const plansFor = Number(url.searchParams.get("plans") || 0);
+  if (plansFor) return NextResponse.json({ plans: listPlans(plansFor) });
   return NextResponse.json({ dues: udhariList() });
 }
 
@@ -36,6 +44,31 @@ export async function POST(req: Request) {
     if (body?.op === "remind") {
       const { udhariReminderTick } = await import("@/lib/vyapar");
       return NextResponse.json({ ok: true, sent: await udhariReminderTick() });
+    }
+    if (body?.op === "plan") {
+      const parsed = z.object({
+        op: z.literal("plan"), customerId: z.number().int(),
+        slices: z.array(z.object({ dueAt: z.string().max(10), amount: z.number().min(1).max(100000000) })).min(1).max(24),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad plan" }, { status: 422 });
+      try {
+        return NextResponse.json({ ok: true, id: planDues(parsed.data.customerId, parsed.data.slices) });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
+    }
+    if (body?.op === "payplan") {
+      const parsed = z.object({
+        op: z.literal("payplan"), planId: z.number().int(),
+        amount: z.number().min(1).max(100000000), method: z.enum(["cash", "upi", "card"]).optional(),
+        accountId: z.number().int().optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad payplan" }, { status: 422 });
+      try {
+        return NextResponse.json({ ok: true, ...(await payPlan(parsed.data.planId, parsed.data.amount, parsed.data.method ?? "cash", parsed.data.accountId ?? 1)) });
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 422 });
+      }
     }
     if (body?.op === "terms") {
       const p2 = z.object({ op: z.literal("terms"), customerId: z.number().int(), days: z.number().min(0).max(365) }).safeParse(body);
