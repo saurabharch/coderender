@@ -1,7 +1,7 @@
 # Wayfinder map: Label batch queue
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -19,7 +19,7 @@ prints correctly with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [Multi-SKU label batch queue](187-label-batch-queue.md): snapshotted queue + combined run live-proved.
 
 ## Not yet specified
 
@@ -31,4 +31,4 @@ prints correctly with chain green and CI green.
 
 ## Children
 
-- [Multi-SKU label batch queue](187-label-batch-queue.md) — frontier
+- [Multi-SKU label batch queue](187-label-batch-queue.md) — done

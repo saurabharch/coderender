@@ -35,6 +35,28 @@ const DEFAULTS: Settings = {
 };
 
 const LS_KEY = "cr_label_settings_v1";
+const BATCH_KEY = "cr_label_batch_v1";
+const BATCH_CAP = 999;
+
+export interface BatchItem {
+  id: number; name: string; price: number; mrp: number;
+  barcode: string; sku: string; copies: number;
+}
+
+function loadBatch(): BatchItem[] {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(BATCH_KEY) || "[]");
+    if (!Array.isArray(v)) return [];
+    return v.filter((x) => Number(x?.id) > 0 && Number(x?.copies) > 0)
+      .map((x) => ({
+        id: Number(x.id), name: String(x.name || "Item").slice(0, 150),
+        price: Math.max(0, Math.round(Number(x.price) || 0)),
+        mrp: Math.max(0, Math.round(Number(x.mrp) || 0)),
+        barcode: String(x.barcode || "").slice(0, 40), sku: String(x.sku || "").slice(0, 40),
+        copies: Math.min(999, Math.max(1, Math.round(Number(x.copies) || 1))),
+      })).slice(0, 50);
+  } catch { return []; }
+}
 
 function loadSaved(): Settings {
   try {
@@ -56,10 +78,12 @@ export function LabelStudio({ product, lots, initial }: {
 }) {
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
   const [ready, setReady] = useState(false);
-  const [view, setView] = useState<"print" | "settings">("print");
+  const [view, setView] = useState<"print" | "batch" | "settings">("print");
   const [copies, setCopies] = useState(initial.copies);
   const [lotId, setLotId] = useState(initial.lot);
   const [mode, setMode] = useState<Mode>(initial.mode);
+  const [batch, setBatch] = useState<BatchItem[]>([]);
+  const [batchReady, setBatchReady] = useState(false);
 
   useEffect(() => {
     let raw: string | null = null;
@@ -70,6 +94,8 @@ export function LabelStudio({ product, lots, initial }: {
       // First visit via an old ?size= link: honor it once, then it persists.
       setSettings((s) => ({ ...s, stW: initial.stW ?? s.stW, stH: initial.stH ?? s.stH }));
     }
+    try { setBatch(loadBatch()); } catch { /* private mode */ }
+    setBatchReady(true);
     setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -84,6 +110,14 @@ export function LabelStudio({ product, lots, initial }: {
     setSettings((s) => ({ ...s, show: { ...s.show, [k]: !s.show[k] } }));
 
   const lot = lots.find((l) => String(l.id) === lotId) ?? lots[0];
+
+  // Batch queue (snapshots: labels are point-in-time, prices confirmed at print).
+  const saveBatch = (next: BatchItem[]) => {
+    setBatch(next);
+    try { window.localStorage.setItem(BATCH_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+  };
+  const batchTotal = batch.reduce((s, b) => s + b.copies, 0);
+  const batchMode = batch.length > 0;
   const isRoll = settings.paper === "roll80" || settings.paper === "roll58";
   const paperW = settings.paper === "roll80" ? 80 : settings.paper === "roll58" ? 58
     : settings.paper === "a4" ? (settings.orient === "portrait" ? 210 : 297)
@@ -108,41 +142,67 @@ export function LabelStudio({ product, lots, initial }: {
   const qrPx = Math.max(24, Math.min(96, Math.round(settings.stW * 3.78 * 0.7)));
   const barH = Math.max(20, Math.min(56, Math.round(settings.stH * 3.78 * 0.35)));
 
-  const sticker = (key: number | string) => (
+  const sticker = (key: number | string, prod?: Prod, lotRow?: Lot | undefined) => {
+    const pd = prod ?? product;
+    const lr = lotRow === undefined ? lot : lotRow;
+    return (
     <div key={key}
       className="flex flex-col items-center justify-center overflow-hidden border border-dashed border-black/40 bg-white text-center text-black print:border-black/30"
       style={{ width: `${settings.stW}mm`, height: `${settings.stH}mm`, padding: "1mm" }}>
-      {settings.show.name && <p className="w-full truncate text-[9px] font-bold leading-tight">{product.name}</p>}
+      {settings.show.name && <p className="w-full truncate text-[9px] font-bold leading-tight">{pd.name}</p>}
       {(settings.show.pid || settings.show.sku) && (
         <p className="font-mono text-[8px] leading-tight text-zinc-700">
-          {settings.show.pid ? `#${product.id}` : ""}{settings.show.pid && settings.show.sku ? " · " : ""}{settings.show.sku ? product.sku || "" : ""}
+          {settings.show.pid ? `#${pd.id}` : ""}{settings.show.pid && settings.show.sku ? " · " : ""}{settings.show.sku ? pd.sku || "" : ""}
         </p>
       )}
       {(settings.show.price || settings.show.mrp) && (
         <p className="text-[11px] font-extrabold leading-tight">
-          {settings.show.price ? `₹${(product.price / 100).toFixed(0)}` : ""}
-          {settings.show.price && settings.show.mrp && product.mrp > product.price ? <span className="ml-1 text-[8px] font-normal text-zinc-500 line-through">₹{(product.mrp / 100).toFixed(0)}</span>
-            : settings.show.mrp && !settings.show.price && product.mrp > 0 ? `MRP ₹${(product.mrp / 100).toFixed(0)}` : ""}
+          {settings.show.price ? `₹${(pd.price / 100).toFixed(0)}` : ""}
+          {settings.show.price && settings.show.mrp && pd.mrp > pd.price ? <span className="ml-1 text-[8px] font-normal text-zinc-500 line-through">₹{(pd.mrp / 100).toFixed(0)}</span>
+            : settings.show.mrp && !settings.show.price && pd.mrp > 0 ? `MRP ₹${(pd.mrp / 100).toFixed(0)}` : ""}
         </p>
       )}
       {(mode === "both" || mode === "qr" || mode === "barcode") && (settings.show.qr || settings.show.barcode) && (
         <div className="mt-0.5 flex max-w-full items-center justify-center gap-1 overflow-hidden">
-          {(mode === "both" || mode === "qr") && settings.show.qr && <QrImg text={product.barcode || String(product.sku || product.name)} size={qrPx} />}
-          {(mode === "both" || mode === "barcode") && settings.show.barcode && <EanBars code={product.barcode} height={barH} />}
+          {(mode === "both" || mode === "qr") && settings.show.qr && <QrImg text={pd.barcode || String(pd.sku || pd.name)} size={qrPx} />}
+          {(mode === "both" || mode === "barcode") && settings.show.barcode && <EanBars code={pd.barcode} height={barH} />}
         </div>
       )}
-      {settings.show.batch && lot && (lot.lot || lot.mfg || lot.exp) && (
-        <p className="text-[8px] leading-tight text-zinc-700">{lot.lot ? `B:${lot.lot} ` : ""}{lot.mfg ? `M:${lot.mfg} ` : ""}{lot.exp ? `E:${lot.exp}` : ""}</p>
+      {settings.show.batch && lr && (lr.lot || lr.mfg || lr.exp) && (
+        <p className="text-[8px] leading-tight text-zinc-700">{lr.lot ? `B:${lr.lot} ` : ""}{lr.mfg ? `M:${lr.mfg} ` : ""}{lr.exp ? `E:${lr.exp}` : ""}</p>
       )}
     </div>
-  );
+    );
+  };
 
-  const sheets: number[] = [];
+  // Print run: batch mode flattens queued items to per-copy units (capped);
+  // single mode keeps the current product × copies behavior.
+  const units: { prod: Prod; lotRow: Lot | undefined }[] = batchMode
+    ? (() => {
+        const out: { prod: Prod; lotRow: Lot | undefined }[] = [];
+        for (const b of batch) {
+          for (let i = 0; i < b.copies && out.length < BATCH_CAP; i++) {
+            out.push({
+              prod: { id: b.id, name: b.name, price: b.price, mrp: b.mrp, barcode: b.barcode, sku: b.sku },
+              lotRow: undefined,
+            });
+          }
+        }
+        return out;
+      })()
+    : Array.from({ length: Math.min(999, copies) }, () => ({ prod: product, lotRow: lot }));
+  const runTotal = batchMode ? units.length : copies;
+  const runRows = isRoll ? Math.ceil(runTotal / cols) : rowsPerSheet;
+  const runPerSheet = isRoll ? runTotal : cols * rowsPerSheet;
+  const runSheets = isRoll ? 1 : Math.max(1, Math.ceil(runTotal / Math.max(1, runPerSheet)));
+  const runTotalH = isRoll ? runRows * settings.stH + Math.max(0, runRows - 1) * settings.gapY + settings.padY * 2 : paperH;
+
+  const sheets: { from: number; n: number }[] = [];
   {
-    let left = copies;
-    for (let i = 0; i < sheetCount; i++) {
-      const n = isRoll ? copies : Math.min(left, perSheet);
-      sheets.push(n);
+    let left = runTotal;
+    for (let i = 0; i < runSheets; i++) {
+      const n = isRoll ? runTotal : Math.min(left, runPerSheet);
+      sheets.push({ from: runTotal - left, n });
       left -= n;
     }
   }
@@ -164,10 +224,10 @@ export function LabelStudio({ product, lots, initial }: {
       }`}</style>
 
       <div className="flex flex-wrap items-center gap-1.5 print:hidden" role="tablist" aria-label="Label studio views">
-        {(["print", "settings"] as const).map((v) => (
+        {(["print", "batch", "settings"] as const).map((v) => (
           <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}
             className={`flex min-h-[44px] items-center rounded-full px-4 text-sm font-semibold ${view === v ? "bg-black text-white dark:bg-white dark:text-black" : "border border-black/15 dark:border-white/20"}`}>
-            {v === "print" ? `Preview & print × ${copies}` : "Paper & content"}
+            {v === "print" ? `Preview & print × ${runTotal}${batchMode ? " (batch)" : ""}` : v === "batch" ? `Batch (${batchTotal})` : "Paper & content"}
           </button>
         ))}
         <span className="ml-auto flex items-center gap-1.5">
@@ -176,6 +236,49 @@ export function LabelStudio({ product, lots, initial }: {
           <Link href="/admin/shop" className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Back</Link>
         </span>
       </div>
+
+      {view === "batch" && batchReady && (
+        <div className="mt-3 grid gap-2 print:hidden">
+          <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
+            <p className="font-bold">Batch queue <span className="text-xs font-normal text-zinc-500">(snapshots on this device · prices as of adding)</span></p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button
+                onClick={() => {
+                  if (batch.some((b) => b.id === product.id)) { saveBatch(batch.map((b) => (b.id === product.id ? { ...b, copies: Math.min(999, b.copies + copies) } : b))); return; }
+                  saveBatch([...batch, {
+                    id: product.id, name: product.name, price: product.price, mrp: product.mrp,
+                    barcode: product.barcode, sku: product.sku, copies: Math.min(999, Math.max(1, copies)),
+                  }].slice(0, 50));
+                }}
+                className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">
+                + Add this product × {copies}</button>
+              {batch.length > 0 && (
+                <button onClick={() => saveBatch([])}
+                  className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Clear batch</button>
+              )}
+            </div>
+            {batch.length === 0 ? <p className="mt-2 text-sm text-zinc-500">Empty — print view uses this product alone until you queue items.</p> : (
+              <ul className="mt-2 space-y-1 text-sm">
+                {batch.map((b) => (
+                  <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                    <span className="min-w-0 flex-1 truncate">{b.name} · ₹{(b.price / 100).toFixed(0)}</span>
+                    <span className="flex items-center gap-1">
+                      <button onClick={() => saveBatch(batch.map((x) => (x.id === b.id ? { ...x, copies: Math.max(1, x.copies - 1) } : x)))} aria-label={`Fewer ${b.name} labels`}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 dark:border-white/20">−</button>
+                      <span className="w-12 text-center font-mono font-bold" aria-live="polite">× {b.copies}</span>
+                      <button onClick={() => saveBatch(batch.map((x) => (x.id === b.id ? { ...x, copies: Math.min(999, x.copies + 1) } : x)))} aria-label={`More ${b.name} labels`}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 dark:border-white/20">+</button>
+                      <button onClick={() => saveBatch(batch.filter((x) => x.id !== b.id))} aria-label={`Remove ${b.name}`}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 dark:border-white/20">✕</button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-1 text-xs text-zinc-500">Total {batchTotal} labels · print tab renders the combined run in queue order.</p>
+          </section>
+        </div>
+      )}
 
       {view === "settings" && (
         <div className="mt-3 grid gap-3 print:hidden">
@@ -206,8 +309,8 @@ export function LabelStudio({ product, lots, initial }: {
               {mmField("Gap down", settings.gapY, (n) => set("gapY", n), 0, 20, 0.5)}
             </div>
             <p className="mt-1 text-xs text-zinc-500">
-              {isRoll ? `Roll ${paperW}mm · ${cols} across · ${rows} rows · ${Math.round(totalH)}mm long · zero waste (exact length).`
-                : `A4 ${settings.orient} · ${cols} × ${rowsPerSheet} = ${perSheet} per sheet · ${sheetCount} sheet${sheetCount === 1 ? "" : "s"} for ${copies}.`}
+              {isRoll ? `Roll ${paperW}mm · ${cols} across · ${runRows} rows · ${Math.round(runTotalH)}mm long · zero waste (exact length).`
+                : `A4 ${settings.orient} · ${cols} × ${rowsPerSheet} = ${runPerSheet} per sheet · ${runSheets} sheet${runSheets === 1 ? "" : "s"} for ${runTotal}${batchMode ? " (batch)" : ""}.`}
             </p>
           </section>
 
@@ -267,10 +370,10 @@ export function LabelStudio({ product, lots, initial }: {
             <p className="w-full text-xs text-zinc-500">Preview below is the print grid, same sheets, same order — what you see is what the printer gets.</p>
           </div>
           <div className="mt-2 grid gap-4 overflow-x-auto pb-2">
-            {sheets.map((n, si) => (
+            {sheets.map(({ from, n }, si) => (
               <div key={si} className="bg-white shadow-sm" style={{
                 width: `${pageW}mm`,
-                ...(isRoll ? { height: `${Math.round(totalH)}mm` } : { minHeight: `${paperH}mm` }),
+                ...(isRoll ? { height: `${Math.round(runTotalH)}mm` } : { minHeight: `${paperH}mm` }),
                 padding: `${settings.padY}mm ${settings.padX}mm`,
                 breakAfter: si === sheets.length - 1 ? "auto" : "page",
               }}>
@@ -282,7 +385,10 @@ export function LabelStudio({ product, lots, initial }: {
                   gap: `${settings.gapY}mm ${settings.gapX}mm`,
                   justifyContent: "start", alignContent: "start",
                 }}>
-                  {Array.from({ length: n }).map((_, i) => sticker(`${si}-${i}`))}
+                  {Array.from({ length: n }).map((_, i) => {
+                    const u = units[from + i];
+                    return sticker(`${si}-${i}`, u?.prod, u?.lotRow);
+                  })}
                 </div>
               </div>
             ))}
