@@ -38,6 +38,14 @@ const nextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
         ],
       },
+      {
+        // Admin HTML must never serve stale across deploys: cached pages
+        // reference rotated chunks and render dead. APIs/static untouched.
+        source: "/admin/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, must-revalidate" },
+        ],
+      },
     ];
   },
 };

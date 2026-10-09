@@ -24,7 +24,7 @@ self.addEventListener("notificationclick", (event) => {
   if (event.waitUntil) event.waitUntil(open);
 });
 
-const CACHE = "cr-shell-v1";
+const CACHE = "cr-shell-v2";
 const SHELL = ["/offline", "/icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
