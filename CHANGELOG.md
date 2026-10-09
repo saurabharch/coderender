@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.105.0] - 2026-10-09
+## [0.106.0] - 2026-10-09
+- Recurring series## [0.105.0] - 2026-10-09
 - Booking confirmations## [0.104.0] - 2026-10-09
 - Public booking## [0.103.0] - 2026-10-09
 - Venue profiles## [0.102.0] - 2026-10-09
