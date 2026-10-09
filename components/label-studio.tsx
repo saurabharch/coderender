@@ -84,6 +84,8 @@ export function LabelStudio({ product, lots, initial }: {
   const [mode, setMode] = useState<Mode>(initial.mode);
   const [batch, setBatch] = useState<BatchItem[]>([]);
   const [batchReady, setBatchReady] = useState(false);
+  const [templates, setTemplates] = useState<{ id: number; name: string; settings: Settings }[]>([]);
+  const [tname, setTname] = useState("");
 
   useEffect(() => {
     let raw: string | null = null;
@@ -95,6 +97,9 @@ export function LabelStudio({ product, lots, initial }: {
       setSettings((s) => ({ ...s, stW: initial.stW ?? s.stW, stH: initial.stH ?? s.stH }));
     }
     try { setBatch(loadBatch()); } catch { /* private mode */ }
+    fetch("/api/shop/labels/templates").then((r) => r.json()).then((d) => {
+      if (Array.isArray(d?.templates)) setTemplates(d.templates);
+    }).catch(() => {});
     setBatchReady(true);
     setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,6 +288,46 @@ export function LabelStudio({ product, lots, initial }: {
       {view === "settings" && (
         <div className="mt-3 grid gap-3 print:hidden">
           <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
+            <p className="font-bold">Templates <span className="text-xs font-normal text-zinc-500">(shared on server · apply merges over this device)</span></p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <input value={tname} onChange={(e) => setTname(e.target.value)} placeholder="Template name" maxLength={60}
+                className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <button onClick={() => void (async () => {
+                if (!tname.trim()) return;
+                const res = await fetch("/api/shop/labels/templates", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ op: "save", name: tname.trim(), settings }),
+                });
+                if (res.ok) {
+                  setTname("");
+                  const d = await fetch("/api/shop/labels/templates").then((r) => r.json()).catch(() => null);
+                  if (Array.isArray(d?.templates)) setTemplates(d.templates);
+                }
+              })()} disabled={!tname.trim()}
+                className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Save current</button>
+            </div>
+            {templates.length > 0 && (
+              <ul className="mt-2 space-y-1 text-sm">
+                {templates.map((tp) => (
+                  <li key={tp.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                    <span className="font-semibold">{tp.name}</span>
+                    <span className="flex gap-1">
+                      <button onClick={() => setSettings((s) => ({ ...s, ...tp.settings, show: { ...s.show, ...(tp.settings.show ?? {}) } }))}
+                        className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white">Apply</button>
+                      <button onClick={() => void (async () => {
+                        await fetch("/api/shop/labels/templates", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ op: "remove", id: tp.id }),
+                        });
+                        setTemplates((ts) => ts.filter((x) => x.id !== tp.id));
+                      })()} aria-label={`Delete template ${tp.name}`}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 dark:border-white/20">✕</button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mb-2" />
             <p className="font-bold">Paper <span className="text-xs font-normal text-zinc-500">(saved on this device)</span></p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {(["roll80", "roll58", "a4", "custom"] as const).map((pp) => (

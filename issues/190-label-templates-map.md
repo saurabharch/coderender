@@ -1,7 +1,7 @@
 # Wayfinder map: Saved label templates
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -18,7 +18,7 @@ Done when a template round-trips server→studio with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [Server label templates](191-server-label-templates.md): validated store + studio apply, hostile-payload proof.
 
 ## Not yet specified
 
@@ -31,4 +31,4 @@ Done when a template round-trips server→studio with chain green and CI green.
 
 ## Children
 
-- [Server label templates](191-server-label-templates.md) — frontier
+- [Server label templates](191-server-label-templates.md) — done
