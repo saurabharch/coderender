@@ -1,7 +1,7 @@
 # Wayfinder map: Label-sheet PDF
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -18,7 +18,7 @@ sheet downloads byte-valid with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [A4 label-sheet PDF](196-label-sheet-pdf.md): studio grid + QR/bars as PDF, byte-proved live.
 
 ## Not yet specified
 
@@ -30,4 +30,4 @@ sheet downloads byte-valid with chain green and CI green.
 
 ## Children
 
-- [A4 label-sheet PDF](196-label-sheet-pdf.md) — frontier
+- [A4 label-sheet PDF](196-label-sheet-pdf.md) — done

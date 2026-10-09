@@ -236,6 +236,29 @@ export function LabelStudio({ product, lots, initial }: {
           </button>
         ))}
         <span className="ml-auto flex items-center gap-1.5">
+          <button onClick={() => void (async () => {
+            const items = batchMode
+              ? batch.flatMap((b) => Array.from({ length: Math.min(999, b.copies) }, () => ({
+                  id: b.id, name: b.name, price: b.price, mrp: b.mrp, barcode: b.barcode, sku: b.sku,
+                }))).slice(0, 200)
+              : Array.from({ length: Math.min(999, copies) }, () => ({
+                  id: product.id, name: product.name, price: product.price, mrp: product.mrp,
+                  barcode: product.barcode, sku: product.sku,
+                }));
+            const res = await fetch("/api/shop/labels/sheet", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items, settings, mode }),
+            });
+            if (!res.ok) return;
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `labels-${items.length}.pdf`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+          })()}
+            className="flex min-h-[44px] items-center rounded-xl border border-brand/40 px-4 text-sm font-semibold text-brand-deep">PDF sheet</button>
           <button onClick={() => window.print()}
             className="flex min-h-[44px] items-center rounded-xl bg-brand px-5 text-sm font-bold text-white">Print</button>
           <Link href="/admin/shop" className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Back</Link>
