@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.107.0] - 2026-10-10
+## [0.107.1] - 2026-10-10
+- Admin cache freshness## [0.107.0] - 2026-10-10
 - Approval queues## [0.106.1] - 2026-10-10
 - Refresh loop fix## [0.106.0] - 2026-10-09
 - Recurring series## [0.105.0] - 2026-10-09
