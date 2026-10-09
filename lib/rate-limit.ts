@@ -20,3 +20,20 @@ export function clientKey(fp: string | undefined, req: Request): string {
   const ip = (req.headers.get("x-forwarded-for") || "anon").split(",")[0].trim();
   return `${fp || "nofp"}|${ip}`;
 }
+
+// Local-access check for the dev-bypass gate: localhost, loopback, and
+// private LAN ranges (same-WiFi phone on the Termux host). Anything else —
+// including the public tunnel hostname — is production, where usable login
+// links must never leave the server.
+export function isLocalHost(host: string | null): boolean {
+  const h = (host || "").split(":")[0].trim().toLowerCase();
+  if (h === "localhost" || h === "127.0.0.1" || h === "::1") return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+  const m = /^172\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(h);
+  if (m) {
+    const n = Number(m[1]);
+    if (n >= 16 && n <= 31) return true;
+  }
+  return false;
+}

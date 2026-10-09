@@ -22,7 +22,7 @@ export default function LoginPage() {
       return;
     }
     setState("sent");
-    setDetail(data.devLink ? `Dev mode — open: ${data.devLink}` : "Check your inbox for the sign-in link.");
+    setDetail(data.devLink ? `Dev mode — open: ${data.devLink}` : data.mailSent ? "Check your inbox for the sign-in link." : "Direct sign-in is disabled for this address — ask the owner.");
   }
 
   return (

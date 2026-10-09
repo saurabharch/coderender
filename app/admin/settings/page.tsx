@@ -304,6 +304,14 @@ async function savePrices(form: FormData) {  "use server";
   revalidatePath("/pricing");
 }
 
+async function saveDevBypass(form: FormData) {
+  "use server";
+  const me = await sessionUser();
+  if (!me || me.role !== "owner") return;
+  setPref("dev_bypass", form.get("dev_bypass") === "on" ? "on" : "off");
+  revalidatePath("/admin/settings");
+}
+
 const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices", "quickbar", "branding"] as const;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; saved?: string }> }) {
@@ -380,6 +388,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </fieldset>
         <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save</button>
       </form>
+      {isOwner && (
+      <form action={saveDevBypass} className="mt-2 grid max-w-xl gap-1 rounded-2xl border border-black/10 p-4 text-sm dark:border-white/10">
+        <span className="flex items-center gap-1.5 font-semibold"><ShieldCheck size={14} className="text-brand-deep" /> Direct sign-in (dev bypass) — owner only</span>
+        <label className="flex min-h-[44px] items-center gap-2">
+          <input type="checkbox" name="dev_bypass" value="on" defaultChecked={getPref("dev_bypass", "on") === "on"} className="h-5 w-5" />
+          Allow direct access links for superadmin emails (no mail check)
+        </label>
+        <p className="text-xs text-zinc-500">Default on outside production, off in production. Applies to allowlisted admin/owner addresses only — every other role always uses the mailed production link and lands on their role dashboard.</p>
+        <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save access</button>
+      </form>
+      )}
       <form action={runReport} className="mt-3">
         <button className="min-h-[44px] rounded-full border border-black/15 px-5 text-sm font-semibold dark:border-white/20">Send report now (to owner emails)</button>
       </form>

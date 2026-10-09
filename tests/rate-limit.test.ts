@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientKey, rateLimited, slowDown } from "@/lib/rate-limit";
+import { clientKey, isLocalHost, rateLimited, slowDown } from "@/lib/rate-limit";
 
 describe("rate-limit", () => {
   it("allows under the limit, blocks at it, recovers after the window", () => {
@@ -28,5 +28,18 @@ describe("rate-limit", () => {
     for (let i = 0; i < 30; i++) expect(rateLimited(`${base}|license`, 30, 600_000)).toBe(i >= 30);
     expect(rateLimited(`${base}|license`, 30, 600_000)).toBe(true);
     expect(rateLimited(`${base}|auth-request`, 5, 600_000)).toBe(false);
+  });
+});
+
+describe("isLocalHost", () => {
+  it("accepts loopback and private LAN, rejects public", () => {
+    expect(isLocalHost("localhost:3100")).toBe(true);
+    expect(isLocalHost("127.0.0.1")).toBe(true);
+    expect(isLocalHost("192.168.1.5:3100")).toBe(true);
+    expect(isLocalHost("10.0.0.2")).toBe(true);
+    expect(isLocalHost("172.20.0.3")).toBe(true);
+    expect(isLocalHost("172.32.0.3")).toBe(false);
+    expect(isLocalHost("coderender.optyx.shop")).toBe(false);
+    expect(isLocalHost(null)).toBe(false);
   });
 });

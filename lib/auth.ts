@@ -25,6 +25,19 @@ export function canSignIn(email: string): boolean {
   return isAdminEmail(email) || isInvited(email);
 }
 
+// Direct (dev-bypass) sign-in: usable only when the owner-enabled switch is
+// on AND the address is a superadmin (allowlisted) address. Everyone else
+// always goes through the mailed production link. Defaults: on outside
+// production, off in production.
+export function devBypassOn(): boolean {
+  try {
+    const raw = getPref("dev_bypass", process.env.NODE_ENV === "production" ? "off" : "on");
+    return raw === "on";
+  } catch {
+    return process.env.NODE_ENV !== "production";
+  }
+}
+
 export function upsertUser(email: string) {
   const d = getDb();
   const e = email.trim().toLowerCase();
