@@ -1,7 +1,7 @@
 # Wayfinder map: Unified venue booking
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -41,4 +41,4 @@ offline-first, each live-proved with chain green and CI green.
 - [Authoritative booking allocator](203-booking-allocator.md) — done
 - [Venue models + admin console](204-venue-models.md) — done (profiles + rates + allocator link live-proved)
 - [Public book flow](205-public-book-flow.md) — done (hold-to-confirm cycle live-proved)
-- [Brand-bound booking documents](206-booking-brand-docs.md) — frontier
+- [Brand-bound booking documents](206-booking-brand-docs.md) — done

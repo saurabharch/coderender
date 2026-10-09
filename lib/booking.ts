@@ -55,6 +55,32 @@ export function placeBooking(input: PlaceInput): number {
   }
 }
 
+// Confirmation document for the shared bill renderers: no money moves
+// here (pay at venue), so totals read 0 with the booking ref as memo.
+export function confirmationDoc(id: number) {
+  bookingTables();
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM Booking WHERE id=?").get(id) as
+    { id: number; resourceKind: string; resourceId: number; name: string; phone: string; startAt: string; endAt: string; status: string } | undefined;
+  if (!row) return null;
+  let venue = `${row.resourceKind} #${row.resourceId}`;
+  if (row.resourceKind === "venue") {
+    const v = db.prepare("SELECT name FROM Venue WHERE id=?").get(row.resourceId) as { name: string } | undefined;
+    if (v) venue = v.name;
+  }
+  const when = `${row.startAt.slice(0, 16).replace("T", " ")} → ${row.endAt.slice(0, 16).replace("T", " ")}`;
+  return {
+    no: `BKG-${String(row.id).padStart(5, "0")}`,
+    kind: "BOOKING CONFIRMATION",
+    date: new Date().toISOString().slice(0, 10),
+    billTo: `${row.name || "Guest"}${row.phone ? ` · ${row.phone}` : ""}`,
+    lines: [{ label: `${venue} · ${when}`, amount: 0 }],
+    total: 0,
+    status: row.status,
+    memo: `Pay at venue · booking #${row.id}`,
+  };
+}
+
 export function cancelBooking(id: number): void {
   bookingTables();
   getDb().prepare("UPDATE Booking SET status='cancelled' WHERE id=?").run(id);

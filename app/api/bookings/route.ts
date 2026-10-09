@@ -6,9 +6,52 @@ import { shopGate } from "@/lib/shop-auth";
 // GET ?kind=&resource= [&from=&to=] → live bookings for a resource.
 // POST {op: book|cancel, ...} → atomic allocator (refusals are 409s).
 export async function GET(req: Request) {
-  const deny = await shopGate(req, false);
-  if (deny) return deny;
   const url = new URL(req.url);
+  const pdfId = Number(url.searchParams.get("pdf") || 0);
+  if (pdfId) {
+    // Confirmation downloads ride the public human gate (captcha cookie),
+    // falling back to team session — same trust as making the booking.
+    const { activeProvider } = await import("@/lib/slider-captcha");
+    const { humanCookie } = await import("@/lib/captcha");
+    const jar = req.headers.get("cookie") || "";
+    const human = activeProvider() === "off"
+      || jar.split(";").some((c) => c.trim() === `cr_human=${humanCookie()}`);
+    if (!human) {
+      const deny = await shopGate(req, false);
+      if (deny) return deny;
+    }
+  } else {
+    const deny = await shopGate(req, false);
+    if (deny) return deny;
+  }
+  if (pdfId) {
+    const { confirmationDoc } = await import("@/lib/booking");
+    const doc = confirmationDoc(pdfId);
+    if (!doc) return NextResponse.json({ error: "no booking" }, { status: 404 });
+    const theme = url.searchParams.get("theme") === "minimal" ? "minimal" : "modern";
+    const { renderBillPdf } = await import("@/lib/pdf-bill");
+    const { getPref } = await import("@/lib/store");
+    const pick = (k: string): string => {
+      try { return getPref(k, ""); } catch { return ""; }
+    };
+    const bytes = await renderBillPdf(doc, {
+      name: pick("biz_name") || "CodeRender",
+      address: [pick("biz_address"), pick("biz_city"), pick("biz_state"), pick("biz_pin")].filter(Boolean).join(", "),
+      phone: pick("contact_phone") || pick("biz_phone"),
+      email: pick("contact_email") || pick("biz_email"),
+      gstin: pick("biz_gstin"),
+      primary: pick("brand_primary") || "#0F8F83",
+    }, theme);
+    const body = new Uint8Array(bytes);
+    return new NextResponse(body, {
+      headers: {
+        "content-type": "application/pdf",
+        "content-disposition": `attachment; filename="${doc.no}-${theme}.pdf"`,
+        "content-length": String(body.byteLength),
+        "cache-control": "private, no-store",
+      },
+    });
+  }
   const kind = (url.searchParams.get("kind") || "room").slice(0, 40);
   const resource = Number(url.searchParams.get("resource") || 0);
   if (!resource) return NextResponse.json({ error: "resource required" }, { status: 422 });

@@ -72,6 +72,10 @@ export function BookFlow() {
         <p className="text-2xl font-extrabold">Booked ✓</p>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
           Booking #{done} confirmed — pay at the venue. We&apos;ll call you shortly to confirm details.</p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <a href={`/api/bookings?pdf=${done}&theme=modern`}
+            className="flex min-h-[44px] items-center rounded-xl bg-brand px-5 text-sm font-bold text-white">Confirmation PDF</a>
+        </div>
       </div>
     );
   }
