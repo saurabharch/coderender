@@ -88,6 +88,20 @@ export async function POST(req: Request) {
         name: z.string().min(1).max(120), phone: z.string().min(7).max(20),
       }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad confirm" }, { status: 422 });
+      const { getDb } = await import("@/lib/store");
+      const held = getDb().prepare("SELECT resourceKind, resourceId FROM Booking WHERE id=?").get(parsed.data.id) as
+        { resourceKind: string; resourceId: number } | undefined;
+      let needsApproval = false;
+      if (held?.resourceKind === "venue") {
+        const { getVenue } = await import("@/lib/serviceops");
+        const v = getVenue(held.resourceId) as { requireApproval?: number } | null;
+        needsApproval = !!v?.requireApproval;
+      }
+      if (needsApproval) {
+        getDb().prepare("UPDATE Booking SET status='pending', name=?, phone=? WHERE id=? AND status='held'")
+          .run(parsed.data.name, parsed.data.phone, parsed.data.id);
+        return NextResponse.json({ ok: true, id: parsed.data.id, pending: true });
+      }
       confirmHold(parsed.data.id);
       // Ledger-safe: no money moves online. A lead row hands sales the follow-up.
       const { createLead } = await import("@/lib/leads");

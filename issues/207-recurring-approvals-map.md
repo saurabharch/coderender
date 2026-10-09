@@ -1,7 +1,7 @@
 # Wayfinder map: Recurring reservations + approvals
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -19,7 +19,7 @@ books cleanly around conflicts with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [Venue approval queues](209-approval-queues.md): pending blocks, approve/decline logged, live-proved.
 
 ## Not yet specified
 
@@ -33,4 +33,4 @@ books cleanly around conflicts with chain green and CI green.
 ## Children
 
 - [Recurring series + occurrence control](208-recurring-series.md) — frontier
-- [Venue approval queues](209-approval-queues.md) — frontier
+- [Venue approval queues](209-approval-queues.md) — done

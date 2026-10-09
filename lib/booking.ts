@@ -35,8 +35,8 @@ export function placeBooking(input: PlaceInput): number {
     const existing = db.prepare(
       `SELECT startAt start, endAt end FROM Booking
        WHERE resourceKind=? AND resourceId=?
-         AND (status NOT IN ('cancelled', 'held') OR (status='held' AND holdExpiresAt > datetime('now')))`)
-      .all(kind, input.resourceId) as
+         AND (status NOT IN ('cancelled', 'held', 'pending')
+           OR ((status='held' OR status='pending') AND holdExpiresAt > datetime('now')))`).all(kind, input.resourceId) as
       { start: string; end: string }[];
     const clash = findConflict(existing, input.startAt, input.endAt, buf);
     if (clash) throw new Error("slot taken for this resource");
@@ -108,6 +108,43 @@ export async function bookSeries(input: PlaceInput & {
   return { booked, refused };
 }
 
+// Approval decision on a pending hold: approve re-checks the allocator
+// (a confirmed booking may have landed meanwhile) and confirms; decline
+// frees the slot with a logged reason. Lapsed holds cancel either way.
+export async function decideBooking(id: number, approve: boolean, actor: string, reason = ""): Promise<void> {
+  bookingTables();
+  const db = getDb();
+  const cur = db.prepare("SELECT * FROM Booking WHERE id=?").get(id) as
+    { id: number; resourceKind: string; resourceId: number; status: string; holdExpiresAt: string; startAt: string; endAt: string; bufferMin: number } | undefined;
+  if (!cur) throw new Error("no booking");
+  if (cur.status !== "pending") throw new Error("not pending approval");
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  if (cur.holdExpiresAt && cur.holdExpiresAt <= now) {
+    db.prepare("UPDATE Booking SET status='cancelled' WHERE id=?").run(id);
+    throw new Error("hold lapsed — search again");
+  }
+  if (!approve) {
+    db.prepare("UPDATE Booking SET status='cancelled' WHERE id=?").run(id);
+    logBookingSafe(id, `declined by ${actor}: ${reason.trim().slice(0, 200) || "no reason"}`);
+    return;
+  }
+  const { findConflict } = await import("./booking-core");
+  const clash = findConflict(
+    db.prepare(`SELECT startAt start, endAt end FROM Booking WHERE resourceKind=? AND resourceId=? AND id!=?
+       AND (status NOT IN ('cancelled','held','pending') OR ((status='held' OR status='pending') AND holdExpiresAt > datetime('now')))`)
+      .all(cur.resourceKind, cur.resourceId, id) as { start: string; end: string }[],
+    cur.startAt, cur.endAt, cur.bufferMin);
+  if (clash) throw new Error("slot taken for this resource");
+  db.prepare("UPDATE Booking SET status='confirmed', holdExpiresAt='' WHERE id=?").run(id);
+  logBookingSafe(id, `approved by ${actor}`);
+}
+
+function logBookingSafe(id: number, detail: string): void {
+  try {
+    getDb().prepare("INSERT INTO CustomerEvent (customerId, kind, detail) VALUES (?,?,?)").run(0, "booking", `#${id} ${detail}`.slice(0, 500));
+  } catch { /* timeline never breaks money */ }
+}
+
 export function cancelBooking(id: number): void {
   bookingTables();
   getDb().prepare("UPDATE Booking SET status='cancelled' WHERE id=?").run(id);
@@ -129,7 +166,7 @@ export async function holdBooking(input: PlaceInput): Promise<{ id: number; expi
     const { findConflict } = await import("./booking-core");
     const clash = findConflict(
       (db.prepare(`SELECT startAt start, endAt end FROM Booking WHERE resourceKind=? AND resourceId=? AND id!=?
-         AND (status NOT IN ('cancelled','held') OR (status='held' AND holdExpiresAt > datetime('now')))`)
+         AND (status NOT IN ('cancelled','held','pending') OR ((status='held' OR status='pending') AND holdExpiresAt > datetime('now')))`)
         .all(row.resourceKind, row.resourceId, id) as { start: string; end: string }[]),
       row.startAt, row.endAt, row.bufferMin);
     if (clash) throw new Error("slot taken for this resource");

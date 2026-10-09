@@ -62,6 +62,11 @@ export function BookFlow() {
     });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { setMsg(d.error ?? "Confirmation failed."); return; }
+    if (d.pending) {
+      setMsg("Sent for approval ✓ The venue confirms shortly — we will call you.");
+      setHold(null);
+      return;
+    }
     setDone(d.id);
     setMsg("");
   }

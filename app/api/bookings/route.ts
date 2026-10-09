@@ -95,6 +95,22 @@ export async function POST(req: Request) {
       const { bookSeries } = await import("@/lib/booking");
       return NextResponse.json({ ok: true, ...(await bookSeries({ ...rest, resourceKind: resourceKind ?? "room", rule })) });
     }
+    if (body?.op === "decide") {
+      const parsed = z.object({
+        op: z.literal("decide"), id: z.number().int(),
+        approve: z.boolean(), reason: z.string().max(200).optional(),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad decision" }, { status: 422 });
+      const { decideBooking } = await import("@/lib/booking");
+      const { sessionUser } = await import("@/lib/auth");
+      const me = await sessionUser();
+      try {
+        await decideBooking(parsed.data.id, parsed.data.approve, me?.email ?? "team", parsed.data.reason ?? "");
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "decision failed" }, { status: 422 });
+      }
+      return NextResponse.json({ ok: true });
+    }
     if (body?.op === "cancel") {
       const parsed = z.object({ op: z.literal("cancel"), id: z.number().int() }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad cancel" }, { status: 422 });

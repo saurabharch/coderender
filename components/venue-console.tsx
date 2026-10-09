@@ -88,6 +88,27 @@ export function VenueConsole() {
     if (res.ok) void open(openId);
   }
 
+  async function toggleApproval() {
+    if (openId === null || !detail) return;
+    const res = await fetch("/api/venues", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "venue", id: openId, name: (detail as { name: string }).name, requireApproval: !(detail as { requireApproval?: number }).requireApproval }),
+    });
+    if (res.ok) void open(openId);
+  }
+
+  async function decide(id: number, approve: boolean) {
+    const reason = approve ? "" : (prompt("Decline reason (logged):") ?? "");
+    if (!approve && !reason) return;
+    const res = await fetch("/api/bookings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "decide", id, approve, reason }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? (approve ? "Approved ✓" : "Declined ✓") : (d.error ?? "failed"));
+    if (res.ok && openId !== null) void open(openId);
+  }
+
   async function dropRate(id: number) {
     const res = await fetch("/api/venues", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -129,7 +150,29 @@ export function VenueConsole() {
                 </button>
                 {openId === v.id && detail && (
                   <div className="mt-1 rounded-xl border border-black/10 p-2 dark:border-white/10">
-                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Rates</p>
+                    <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-sm font-semibold">
+                      <input type="checkbox" checked={!!(detail as { requireApproval?: number }).requireApproval} onChange={() => void toggleApproval()} className="h-5 w-5" />
+                      Require approval for online bookings
+                    </label>
+                    {((detail as { pending?: { id: number; name: string; startAt: string; endAt: string }[] }).pending ?? []).length > 0 && (
+                      <div className="mt-1.5">
+                        <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Pending approval</p>
+                        <ul className="mt-1 space-y-1 text-sm">
+                          {((detail as { pending?: { id: number; name: string; startAt: string; endAt: string }[] }).pending ?? []).map((h) => (
+                            <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/40 px-3 py-2">
+                              <span>{h.name || "Guest"} · {h.startAt.slice(0, 16).replace("T", " ")} → {h.endAt.slice(0, 16).replace("T", " ")}</span>
+                              <span className="flex gap-1">
+                                <button onClick={() => void decide(h.id, true)}
+                                  className="min-h-[44px] rounded-xl bg-brand px-3 text-xs font-semibold text-white">Approve</button>
+                                <button onClick={() => void decide(h.id, false)}
+                                  className="min-h-[44px] rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Decline</button>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <p className="mt-2 text-xs font-bold uppercase tracking-wider text-zinc-500">Rates</p>
                     {(detail.rates ?? []).length === 0
                       ? <p className="mt-1 text-xs text-zinc-500">No rates — add the first below.</p>
                       : (

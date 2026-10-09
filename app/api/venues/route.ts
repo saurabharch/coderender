@@ -30,6 +30,7 @@ export async function POST(req: Request) {
         amenities: z.string().max(400).optional(), checkIn: z.string().max(5).optional(),
         checkOut: z.string().max(5).optional(),
         status: z.enum(["active", "paused", "closed"]).optional(), notes: z.string().max(500).optional(),
+        requireApproval: z.boolean().optional(),
       }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad venue" }, { status: 422 });
       const { op: _op, ...input } = parsed.data;
