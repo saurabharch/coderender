@@ -26,7 +26,7 @@ when a real bill downloads byte-valid with chain green and CI green.
 ## Not yet specified
 
 - Email-attach + storage pipeline (needs R2/keys — absent).
-- POS thermal PDF variant, label-sheet PDF.
+- Label-sheet PDF.
 
 ## Out of scope
 
@@ -36,3 +36,4 @@ when a real bill downloads byte-valid with chain green and CI green.
 ## Children
 
 - [PDF tax invoice + receipt themes](189-pdf-bill-themes.md) — done
+- [Thermal receipt PDF variant](194-thermal-receipt-pdf.md) — frontier
