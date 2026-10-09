@@ -126,3 +126,4 @@ contradicts a green build, `pm2 stop`, `rm -rf .next`, rebuild, start.
 ## Verification before done
 
 `npm run lint && npm run typecheck && npm test && npm run build` must pass (green 2026-09-30). Confirm theme toggle cycles all 3 modes without FOUC, mobile quick-bar only on small screens, `/api/leads` round-trips to SQLite (live-verified: 200 + row, invalid → 422).
+- Probe cleanup deletions are targeted-ID-only: capture created row IDs at probe time and delete by them — never hardcode `id=1` (a live draft PO was destroyed this way 2026-10-09).
