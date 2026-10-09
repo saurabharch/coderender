@@ -25,3 +25,10 @@ Level 1 (static: 41/41 routes 200, viewport meta, nav markers, no fixed
 widths) already passed in [Responsive sweep level 1](169-responsive-sweep-L1.md).
 No desktop browser exists on the build machine, so this level cannot be
 agent-run. Failures graduate as fix tickets.
+
+## L1 re-verified 2026-10-09 (not a resolution)
+
+Static sweep re-run on the current build after six releases: all 41 drawer
+routes 200 with viewport meta + responsive nav markers and zero inline fixed
+widths; `/offline` and the new statement page also 200 with the same markers.
+This ticket still resolves only through the device pass below.
