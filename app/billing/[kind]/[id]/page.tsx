@@ -5,6 +5,19 @@ import { Logo } from "@/components/logo";
 import { PrintButton } from "@/components/print-button";
 
 // Printable billing documents (team-only; client PII inside).
+
+function PdfDownloads({ kind, id }: { kind: string; id: string }) {
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {(["modern", "minimal"] as const).map((theme) => (
+        <a key={theme} href={`/api/billing/${kind}/${id}/pdf?theme=${theme}`}
+          className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-4 text-sm font-semibold capitalize dark:border-white/20">
+          PDF · {theme}
+        </a>
+      ))}
+    </span>
+  );
+}
 export default async function BillingDoc({ params }: { params: Promise<{ kind: string; id: string }> }) {
   const user = await sessionUser();
   if (!user) notFound();
@@ -38,7 +51,10 @@ export default async function BillingDoc({ params }: { params: Promise<{ kind: s
         </table>
         <p className="mt-3 text-sm"><b>Status:</b> {doc.status}</p>
         <p className="mt-1 font-mono text-xs text-zinc-500">{doc.memo}</p>
-        <PrintButton />
+        <div className="mt-3 flex flex-wrap items-center gap-2 print:hidden">
+          <PrintButton />
+          <PdfDownloads kind={kind} id={id} />
+        </div>
       </div>
     </div>
   );

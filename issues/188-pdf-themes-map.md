@@ -1,7 +1,7 @@
 # Wayfinder map: PDF bill themes
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -21,7 +21,7 @@ when a real bill downloads byte-valid with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [PDF tax invoice + receipt themes](189-pdf-bill-themes.md): pdf-lib renderer + gated downloads, byte-proved live.
 
 ## Not yet specified
 
@@ -35,4 +35,4 @@ when a real bill downloads byte-valid with chain green and CI green.
 
 ## Children
 
-- [PDF tax invoice + receipt themes](189-pdf-bill-themes.md) — frontier
+- [PDF tax invoice + receipt themes](189-pdf-bill-themes.md) — done
