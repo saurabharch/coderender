@@ -1,7 +1,7 @@
 # Wayfinder map: Design tokens, kitchen display, access model
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -18,6 +18,8 @@ with reasons. Done when each lands live-proved with chain green and CI green.
 
 ## Decisions so far
 
+- [Global spacing radius shadow tokens](199-design-tokens.md): token prefs + vars + Tailwind maps + live apply, verified.
+- [Kitchen display + table orders](200-kitchen-display.md): fire-to-served loop with captains/servers live-proved.
 - [ABAC vs coarse roles decision](201-abac-decision.md): kept 9+1 matrix — 111 routes gate centrally, migration cost unjustified.
 
 ## Not yet specified
