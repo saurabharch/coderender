@@ -83,7 +83,7 @@ body {
 /* Rotating ray border beam */
 @property --beam-a { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
 @keyframes beam-spin { to { --beam-a: 360deg; } }
-.beam { position: relative; }
+.beam:not(.fixed) { position: relative; }
 .beam::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px;
   background: conic-gradient(from var(--beam-a), transparent 0 68%, rgb(13 148 136 / .9) 80%, rgb(251 191 36 / .95) 87%, transparent 96%);

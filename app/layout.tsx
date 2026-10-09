@@ -8,6 +8,7 @@ import { Preloader } from "@/components/preloader";
 import { Tracker } from "@/components/tracker";
 import { ChunkRecovery } from "@/components/chunk-recovery";
 import { ChatWidget } from "@/components/chat-widget";
+import { LeadCaptureModal } from "@/components/lead-capture-modal";
 import { ServiceWorker } from "@/components/service-worker";
 import { JsonLd } from "@/components/json-ld";
 import { getDb, getPref } from "@/lib/store";
@@ -71,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteFooter />
           <QuickBar />
           <ChatWidget />
+          <LeadCaptureModal />
         </ThemeProvider>
       </body>
     </html>
