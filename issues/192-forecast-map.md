@@ -1,0 +1,36 @@
+# Wayfinder map: Demand forecasting + reorder
+
+Labels: wayfinder:map
+Status: doing
+
+## Destination
+
+Never stock out blind: per-product daily demand from order history,
+reorder points with safety cover, and a suggested purchase list. Done when
+suggestions match hand-computed math on probe data with chain green and CI
+green.
+
+## Notes
+
+- Domain: builds on OrderLine history + StockLevel + Supplier/PurchaseOrder
+  tables; math pure and tested, advice labeled as advice (never auto-order).
+- Skills every session: `implement` + `tdd`; `code-review` before release.
+- Constraints: npm on-device; never `pm2 restart` on red build; probe cleanup.
+
+## Decisions so far
+
+<!-- one line per closed ticket, gist + link -->
+
+## Not yet specified
+
+- Auto-raised purchase orders (needs approval flow first).
+- Supplier lead-time learning (no receipts timestamps yet).
+
+## Out of scope
+
+- ML forecasting services (moving average suffices at this scale).
+- Auto-ordering without human approval.
+
+## Children
+
+- [Reorder suggestions from sales velocity](193-reorder-suggestions.md) — frontier
