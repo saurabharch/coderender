@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.101.0] - 2026-10-09
+## [0.101.1] - 2026-10-09
+- Chat position and lead dialog## [0.101.0] - 2026-10-09
 - Design tokens## [0.100.0] - 2026-10-09
 - Kitchen display## [0.99.0] - 2026-10-09
 - Lead times## [0.98.0] - 2026-10-09
