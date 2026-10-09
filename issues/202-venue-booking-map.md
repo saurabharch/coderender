@@ -39,6 +39,6 @@ offline-first, each live-proved with chain green and CI green.
 ## Children
 
 - [Authoritative booking allocator](203-booking-allocator.md) — done
-- [Venue models + admin console](204-venue-models.md) — blocked by allocator
+- [Venue models + admin console](204-venue-models.md) — done (profiles + rates + allocator link live-proved)
 - [Public book flow](205-public-book-flow.md) — blocked by allocator
 - [Brand-bound booking documents](206-booking-brand-docs.md) — frontier

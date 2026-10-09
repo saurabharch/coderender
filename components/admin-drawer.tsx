@@ -29,6 +29,7 @@ const ICONS: Record<string, IconType> = {
   "/admin/partners": Handshake,
   "/admin/dine": UtensilsCrossed,
   "/admin/kitchen": CookingPot,
+  "/admin/venues": LayoutTemplate,
   "/admin/leads": Users,
   "/admin/pipeline": KanbanSquare,
   "/admin/whatsapp": MessageCircle,

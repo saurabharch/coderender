@@ -8,6 +8,9 @@ export function serviceTables(): void {
   db.exec(`CREATE TABLE IF NOT EXISTS Branch (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE TABLE IF NOT EXISTS JobCard (id INTEGER PRIMARY KEY AUTOINCREMENT, no TEXT NOT NULL DEFAULT '', customerId INTEGER NOT NULL DEFAULT 0, branchId INTEGER NOT NULL DEFAULT 1, service TEXT NOT NULL DEFAULT '', staff TEXT NOT NULL DEFAULT '', slot TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'booked', notes TEXT NOT NULL DEFAULT '', billId INTEGER NOT NULL DEFAULT 0, createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS DineTable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, seats INTEGER NOT NULL DEFAULT 4, status TEXT NOT NULL DEFAULT 'free', captain TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS Venue (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'hall', address TEXT NOT NULL DEFAULT '', capacity INTEGER NOT NULL DEFAULT 0, amenities TEXT NOT NULL DEFAULT '', checkIn TEXT NOT NULL DEFAULT '', checkOut TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'active', notes TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS VenueRate (id INTEGER PRIMARY KEY AUTOINCREMENT, venueId INTEGER NOT NULL, label TEXT NOT NULL DEFAULT '', amount INTEGER NOT NULL DEFAULT 0, unit TEXT NOT NULL DEFAULT 'event', minStay INTEGER NOT NULL DEFAULT 0)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_venuerate_venue ON VenueRate(venueId)`);
   db.exec(`CREATE TABLE IF NOT EXISTS KotTicket (id INTEGER PRIMARY KEY AUTOINCREMENT, no TEXT NOT NULL DEFAULT '', tableId INTEGER NOT NULL DEFAULT 0, captain TEXT NOT NULL DEFAULT '', server TEXT NOT NULL DEFAULT '', lines TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'fired', firedBy TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS PrintTemplate (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL UNIQUE, body TEXT NOT NULL DEFAULT '', updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE ShopOrder ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1"); } catch { /* exists */ }
@@ -209,4 +212,74 @@ export function listTickets(status = "") {
   return status
     ? db.prepare(`SELECT k.*, t.name tableName FROM KotTicket k LEFT JOIN DineTable t ON t.id=k.tableId WHERE k.status=? ORDER BY k.id DESC LIMIT 100`).all(status)
     : db.prepare(`SELECT k.*, t.name tableName FROM KotTicket k LEFT JOIN DineTable t ON t.id=k.tableId ORDER BY k.id DESC LIMIT 100`).all();
+}
+
+export const VENUE_KINDS = ["hotel", "hall", "resort", "apartment", "room"] as const;
+
+export function listVenues(status = "") {
+  serviceTables();
+  const db = getDb();
+  return status
+    ? db.prepare("SELECT * FROM Venue WHERE status=? ORDER BY name LIMIT 100").all(status)
+    : db.prepare("SELECT * FROM Venue ORDER BY name LIMIT 100").all();
+}
+
+export function saveVenue(input: { id?: number; name: string; kind?: string; address?: string; capacity?: number; amenities?: string; checkIn?: string; checkOut?: string; status?: string; notes?: string }): number {
+  serviceTables();
+  const kinds = ["hotel", "hall", "resort", "apartment", "room"];
+  const kind = kinds.includes(input.kind ?? "") ? (input.kind as string) : "hall";
+  const name = input.name.trim().slice(0, 120);
+  if (!name) throw new Error("venue name required");
+  const db = getDb();
+  const row = {
+    name, kind,
+    address: (input.address ?? "").slice(0, 300),
+    capacity: Math.min(100000, Math.max(0, Math.round(input.capacity ?? 0))),
+    amenities: (input.amenities ?? "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 20).join(", "),
+    checkIn: (input.checkIn ?? "").slice(0, 5),
+    checkOut: (input.checkOut ?? "").slice(0, 5),
+    status: ["active", "paused", "closed"].includes(input.status ?? "") ? (input.status as string) : "active",
+    notes: (input.notes ?? "").slice(0, 500),
+  };
+  if (input.id) {
+    db.prepare("UPDATE Venue SET name=?, kind=?, address=?, capacity=?, amenities=?, checkIn=?, checkOut=?, status=?, notes=? WHERE id=?")
+      .run(row.name, row.kind, row.address, row.capacity, row.amenities, row.checkIn, row.checkOut, row.status, row.notes, input.id);
+    return input.id;
+  }
+  return Number(db.prepare("INSERT INTO Venue (name, kind, address, capacity, amenities, checkIn, checkOut, status, notes) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(row.name, row.kind, row.address, row.capacity, row.amenities, row.checkIn, row.checkOut, row.status, row.notes).lastInsertRowid);
+}
+
+export function getVenue(id: number) {
+  serviceTables();
+  const db = getDb();
+  const v = db.prepare("SELECT * FROM Venue WHERE id=?").get(id);
+  if (!v) return null;
+  return {
+    ...v as object,
+    rates: db.prepare("SELECT * FROM VenueRate WHERE venueId=? ORDER BY amount").all(id),
+    bookings: db.prepare("SELECT * FROM Booking WHERE resourceKind='venue' AND resourceId=? AND status NOT IN ('cancelled') ORDER BY startAt LIMIT 50").all(id),
+  };
+}
+
+export function saveRate(input: { id?: number; venueId: number; label: string; amount: number; unit?: string; minStay?: number }): number {
+  serviceTables();
+  const db = getDb();
+  if (!db.prepare("SELECT id FROM Venue WHERE id=?").get(input.venueId)) throw new Error("no venue");
+  const units = ["hour", "night", "event", "day", "month"];
+  const unit = units.includes(input.unit ?? "") ? (input.unit as string) : "event";
+  const amt = Math.max(0, Math.round(input.amount));
+  if (!(amt > 0)) throw new Error("rate amount required");
+  if (input.id) {
+    db.prepare("UPDATE VenueRate SET label=?, amount=?, unit=?, minStay=? WHERE id=? AND venueId=?")
+      .run(input.label.trim().slice(0, 80) || "Standard", amt, unit, Math.max(0, Math.round(input.minStay ?? 0)), input.id, input.venueId);
+    return input.id;
+  }
+  return Number(db.prepare("INSERT INTO VenueRate (venueId, label, amount, unit, minStay) VALUES (?,?,?,?,?)")
+    .run(input.venueId, input.label.trim().slice(0, 80) || "Standard", amt, unit, Math.max(0, Math.round(input.minStay ?? 0))).lastInsertRowid);
+}
+
+export function dropRate(id: number): void {
+  serviceTables();
+  getDb().prepare("DELETE FROM VenueRate WHERE id=?").run(id);
 }
