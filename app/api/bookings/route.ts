@@ -77,6 +77,24 @@ export async function POST(req: Request) {
       const { op: _op, resourceKind, ...rest } = parsed.data;
       return NextResponse.json({ ok: true, id: placeBooking({ ...rest, resourceKind: resourceKind ?? "room" }) });
     }
+    if (body?.op === "series") {
+      const parsed = z.object({
+        op: z.literal("series"), resourceKind: z.string().min(1).max(40).optional(),
+        resourceId: z.number().int(), customerId: z.number().int().optional(),
+        name: z.string().max(120).optional(), phone: z.string().max(20).optional(),
+        startAt: z.string().max(25), endAt: z.string().max(25),
+        bufferMin: z.number().min(0).max(480).optional(), notes: z.string().max(500).optional(),
+        rule: z.object({
+          repeat: z.enum(["weekly", "monthly"]),
+          weekdays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+          until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        }),
+      }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "bad series" }, { status: 422 });
+      const { op: _op, resourceKind, rule, ...rest } = parsed.data;
+      const { bookSeries } = await import("@/lib/booking");
+      return NextResponse.json({ ok: true, ...(await bookSeries({ ...rest, resourceKind: resourceKind ?? "room", rule })) });
+    }
     if (body?.op === "cancel") {
       const parsed = z.object({ op: z.literal("cancel"), id: z.number().int() }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "bad cancel" }, { status: 422 });

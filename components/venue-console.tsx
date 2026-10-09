@@ -23,6 +23,11 @@ export function VenueConsole() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [detail, setDetail] = useState<Venue | null>(null);
   const [rlabel, setRlabel] = useState("");
+  const [sdate, setSdate] = useState("");
+  const [stime, setStime] = useState("18:00");
+  const [etime, setEtime] = useState("22:00");
+  const [sdays, setSdays] = useState<number[]>([6]);
+  const [suntil, setSuntil] = useState("");
   const [ramt, setRamt] = useState("");
   const [runit, setRunit] = useState("event");
 
@@ -64,6 +69,23 @@ export function VenueConsole() {
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? "Rate added ✓" : (d.error ?? "failed"));
     if (res.ok) { setRlabel(""); setRamt(""); void open(openId); void load(); }
+  }
+
+  async function bookSeries() {
+    if (openId === null || !sdate || !suntil) { setMsg("Pick a start date and an until date."); return; }
+    const res = await fetch("/api/bookings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "series", resourceKind: "venue", resourceId: openId,
+        startAt: `${sdate}T${stime}:00`, endAt: `${sdate}T${etime}:00`,
+        rule: { repeat: "weekly", weekdays: sdays, until: suntil },
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok
+      ? `Series: ${d.booked.length} booked${d.refused.length ? `, ${d.refused.length} refused (${d.refused.slice(0, 3).map((r: { startAt: string }) => r.startAt.slice(0, 10)).join(", ")})` : " — clean run ✓"}`
+      : (d.error ?? "failed"));
+    if (res.ok) void open(openId);
   }
 
   async function dropRate(id: number) {
@@ -132,6 +154,26 @@ export function VenueConsole() {
                       </select>
                       <button onClick={() => void addRate()} disabled={!rlabel.trim() || !ramt}
                         className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Add rate</button>
+                    </div>
+                    <p className="mb-1 mt-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Repeat booking (weekly series)</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <input value={sdate} onChange={(e) => setSdate(e.target.value)} type="date" aria-label="First date"
+                        className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                      <input value={stime} onChange={(e) => setStime(e.target.value)} type="time" aria-label="Start time"
+                        className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                      <input value={etime} onChange={(e) => setEtime(e.target.value)} type="time" aria-label="End time"
+                        className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                      <input value={suntil} onChange={(e) => setSuntil(e.target.value)} type="date" aria-label="Repeat until"
+                        className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+                      <button onClick={() => void bookSeries()} disabled={!sdate || !suntil}
+                        className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">Book series</button>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {(["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const).map((lbl, d) => (
+                        <button key={lbl} onClick={() => setSdays((xs) => xs.includes(d) ? xs.filter((x) => x !== d) : [...xs, d])}
+                          aria-pressed={sdays.includes(d)} aria-label={`Repeat ${lbl}`}
+                          className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border text-sm font-bold ${sdays.includes(d) ? "border-brand bg-brand/10 text-brand-deep" : "border-black/15 dark:border-white/20"}`}>{lbl}</button>
+                      ))}
                     </div>
                   </div>
                 )}

@@ -50,3 +50,50 @@ export function findConflict(
   }
   return null;
 }
+
+export interface SeriesRule {
+  startDate: string; // YYYY-MM-DD of first occurrence
+  startTime: string; // HH:MM (24h)
+  endTime: string; // HH:MM (24h)
+  repeat: "weekly" | "monthly";
+  weekdays?: number[]; // 0=Sun..6=Sat, weekly only
+  until: string; // YYYY-MM-DD inclusive cap
+}
+
+export interface Occurrence { startAt: string; endAt: string }
+
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+const dayIso = (t: number): string => {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+// Expand a series into concrete half-open occurrences, capped. Day-by-day
+// scan (max ~2 years) so weekly and monthly rules share one code path.
+// Overnight spans (end <= start) roll past midnight. Invalid rules yield [].
+export function expandSeries(rule: SeriesRule, cap = 52): Occurrence[] {
+  const out: Occurrence[] = [];
+  const limit = Math.min(52, Math.max(1, Math.round(cap) || 52));
+  const t0 = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(rule.startTime || "");
+  const t1 = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(rule.endTime || "");
+  const first = Date.parse(`${rule.startDate}T00:00:00`);
+  const last = Date.parse(`${rule.until}T00:00:00`);
+  if (!t0 || !t1 || !Number.isFinite(first) || !Number.isFinite(last) || first > last) return out;
+  const days = rule.repeat === "weekly"
+    ? [...new Set((rule.weekdays ?? []).filter((d) => d >= 0 && d <= 6))].sort()
+    : [];
+  const monthDay = rule.startDate.slice(8);
+  for (let cur = first; cur <= last && out.length < limit && cur - first < 731 * 86400000; cur += 86400000) {
+    const iso = dayIso(cur);
+    if (iso < rule.startDate) continue;
+    const d = new Date(cur);
+    const take = rule.repeat === "monthly"
+      ? iso.slice(8) === monthDay
+      : days.length === 0 || days.includes(d.getDay());
+    if (!take) continue;
+    const overnight = `${t1[1]}:${t1[2]}:00` <= `${t0[1]}:${t0[2]}:00`;
+    const endIso = overnight ? dayIso(cur + 86400000) : iso;
+    out.push({ startAt: `${iso}T${t0[1]}:${t0[2]}:00`, endAt: `${endIso}T${t1[1]}:${t1[2]}:00` });
+  }
+  return out;
+}

@@ -81,6 +81,33 @@ export function confirmationDoc(id: number) {
   };
 }
 
+// Series booking: expand the rule, place each occurrence through the
+// atomic allocator, and report both sides — taken dates book, refused dates
+// come back with reasons. Never silent, never partial-without-report.
+export async function bookSeries(input: PlaceInput & {
+  rule: { repeat: "weekly" | "monthly"; weekdays?: number[]; until: string };
+}): Promise<{ booked: number[]; refused: { startAt: string; reason: string }[] }> {
+  const { expandSeries } = await import("./booking-core");
+  const occ = expandSeries({
+    startDate: (input.startAt || "").slice(0, 10),
+    startTime: (input.startAt || "").slice(11, 16),
+    endTime: (input.endAt || "").slice(11, 16),
+    repeat: input.rule.repeat,
+    weekdays: input.rule.weekdays,
+    until: input.rule.until,
+  });
+  const booked: number[] = [];
+  const refused: { startAt: string; reason: string }[] = [];
+  for (const o of occ) {
+    try {
+      booked.push(placeBooking({ ...input, startAt: o.startAt, endAt: o.endAt }));
+    } catch (e) {
+      refused.push({ startAt: o.startAt, reason: e instanceof Error ? e.message : "refused" });
+    }
+  }
+  return { booked, refused };
+}
+
 export function cancelBooking(id: number): void {
   bookingTables();
   getDb().prepare("UPDATE Booking SET status='cancelled' WHERE id=?").run(id);
