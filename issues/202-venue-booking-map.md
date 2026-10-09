@@ -22,7 +22,7 @@ offline-first, each live-proved with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [Authoritative booking allocator](203-booking-allocator.md): atomic overlap refusal live-proved (409 + back-to-back).
 
 ## Not yet specified
 
@@ -38,7 +38,7 @@ offline-first, each live-proved with chain green and CI green.
 
 ## Children
 
-- [Authoritative booking allocator](203-booking-allocator.md) — frontier
+- [Authoritative booking allocator](203-booking-allocator.md) — done
 - [Venue models + admin console](204-venue-models.md) — blocked by allocator
 - [Public book flow](205-public-book-flow.md) — blocked by allocator
 - [Brand-bound booking documents](206-booking-brand-docs.md) — frontier
