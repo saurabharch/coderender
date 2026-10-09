@@ -16,8 +16,10 @@ export async function GET(
     : kind === "receipt" ? receiptForPayment(Number(id))
     : kind === "payout" ? transcriptForPayout(Number(id)) : null;
   if (!doc) return NextResponse.json({ error: "no document" }, { status: 404 });
-  const theme: BillTheme =
-    new URL(req.url).searchParams.get("theme") === "minimal" ? "minimal" : "modern";
+  const q = new URL(req.url).searchParams;
+  const theme: BillTheme = q.get("theme") === "minimal" ? "minimal" : "modern";
+  const rollRaw = Number(q.get("roll") || 0);
+  const rollMm = rollRaw === 58 || rollRaw === 72 || rollRaw === 80 ? rollRaw : undefined;
   const pick = (k: string): string => {
     try { return getPref(k, ""); } catch { return ""; }
   };
@@ -33,12 +35,13 @@ export async function GET(
       primary: pick("brand_primary") || "#0F8F83",
     },
     theme,
+    rollMm ? { rollMm } : {},
   );
   const body = new Uint8Array(bytes);
   return new NextResponse(body, {
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="${doc.no}-${theme}.pdf"`,
+      "content-disposition": `attachment; filename="${doc.no}-${theme}${rollMm ? `-roll${rollMm}` : ""}.pdf"`,
       "content-length": String(body.byteLength),
       "cache-control": "private, no-store",
     },

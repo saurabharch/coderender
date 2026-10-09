@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { renderBillPdf } from "@/lib/pdf-bill";
+import { renderBillPdf, rollPt, wrapText } from "@/lib/pdf-bill";
 
 async function pagesOf(bytes: Uint8Array): Promise<number> {
   return (await PDFDocument.load(bytes)).getPageCount();
@@ -30,5 +30,21 @@ describe("pdf bill themes", () => {
   it("falls back on bad brand colors", async () => {
     const bytes = await renderBillPdf(doc, { ...brand, primary: "nope" }, "modern");
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
+  });
+});
+
+describe("thermal roll variant", () => {
+  it("sizes pages to the roll width", async () => {
+    expect(rollPt(80)).toBe(227);
+    const bytes = await renderBillPdf(doc, brand, "modern", { rollMm: 80 });
+    expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
+    expect(await pagesOf(bytes)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("wraps long lines to the measure", () => {
+    const measure = (s: string) => s.length * 5;
+    expect(wrapText(measure, "aaa bbb ccc", 10, 100)).toEqual(["aaa bbb ccc"]);
+    expect(wrapText(measure, "aaa bbb ccc", 10, 30)).toEqual(["aaa", "bbb", "ccc"]);
+    expect(wrapText(measure, "", 10, 30)).toEqual([""]);
   });
 });

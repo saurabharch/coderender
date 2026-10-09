@@ -15,6 +15,12 @@ function PdfDownloads({ kind, id }: { kind: string; id: string }) {
           PDF · {theme}
         </a>
       ))}
+      {[58, 72, 80].map((mm) => (
+        <a key={mm} href={`/api/billing/${kind}/${id}/pdf?theme=minimal&roll=${mm}`}
+          className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">
+          Roll {mm}
+        </a>
+      ))}
     </span>
   );
 }

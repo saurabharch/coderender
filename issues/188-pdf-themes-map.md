@@ -36,4 +36,4 @@ when a real bill downloads byte-valid with chain green and CI green.
 ## Children
 
 - [PDF tax invoice + receipt themes](189-pdf-bill-themes.md) — done
-- [Thermal receipt PDF variant](194-thermal-receipt-pdf.md) — frontier
+- [Thermal receipt PDF variant](194-thermal-receipt-pdf.md) — done (roll widths + wrap byte-proved)
