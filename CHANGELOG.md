@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.97.0] - 2026-10-09
+## [0.98.0] - 2026-10-09
+- Label sheet PDF## [0.97.0] - 2026-10-09
 - Thermal PDF## [0.96.0] - 2026-10-09
 - Reorder suggestions## [0.95.0] - 2026-10-09
 - Label templates## [0.94.0] - 2026-10-09
