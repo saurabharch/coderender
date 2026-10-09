@@ -55,6 +55,23 @@ export function BrandTheme({ admin = false }: { admin?: boolean }) {
       }
       if (hexOk(d.brand_accent)) root.style.setProperty("--brand-accent", triple(d.brand_accent));
       if (hexOk(d.brand_ink)) root.style.setProperty("--brand-ink", triple(d.brand_ink));
+      const numOk = (v: unknown, lo: number, hi: number): number | null => {
+        const n = Math.round(Number(v));
+        return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null;
+      };
+      const radius = numOk(d.brand_radius, 0, 24);
+      if (radius !== null) root.style.setProperty("--brand-radius", `${radius}px`);
+      const shadows: Record<string, string> = {
+        none: "none",
+        soft: "0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.08)",
+        medium: "0 4px 12px rgb(0 0 0 / 0.10), 0 2px 4px rgb(0 0 0 / 0.08)",
+        strong: "0 10px 30px rgb(0 0 0 / 0.16), 0 4px 8px rgb(0 0 0 / 0.10)",
+      };
+      if (typeof d.brand_shadow === "string" && shadows[d.brand_shadow]) {
+        root.style.setProperty("--brand-shadow", shadows[d.brand_shadow]);
+      }
+      const space = numOk(d.brand_space, 4, 16);
+      if (space !== null) root.style.setProperty("--brand-space", `${space}px`);
       const fonts: Record<string, { body: string; display: string }> = {
         default: { body: "var(--font-body), system-ui, sans-serif", display: "var(--font-display), system-ui, sans-serif" },
         system: { body: "system-ui, -apple-system, sans-serif", display: "system-ui, -apple-system, sans-serif" },

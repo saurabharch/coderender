@@ -215,7 +215,10 @@ async function saveBrand(form: FormData) {  "use server";
     const h = get(k);
     out[k] = /^#[0-9a-f]{6}$/i.test(h) ? h.toLowerCase() : fb;
   }
-  const { FONT_STACKS, BRAND_SCOPES } = await import("@/lib/brand");
+  const { FONT_STACKS, BRAND_SCOPES, parseRadius, parseShadow, parseSpace } = await import("@/lib/brand");
+  out.brand_radius = String(parseRadius(form.get("brand_radius")));
+  out.brand_shadow = parseShadow(form.get("brand_shadow"));
+  out.brand_space = String(parseSpace(form.get("brand_space")));
   out.brand_font = FONT_STACKS.some((f) => f.id === form.get("brand_font")) ? String(form.get("brand_font")) : "default";
   const scope = String(form.get("brand_scope") || "both");
   out.brand_scope = (BRAND_SCOPES as readonly string[]).includes(scope) ? scope : "both";

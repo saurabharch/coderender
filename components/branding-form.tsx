@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ImageInputField } from "@/components/media-picker";
-import { FONT_STACKS, STANDARD_PALETTES, BRAND_SCOPES } from "@/lib/brand";
+import { FONT_STACKS, STANDARD_PALETTES, BRAND_SCOPES, SHADOW_PRESETS, parseRadius, parseShadow, parseSpace } from "@/lib/brand";
 
 export type BrandVals = Record<string, string>;
 
@@ -33,6 +33,9 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
   const set = (k: string, val: string) => setV((s) => ({ ...s, [k]: val }));
   const opacity = Math.min(100, Math.max(10, Number(v.brand_logo_opacity) || 100));
   const font = FONT_STACKS.find((f) => f.id === v.brand_font) ?? FONT_STACKS[0];
+  const radius = parseRadius(v.brand_radius ?? "12");
+  const shadowKey = parseShadow(v.brand_shadow ?? "soft");
+  const space = parseSpace(v.brand_space ?? "8");
   const logoLight = v.brand_logo_light || "";
   const logoDark = v.brand_logo_dark || logoLight;
 
@@ -173,6 +176,40 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
         </div>
       </section>
 
+      <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10" aria-label="Shape and depth">
+        <p className="font-bold">Shape & depth <span className="text-xs font-normal text-zinc-500">(radius, shadow, spacing — live via CSS vars)</span></p>
+        <div className="mt-2 grid gap-2">
+          <label className="grid gap-1 text-sm">Corner radius
+            <span className="flex items-center gap-2">
+              <input type="range" min={0} max={24} step={1} value={radius}
+                onChange={(e) => set("brand_radius", String(parseRadius(e.target.value)))}
+                aria-label="Corner radius" className="min-h-[44px] flex-1 accent-teal-700" />
+              <span className="w-14 font-mono text-xs text-zinc-500">{radius}px</span>
+            </span>
+            <input type="hidden" name="brand_radius" value={String(radius)} />
+          </label>
+          <fieldset className="grid gap-1 text-sm">Shadow
+            <span className="flex flex-wrap gap-1.5">
+              {(Object.keys(SHADOW_PRESETS) as (keyof typeof SHADOW_PRESETS)[]).map((s) => (
+                <label key={s} className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl border border-black/15 px-3 capitalize dark:border-white/20">
+                  <input type="radio" name="brand_shadow" value={s} checked={shadowKey === s} onChange={() => set("brand_shadow", s)} className="h-5 w-5" />
+                  {s}
+                </label>
+              ))}
+            </span>
+          </fieldset>
+          <label className="grid gap-1 text-sm">Spacing unit
+            <span className="flex items-center gap-2">
+              <input type="range" min={4} max={16} step={1} value={space}
+                onChange={(e) => set("brand_space", String(parseSpace(e.target.value)))}
+                aria-label="Spacing unit" className="min-h-[44px] flex-1 accent-teal-700" />
+              <span className="w-14 font-mono text-xs text-zinc-500">{space}px</span>
+            </span>
+            <input type="hidden" name="brand_space" value={String(space)} />
+          </label>
+        </div>
+      </section>
+
       <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10" aria-label="Theme preview">
         <p className="font-bold">Preview</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -184,7 +221,7 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
                 : <p className="mt-1 text-sm font-extrabold" style={{ fontFamily: font.display }}>coderender</p>}
               <p className="mt-1 text-lg font-extrabold tracking-tight" style={{ fontFamily: font.display }}>Grow on autopilot</p>
               <p className="text-xs opacity-70" style={{ fontFamily: font.body }}>Reviews, replies and posts — handled daily.</p>
-              <p className="mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: v.brand_primary }}>Get started</p>
+              <p className="mt-2 inline-block px-3 py-1 text-xs font-bold text-white" style={{ background: v.brand_primary, borderRadius: radius, boxShadow: SHADOW_PRESETS[shadowKey], marginTop: space }}>Get started</p>
             </div>
           ))}
         </div>

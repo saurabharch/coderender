@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hexToTuple, shadeTriplet, BRAND_DEFAULTS, BRAND_KEYS } from "@/lib/brand";
+import { hexToTuple, shadeTriplet, BRAND_DEFAULTS, BRAND_KEYS, parseRadius, parseShadow, parseSpace, SHADOW_PRESETS } from "@/lib/brand";
 
 describe("brand theme math", () => {
   it("builds a 10-step tuple anchored at index 6", () => {
@@ -32,5 +32,27 @@ describe("brand theme math", () => {
     expect(BRAND_DEFAULTS.site_keywords).toContain("whatsapp");
     expect(BRAND_DEFAULTS.brand_favicon).toBe("");
     expect(BRAND_DEFAULTS.brand_loading_icon).toBe("");
+  });
+});
+
+describe("design tokens", () => {
+  it("clamps radius and spacing, defaults shadow", () => {
+    expect(parseRadius("16")).toBe(16);
+    expect(parseRadius(99)).toBe(24);
+    expect(parseRadius(-3)).toBe(0);
+    expect(parseRadius("nope")).toBe(12);
+    expect(parseSpace("4")).toBe(4);
+    expect(parseSpace(99)).toBe(16);
+    expect(parseSpace(undefined)).toBe(8);
+    expect(parseShadow("strong")).toBe("strong");
+    expect(parseShadow("blur")).toBe("soft");
+    expect(typeof SHADOW_PRESETS.soft).toBe("string");
+  });
+
+  it("keeps token keys in sync with defaults", () => {
+    for (const k of ["brand_radius", "brand_shadow", "brand_space"]) {
+      expect(BRAND_KEYS).toContain(k);
+      expect(BRAND_DEFAULTS[k]).toBeDefined();
+    }
   });
 });

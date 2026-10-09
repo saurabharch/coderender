@@ -59,6 +59,32 @@ export const FONT_STACKS = [  { id: "default", label: "Default (site fonts)", bo
 
 export const BRAND_SCOPES = ["both", "public", "dashboard"] as const;
 
+export const SHADOW_PRESETS = {
+  none: "none",
+  soft: "0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.08)",
+  medium: "0 4px 12px rgb(0 0 0 / 0.10), 0 2px 4px rgb(0 0 0 / 0.08)",
+  strong: "0 10px 30px rgb(0 0 0 / 0.16), 0 4px 8px rgb(0 0 0 / 0.10)",
+} as const;
+export type ShadowPreset = keyof typeof SHADOW_PRESETS;
+
+/** Corner radius px, clamped 0–24 (24 keeps pills sane). */
+export function parseRadius(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(24, Math.max(0, n)) : 12;
+}
+
+/** Shadow preset id, defaulting to soft. */
+export function parseShadow(v: unknown): ShadowPreset {
+  const s = String(v ?? "");
+  return (Object.keys(SHADOW_PRESETS) as ShadowPreset[]).includes(s as ShadowPreset) ? (s as ShadowPreset) : "soft";
+}
+
+/** Spacing unit px, clamped 4–16 (8 matches the current rhythm). */
+export function parseSpace(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(16, Math.max(4, n)) : 8;
+}
+
 // Preference keys (read with getPref in server code; lib/brand stays sqlite-free).
 // Single source: every key in BRAND_DEFAULTS must appear here.
 export const BRAND_KEYS = [
@@ -67,7 +93,7 @@ export const BRAND_KEYS = [
   "brand_pwa_192", "brand_pwa_512", "brand_pwa_maskable", "brand_pwa_apple",
   "brand_favicon", "brand_loading_icon",
   "brand_logo_opacity", "brand_primary", "brand_deep", "brand_accent", "brand_ink",
-  "brand_font", "brand_scope",
+  "brand_font", "brand_scope", "brand_radius", "brand_shadow", "brand_space",
   "site_name", "site_tagline", "site_description", "site_keywords",
 ] as const;
 
@@ -78,6 +104,7 @@ export const BRAND_DEFAULTS: Record<string, string> = {
   brand_favicon: "", brand_loading_icon: "",
   brand_logo_opacity: "100", brand_primary: "#0F8F83", brand_deep: "#064E46",
   brand_accent: "#D7F45A", brand_ink: "#171717", brand_font: "default", brand_scope: "both",
+  brand_radius: "12", brand_shadow: "soft", brand_space: "8",
   site_name: "CodeRender",
   site_tagline: "WhatsApp Automation, Google Business Profile & Local SEO",
   site_description:

@@ -9,6 +9,9 @@
   --brand-deep: 6 78 70;
   --brand-accent: 215 244 90;
   --brand-ink: 23 23 23;
+  --brand-radius: 12px;
+  --brand-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.08);
+  --brand-space: 8px;
 }
 
 html { scroll-behavior: smooth; }

@@ -12,6 +12,15 @@ export default {
           deep: "rgb(var(--brand-deep) / <alpha-value>)",
         },
       },
+      borderRadius: {
+        brand: "var(--brand-radius, 12px)",
+      },
+      boxShadow: {
+        brand: "var(--brand-shadow)",
+      },
+      spacing: {
+        brand: "var(--brand-space, 8px)",
+      },
     },
   },
   plugins: [],

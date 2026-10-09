@@ -32,6 +32,6 @@ with reasons. Done when each lands live-proved with chain green and CI green.
 
 ## Children
 
-- [Global spacing radius shadow tokens](199-design-tokens.md) — frontier
+- [Global spacing radius shadow tokens](199-design-tokens.md) — done
 - [Kitchen display + table orders](200-kitchen-display.md) — done (fire-to-served loop live-proved)
 - [ABAC vs coarse roles decision](201-abac-decision.md) — done
