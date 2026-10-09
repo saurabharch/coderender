@@ -9,6 +9,18 @@ export const JOB_FLOW: Record<string, string[]> = {
   cancelled: [],
 };
 
+export const KOT_FLOW: Record<string, string[]> = {
+  fired: ["preparing", "cancelled"],
+  preparing: ["ready", "cancelled"],
+  ready: ["served", "cancelled"],
+  served: [],
+  cancelled: [],
+};
+
+export function kotCan(from: string, to: string): boolean {
+  return (KOT_FLOW[from] ?? []).includes(to);
+}
+
 export function jobCan(from: string, to: string): boolean {
   return (JOB_FLOW[from] ?? []).includes(to);
 }

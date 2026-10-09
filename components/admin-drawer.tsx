@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, KanbanSquare, ShoppingCart, FileText, ClipboardList,
+  LayoutDashboard, Users, KanbanSquare, ShoppingCart, UtensilsCrossed, CookingPot, FileText, ClipboardList,
   Blocks, Image, Mail, Bell, Handshake, KeyRound, ShieldCheck, Route, Settings, CalendarClock, Activity, Workflow, Plug, Menu, X, LogOut, Star, Package, GraduationCap, MessageSquare, MessageCircle, LayoutTemplate, Ticket, Trello, ListChecks, IndianRupee, Megaphone, Contact,
 } from "lucide-react";
 
@@ -27,6 +27,8 @@ const ICONS: Record<string, IconType> = {
   "/admin/stock": Package,
   "/admin/packages": Package,
   "/admin/partners": Handshake,
+  "/admin/dine": UtensilsCrossed,
+  "/admin/kitchen": CookingPot,
   "/admin/leads": Users,
   "/admin/pipeline": KanbanSquare,
   "/admin/whatsapp": MessageCircle,

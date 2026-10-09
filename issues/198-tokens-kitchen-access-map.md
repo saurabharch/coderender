@@ -18,7 +18,7 @@ with reasons. Done when each lands live-proved with chain green and CI green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [ABAC vs coarse roles decision](201-abac-decision.md): kept 9+1 matrix — 111 routes gate centrally, migration cost unjustified.
 
 ## Not yet specified
 
@@ -33,5 +33,5 @@ with reasons. Done when each lands live-proved with chain green and CI green.
 ## Children
 
 - [Global spacing radius shadow tokens](199-design-tokens.md) — frontier
-- [Kitchen display + table orders](200-kitchen-display.md) — frontier
-- [ABAC vs coarse roles decision](201-abac-decision.md) — frontier
+- [Kitchen display + table orders](200-kitchen-display.md) — done (fire-to-served loop live-proved)
+- [ABAC vs coarse roles decision](201-abac-decision.md) — done

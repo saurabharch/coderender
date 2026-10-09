@@ -106,3 +106,14 @@ describe("quote status machine", () => {
     expect(quoteCan("rejected", "approved")).toBe(false);
   });
 });
+
+describe("kot status machine", () => {
+  it("walks fired to served, terminals hold", async () => {
+    const { kotCan } = await import("@/lib/service-core");
+    expect(kotCan("fired", "preparing")).toBe(true);
+    expect(kotCan("preparing", "ready")).toBe(true);
+    expect(kotCan("ready", "served")).toBe(true);
+    expect(kotCan("served", "ready")).toBe(false);
+    expect(kotCan("fired", "served")).toBe(false);
+  });
+});

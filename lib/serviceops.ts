@@ -1,12 +1,14 @@
 // Service operations: branches, job cards (book → assign → work → invoice),
 // print templates. Bills via billing, notifications via notify — no parallel pipes.
 import { getDb } from "./store";
-import { jobCan, jobNumber, renderTemplate } from "./service-core";
+import { jobCan, jobNumber, kotCan, renderTemplate } from "./service-core";
 
 export function serviceTables(): void {
   const db = getDb();
   db.exec(`CREATE TABLE IF NOT EXISTS Branch (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
   db.exec(`CREATE TABLE IF NOT EXISTS JobCard (id INTEGER PRIMARY KEY AUTOINCREMENT, no TEXT NOT NULL DEFAULT '', customerId INTEGER NOT NULL DEFAULT 0, branchId INTEGER NOT NULL DEFAULT 1, service TEXT NOT NULL DEFAULT '', staff TEXT NOT NULL DEFAULT '', slot TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'booked', notes TEXT NOT NULL DEFAULT '', billId INTEGER NOT NULL DEFAULT 0, createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS DineTable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, seats INTEGER NOT NULL DEFAULT 4, status TEXT NOT NULL DEFAULT 'free', captain TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS KotTicket (id INTEGER PRIMARY KEY AUTOINCREMENT, no TEXT NOT NULL DEFAULT '', tableId INTEGER NOT NULL DEFAULT 0, captain TEXT NOT NULL DEFAULT '', server TEXT NOT NULL DEFAULT '', lines TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'fired', firedBy TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   db.exec(`CREATE TABLE IF NOT EXISTS PrintTemplate (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL UNIQUE, body TEXT NOT NULL DEFAULT '', updatedAt TEXT NOT NULL DEFAULT (datetime('now')))`);
   try { db.exec("ALTER TABLE ShopOrder ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1"); } catch { /* exists */ }
   if ((db.prepare("SELECT COUNT(*) c FROM Branch").get() as { c: number }).c === 0) {
@@ -134,4 +136,77 @@ export function renderKind(kind: string, vars: Record<string, string>): string {
   const t = getDb().prepare("SELECT body FROM PrintTemplate WHERE kind=?").get(kind) as { body: string } | undefined;
   if (!t) throw new Error("no template");
   return renderTemplate(t.body, vars);
+}
+
+export function listTables() {
+  serviceTables();
+  return getDb().prepare("SELECT * FROM DineTable ORDER BY name").all();
+}
+
+export function saveTable(input: { id?: number; name: string; seats?: number; captain?: string }): number {
+  serviceTables();
+  const name = input.name.trim().slice(0, 40);
+  if (!name) throw new Error("table name required");
+  const seats = Math.min(50, Math.max(1, Math.round(input.seats ?? 4)));
+  const db = getDb();
+  if (input.id) {
+    db.prepare("UPDATE DineTable SET name=?, seats=?, captain=? WHERE id=?")
+      .run(name, seats, (input.captain ?? "").slice(0, 120), input.id);
+    return input.id;
+  }
+  return Number(db.prepare("INSERT INTO DineTable (name, seats, captain) VALUES (?,?,?)")
+    .run(name, seats, (input.captain ?? "").slice(0, 120)).lastInsertRowid);
+}
+
+export interface KotLine { productId: number; name: string; qty: number; note?: string }
+
+// Fire a kitchen ticket: table goes busy, lines snapshot names/prices now.
+export function fireKot(input: { tableId: number; lines: { productId: number; qty: number; note?: string }[]; captain?: string; server?: string; firedBy?: string }): number {
+  serviceTables();
+  const db = getDb();
+  const table = db.prepare("SELECT id, captain FROM DineTable WHERE id=?").get(input.tableId) as
+    { id: number; captain: string } | undefined;
+  if (!table) throw new Error("no table");
+  const captain = ((input.captain ?? "").trim() || table.captain || "").slice(0, 120);
+  const clean = input.lines.slice(0, 30).map((l) => {
+    const p = db.prepare("SELECT name FROM Product WHERE id=? AND status='active'").get(l.productId) as { name: string } | undefined;
+    if (!p) throw new Error(`product ${l.productId} unavailable`);
+    return { productId: l.productId, name: p.name.slice(0, 120), qty: Math.max(0.001, l.qty), note: (l.note ?? "").slice(0, 120) };
+  });
+  if (!clean.length) throw new Error("empty ticket");
+  const id = Number(db.prepare("INSERT INTO KotTicket (tableId, captain, server, lines, firedBy) VALUES (?,?,?,?,?)")
+    .run(input.tableId, captain, (input.server ?? "").slice(0, 120), JSON.stringify(clean), (input.firedBy ?? "").slice(0, 120)).lastInsertRowid);
+  const no = `KOT-${String(id).padStart(5, "0")}`;
+  db.prepare("UPDATE KotTicket SET no=? WHERE id=?").run(no, id);
+  db.prepare("UPDATE DineTable SET status='busy' WHERE id=?").run(input.tableId);
+  return id;
+}
+
+export function moveKot(id: number, to: string): void {
+  serviceTables();
+  const db = getDb();
+  const cur = db.prepare("SELECT status, tableId FROM KotTicket WHERE id=?").get(id) as { status: string; tableId: number } | undefined;
+  if (!cur) throw new Error("no ticket");
+  if (!kotCan(cur.status, to)) throw new Error(`${cur.status} → ${to} not allowed`);
+  db.prepare("UPDATE KotTicket SET status=? WHERE id=?").run(to, id);
+  if (to === "served" || to === "cancelled") {
+    const open = db.prepare("SELECT id FROM KotTicket WHERE tableId=? AND status NOT IN ('served','cancelled') LIMIT 1").get(cur.tableId);
+    if (!open) db.prepare("UPDATE DineTable SET status='free' WHERE id=?").run(cur.tableId);
+  }
+}
+
+export function getTicket(id: number) {
+  serviceTables();
+  const db = getDb();
+  const t = db.prepare(`SELECT k.*, t.name tableName FROM KotTicket k LEFT JOIN DineTable t ON t.id=k.tableId WHERE k.id=?`).get(id);
+  if (!t) return null;
+  return { ...t as object, lines: JSON.parse((t as { lines: string }).lines || "[]") };
+}
+
+export function listTickets(status = "") {
+  serviceTables();
+  const db = getDb();
+  return status
+    ? db.prepare(`SELECT k.*, t.name tableName FROM KotTicket k LEFT JOIN DineTable t ON t.id=k.tableId WHERE k.status=? ORDER BY k.id DESC LIMIT 100`).all(status)
+    : db.prepare(`SELECT k.*, t.name tableName FROM KotTicket k LEFT JOIN DineTable t ON t.id=k.tableId ORDER BY k.id DESC LIMIT 100`).all();
 }
