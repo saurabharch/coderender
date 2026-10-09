@@ -937,7 +937,11 @@ export async function setOrderStatus(id: number, to: string): Promise<void> {
 // ---- udhari (credit ledger on the customer row) ----
 export function udhariList() {
   commerceTables();
-  return getDb().prepare("SELECT id, name, phone, balance, termsDays, balanceSince FROM Customer WHERE balance > 0 ORDER BY balance DESC LIMIT 100").all();
+  return getDb().prepare(`SELECT c.id, c.name, c.phone, c.balance, c.termsDays, c.balanceSince,
+    (SELECT p.id FROM DuePlan p WHERE p.customerId=c.id AND p.status='open' ORDER BY p.id DESC LIMIT 1) planId,
+    (SELECT COUNT(*) FROM DueSlice s JOIN DuePlan p ON p.id=s.planId WHERE p.customerId=c.id AND p.status='open' AND s.paid >= s.amount) slicesPaid,
+    (SELECT COUNT(*) FROM DueSlice s JOIN DuePlan p ON p.id=s.planId WHERE p.customerId=c.id AND p.status='open') slicesTotal
+    FROM Customer c WHERE c.balance > 0 ORDER BY c.balance DESC LIMIT 100`).all();
 }
 
 // Credit sale: confirmed order + balance grows. Atomic with the order.

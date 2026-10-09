@@ -11,7 +11,7 @@ import { AdminCard, Empty, Skeleton } from "@/components/admin-ui";
 
 interface Campaign { id: number; name: string; channel: string; segment: string; status: string }
 interface Shipment { id: number; orderId: number; courier: string; tracking: string; status: string }
-interface Due { id: number; name: string; phone: string; balance: number; termsDays: number; balanceSince: string }
+interface Due { id: number; name: string; phone: string; balance: number; termsDays: number; balanceSince: string; planId: number | null; slicesPaid: number; slicesTotal: number }
 
 export function RetailConsole({ tab }: { tab: string }) {
   const [camps, setCamps] = useState<Campaign[]>([]);
@@ -156,6 +156,18 @@ export function RetailConsole({ tab }: { tab: string }) {
     if (res.ok) void load();
   }
 
+  async function payPlan(id: number, planId: number) {
+    const amt = prompt("Part-payment against the plan (₹)? Oldest open slice first.");
+    if (!amt) return;
+    const res = await fetch("/api/shop/credit", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "payplan", planId, amount: Math.round(Number(amt) * 100) }),
+    });
+    const r = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Plan paid ✓ ₹${((r.applied ?? []).reduce((s: number, a: { amount: number }) => s + a.amount, 0) / 100).toFixed(0)} across ${(r.applied ?? []).length} slices` : (r.error ?? "failed"));
+    if (res.ok) void load();
+  }
+
   async function remindDues() {
     const res = await fetch("/api/shop/credit", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -242,7 +254,7 @@ export function RetailConsole({ tab }: { tab: string }) {
                 <span>{u.name} · <b>₹{(u.balance / 100).toFixed(0)}</b>
                   {(() => {
                     const st = ageStatus({ balance: u.balance, balanceSince: u.balanceSince || "", termsDays: u.termsDays || 0 });
-                    return <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${st.overdue ? "bg-red-500/15 text-red-700 dark:text-red-300" : "bg-black/5 text-zinc-500 dark:bg-white/10"}`}>{st.label}{u.termsDays ? ` · ${u.termsDays}d terms` : ""}</span>;
+                    return <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${st.overdue ? "bg-red-500/15 text-red-700 dark:text-red-300" : "bg-black/5 text-zinc-500 dark:bg-white/10"}`}>{st.label}{u.termsDays ? ` · ${u.termsDays}d terms` : ""}{u.planId ? ` · plan ${u.slicesPaid}/${u.slicesTotal}` : ""}</span>;
                   })()}
                 </span>
                 <span className="flex flex-wrap gap-1">
@@ -258,6 +270,10 @@ export function RetailConsole({ tab }: { tab: string }) {
                     className="min-h-[44px] rounded-xl border border-red-500/40 px-3 text-xs font-semibold text-red-700 dark:text-red-300">Write off</button>
                   <a href={`/admin/customers/${u.id}/statement`}
                     className="flex min-h-[44px] items-center rounded-xl border border-black/15 px-3 text-xs font-semibold dark:border-white/20">Statement</a>
+                  {u.planId ? (
+                    <button onClick={() => void payPlan(u.id, u.planId as number)}
+                      className="min-h-[44px] rounded-xl bg-brand px-3 text-xs font-semibold text-white">Pay plan {u.slicesPaid}/{u.slicesTotal}</button>
+                  ) : null}
                 </span>
               </li>
             ))}

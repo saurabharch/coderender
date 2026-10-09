@@ -1,7 +1,7 @@
 # Wayfinder map: Installment schedules for dues
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -35,4 +35,4 @@ lands on the right slice with chain green and CI green.
 ## Children
 
 - [Installment schedules + allocation](184-installment-schedules.md) — done
-- [Dues UI: pay-part + schedule view](185-dues-schedule-ui.md) — blocked by schedules engine
+- [Dues UI: pay-part + schedule view](185-dues-schedule-ui.md) — done

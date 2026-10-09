@@ -1,11 +1,42 @@
 import { PrintButton } from "@/components/print-button";
 import { getPref } from "@/lib/store";
-import { udhariStatement } from "@/lib/commerce";
+import { listPlans, udhariStatement } from "@/lib/commerce";
 import { ageStatus } from "@/lib/credit-core";
 
 // Printable customer dues statement (A4). Read-only over statement data:
 // business header, dues + terms/overdue status, credit orders, timeline.
 // Share = Print / PDF through the browser dialog (no PDF engine on-device).
+async function PlansBlock({ customerId }: { customerId: number }) {
+  let plans: { id: number; status: string }[] = [];
+  try {
+    plans = listPlans(customerId) as { id: number; status: string }[];
+  } catch { plans = []; }
+  if (!plans.length) return null;
+  const { getPlan } = await import("@/lib/commerce");
+  return (
+    <div className="mt-4">
+      <p className="mb-1 font-bold">Installment plans ({plans.length})</p>
+      {plans.slice(0, 5).map((pl) => {
+        const full = getPlan(pl.id) as { slices: { idx: number; dueAt: string; amount: number; paid: number }[] } | null;
+        const slices = full?.slices ?? [];
+        return (
+          <div key={pl.id} className="mb-1 rounded-xl border border-black/10 p-2 dark:border-white/10">
+            <p className="text-xs font-bold">Plan #{pl.id} · {pl.status}</p>
+            <ul className="mt-1 space-y-0.5 font-mono text-xs">
+              {slices.map((s) => (
+                <li key={s.idx} className="flex justify-between gap-2">
+                  <span>#{s.idx} · {s.dueAt}</span>
+                  <span>₹{(s.paid / 100).toFixed(0)}/₹{(s.amount / 100).toFixed(0)}{s.paid >= s.amount ? " ✓" : ""}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default async function StatementPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const cid = Number(id) || 0;
@@ -63,6 +94,7 @@ export default async function StatementPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
         {c.credit > 0 && <p className="mt-1 text-xs text-zinc-600">Credit limit ₹{(c.credit / 100).toFixed(0)}</p>}
+        <PlansBlock customerId={cid} />
         <p className="mb-1 mt-4 font-bold">Credit orders ({orders.length})</p>
         {orders.length === 0 ? <p className="text-xs text-zinc-500">None on record.</p> : (
           <ul className="space-y-1 font-mono text-xs">
