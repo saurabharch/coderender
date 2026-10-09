@@ -3,7 +3,7 @@
 // through issueStock so ledger and cache never diverge.
 import { getDb } from "./store";
 import { avgCost, needsReorder, poCan, type MoveKind } from "./inventory-core";
-import { coverDays, dailyVelocity, historyClass, suggestQty } from "./forecast-core";
+import { coverDays, dailyVelocity, historyClass, meanLeadTime, suggestQty } from "./forecast-core";
 
 export function inventoryTables(): void {
   const db = getDb();
@@ -372,6 +372,18 @@ export function suggestReorders(windowDays = 28, targetDays = 21, safetyDays = 7
   return out
     .filter((r) => r.suggest > 0)
     .sort((a, b) => (a.cover ?? 0) - (b.cover ?? 0));
+}
+
+export function supplierLeadTimes(): { supplierId: number; name: string; receipts: number; leadDays: number | null }[] {
+  inventoryTables();
+  const db = getDb();
+  const sups = db.prepare("SELECT id, name FROM Supplier ORDER BY name").all() as { id: number; name: string }[];
+  return sups.map((s) => {
+    const rows = db.prepare(`SELECT o.createdAt orderedAt, g.at receivedAt FROM GRN g
+      JOIN PurchaseOrder o ON o.id=g.poId
+      WHERE o.supplierId=? ORDER BY g.id DESC LIMIT 10`).all(s.id) as { orderedAt: string; receivedAt: string }[];
+    return { supplierId: s.id, name: s.name, receipts: rows.length, leadDays: meanLeadTime(rows) };
+  });
 }
 
 export function listSuppliers() {

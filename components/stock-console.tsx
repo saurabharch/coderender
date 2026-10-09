@@ -20,6 +20,7 @@ export function StockConsole() {
   interface Suggestion { productId: number; name: string; stock: number; velocity: number; cover: number | null; suggest: number; history: string; cost: number }
   const [sugs, setSugs] = useState<Suggestion[]>([]);
   const [sugSup, setSugSup] = useState("");
+  const [lead, setLead] = useState<{ supplierId: number; name: string; receipts: number; leadDays: number | null }[]>([]);
   const [sups, setSups] = useState<Supplier[]>([]);
   const [bins, setBins] = useState<Bin[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -57,8 +58,12 @@ export function StockConsole() {
   }
 
   async function loadSugs() {
-    const d = await fetch("/api/stock/purchase?suggest=1").then((r) => r.json()).catch(() => null);
+    const [d, l] = await Promise.all([
+      fetch("/api/stock/purchase?suggest=1").then((r) => r.json()).catch(() => null),
+      fetch("/api/stock/purchase?leadtime=1").then((r) => r.json()).catch(() => null),
+    ]);
     if (d?.suggestions) setSugs(d.suggestions);
+    if (l?.leadTimes) setLead(l.leadTimes);
   }
 
   async function raisePO() {
@@ -173,7 +178,10 @@ export function StockConsole() {
               <select value={sugSup} onChange={(e) => setSugSup(e.target.value)} aria-label="Supplier for draft PO"
                 className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20">
                 <option value="">Supplier…</option>
-                {sups.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {sups.map((s) => {
+                  const lt = lead.find((x) => x.supplierId === s.id);
+                  return <option key={s.id} value={s.id}>{s.name}{lt?.leadDays != null ? ` · ~${lt.leadDays}d lead` : lt ? " · lead unknown" : ""}</option>;
+                })}
               </select>
               <button onClick={() => void raisePO()} disabled={!sugSup || !sugs.length}
                 className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">

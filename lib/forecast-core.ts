@@ -43,3 +43,18 @@ export function historyClass(sales: DailySale[]): HistoryClass {
   if (n > 0) return "thin";
   return "none";
 }
+
+export interface ReceiptLag { orderedAt: string; receivedAt: string }
+
+// Mean PO-to-GRN lag in days over recent receipts (null = unknown, never 0).
+export function meanLeadTime(receipts: ReceiptLag[]): number | null {
+  const lags: number[] = [];
+  for (const r of receipts.slice(0, 10)) {
+    const a = Date.parse(r.orderedAt || "");
+    const b = Date.parse(r.receivedAt || "");
+    if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) continue;
+    lags.push((b - a) / 86400000);
+  }
+  if (!lags.length) return null;
+  return Math.round((lags.reduce((s, x) => s + x, 0) / lags.length) * 10) / 10;
+}

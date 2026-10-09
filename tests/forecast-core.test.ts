@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeDays, coverDays, dailyVelocity, historyClass, suggestQty } from "@/lib/forecast-core";
+import { activeDays, coverDays, dailyVelocity, historyClass, meanLeadTime, suggestQty } from "@/lib/forecast-core";
 
 const sales = [
   { day: "2026-10-01", qty: 2 }, { day: "2026-10-02", qty: 0 },
@@ -27,5 +27,16 @@ describe("forecast-core", () => {
     expect(historyClass([])).toBe("none");
     const week = Array.from({ length: 7 }, (_, i) => ({ day: `2026-10-0${i + 1}`, qty: 1 }));
     expect(historyClass(week)).toBe("ok");
+  });
+});
+
+describe("lead times", () => {
+  it("averages PO-to-GRN lags, unknown when empty", () => {
+    expect(meanLeadTime([])).toBe(null);
+    expect(meanLeadTime([
+      { orderedAt: "2026-10-01T10:00:00", receivedAt: "2026-10-03T10:00:00" },
+      { orderedAt: "2026-10-05T10:00:00", receivedAt: "2026-10-08T10:00:00" },
+    ])).toBe(2.5);
+    expect(meanLeadTime([{ orderedAt: "bad", receivedAt: "2026-10-03" }])).toBe(null);
   });
 });

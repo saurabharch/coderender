@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { billPO, createPO, getPO, listPOs, payBill, receivePO, setPOStatus, suggestReorders } from "@/lib/inventory";
+import { billPO, createPO, getPO, listPOs, payBill, receivePO, setPOStatus, suggestReorders, supplierLeadTimes } from "@/lib/inventory";
 import { shopGate } from "@/lib/shop-auth";
 
 const line = z.object({ productId: z.number().int(), qty: z.number().min(0.001).max(1000000), cost: z.number().min(0).max(100000000) });
@@ -22,6 +22,9 @@ export async function GET(req: Request) {
     return NextResponse.json({
       suggestions: suggestReorders(q("window", 28), q("target", 21), q("safety", 7)),
     });
+  }
+  if (url.searchParams.get("leadtime") !== null) {
+    return NextResponse.json({ leadTimes: supplierLeadTimes() });
   }
   return NextResponse.json({ orders: listPOs(url.searchParams.get("status") || "") });
 }

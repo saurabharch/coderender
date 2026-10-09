@@ -24,7 +24,7 @@ green.
 ## Not yet specified
 
 - Auto-raised purchase orders (needs approval flow first).
-- Supplier lead-time learning (no receipts timestamps yet).
+- Supplier lead-time learning: done (GRN timestamps existed after all).
 
 ## Out of scope
 
