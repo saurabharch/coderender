@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.100.0] - 2026-10-09
+## [0.101.0] - 2026-10-09
+- Design tokens## [0.100.0] - 2026-10-09
 - Kitchen display## [0.99.0] - 2026-10-09
 - Lead times## [0.98.0] - 2026-10-09
 - Label sheet PDF## [0.97.0] - 2026-10-09
