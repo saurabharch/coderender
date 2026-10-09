@@ -6,6 +6,14 @@ import { audit } from "./scale";
 export const ADMIN_EMAILS = ["saurabhkashyap0001@gmail.com", "raj90.ro@gmail.com"];
 const SESSION_DAYS = 30;
 
+// Public base URL for redirects and mailed links. APP_URL wins so login
+// and OAuth callbacks land on the public hostname behind tunnels/proxies;
+// otherwise fall back to the incoming request URL (local dev).
+export function appBase(fallback = "http://localhost:3100"): string {
+  const u = (process.env.APP_URL || "").trim();
+  return /^https?:\/\//.test(u) ? u.replace(/\/$/, "") : fallback;
+}
+
 export function isAdminEmail(email: string): boolean {
   return ADMIN_EMAILS.includes(email.trim().toLowerCase());
 }

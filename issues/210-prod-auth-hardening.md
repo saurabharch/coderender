@@ -1,7 +1,7 @@
 # Ticket: Production auth hardening + dev-bypass switch
 
 Labels: wayfinder:task
-Status: doing
+Status: done
 Assignee: opencode
 
 ## Question
@@ -19,3 +19,16 @@ its configured dashboard?
 - Local and production share one machine AND one database, so neither
   `NODE_ENV` nor a DB pref can tell them apart — fixed by gating on the
   request host (localhost/loopback/LAN, pure + unit-tested).
+
+## Resolution
+
+- Closed the takeover hole: usable login links never leave the server
+  except to superadmin emails, with the owner switch on, no SMTP, AND a
+  local request host (pure, unit-tested). Production matrix verified live:
+  local owner gets one, local staff gets none, public gets none for anyone.
+- Fixed production redirects (verify/logout/gcal now use APP_URL, not the
+  tunnel-blind request URL) and set APP_URL to the public hostname.
+- Owner-only dev-bypass toggle in Settings + honest login copy; role
+  dashboards unchanged (RBAC + industry/mode still owner-configured).
+- Full production chain: devLink → session → dashboard 200 → settings 200
+  with toggle visible. Probe tokens cleaned.
