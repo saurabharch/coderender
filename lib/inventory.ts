@@ -3,6 +3,7 @@
 // through issueStock so ledger and cache never diverge.
 import { getDb } from "./store";
 import { avgCost, needsReorder, poCan, type MoveKind } from "./inventory-core";
+import { coverDays, dailyVelocity, historyClass, suggestQty } from "./forecast-core";
 
 export function inventoryTables(): void {
   const db = getDb();
@@ -336,6 +337,41 @@ export function saveWarehouse(input: { id?: number; name: string; location?: str
   }
   return Number(db.prepare("INSERT INTO Warehouse (name, location) VALUES (?,?)")
     .run(input.name.slice(0, 80), (input.location ?? "").slice(0, 120)).lastInsertRowid);
+}
+
+export interface ReorderRow {
+  productId: number; name: string; stock: number; velocity: number;
+  cover: number | null; suggest: number; history: string; cost: number;
+}
+
+// Demand-based reorder suggestions (advice only): daily velocity over the
+// window, days of cover left, top-up to target + safety. Slow sellers read
+// "thin"/"none" instead of a confident zero.
+export function suggestReorders(windowDays = 28, targetDays = 21, safetyDays = 7): ReorderRow[] {
+  const db = getDb();
+  const w = Math.min(365, Math.max(1, Math.round(windowDays) || 28));
+  const products = db.prepare("SELECT id, name FROM Product WHERE kind='physical' AND status='active' ORDER BY id").all() as
+    { id: number; name: string }[];
+  const out: ReorderRow[] = [];
+  for (const p of products) {
+    const sales = db.prepare(`SELECT substr(o.createdAt,1,10) day, SUM(l.qty) qty FROM OrderLine l
+      JOIN ShopOrder o ON o.id=l.orderId
+      WHERE l.productId=? AND o.status IN ('confirmed','fulfilled') AND date(o.createdAt) > date('now',?)
+      GROUP BY day`).all(p.id, `-${w} days`) as { day: string; qty: number }[];
+    const vel = dailyVelocity(sales, w);
+    const stock = (db.prepare("SELECT COALESCE(SUM(qty),0) s FROM StockLevel WHERE productId=?").get(p.id) as { s: number }).s;
+    const cost = (db.prepare("SELECT COALESCE(AVG(avgCost),0) c FROM StockLevel WHERE productId=? AND qty>0").get(p.id) as { c: number }).c;
+    const cover = coverDays(stock, vel);
+    out.push({
+      productId: p.id, name: p.name, stock, velocity: Math.round(vel * 100) / 100,
+      cover: cover === null ? null : Math.round(cover * 10) / 10,
+      suggest: Math.ceil(suggestQty(stock, vel, targetDays, safetyDays)),
+      history: historyClass(sales), cost: Math.round(cost),
+    });
+  }
+  return out
+    .filter((r) => r.suggest > 0)
+    .sort((a, b) => (a.cover ?? 0) - (b.cover ?? 0));
 }
 
 export function listSuppliers() {

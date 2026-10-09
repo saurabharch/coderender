@@ -1,7 +1,7 @@
 # Wayfinder map: Demand forecasting + reorder
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -19,7 +19,7 @@ green.
 
 ## Decisions so far
 
-<!-- one line per closed ticket, gist + link -->
+- [Reorder suggestions from sales velocity](193-reorder-suggestions.md): hand-matched math + draft PO live-proved.
 
 ## Not yet specified
 
@@ -33,4 +33,4 @@ green.
 
 ## Children
 
-- [Reorder suggestions from sales velocity](193-reorder-suggestions.md) — frontier
+- [Reorder suggestions from sales velocity](193-reorder-suggestions.md) — done

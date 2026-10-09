@@ -17,6 +17,9 @@ interface Bin { id: number; floor: string; rack: string; shelf: string; code: st
 export function StockConsole() {
   const [levels, setLevels] = useState<Level[]>([]);
   const [pos, setPos] = useState<PO[]>([]);
+  interface Suggestion { productId: number; name: string; stock: number; velocity: number; cover: number | null; suggest: number; history: string; cost: number }
+  const [sugs, setSugs] = useState<Suggestion[]>([]);
+  const [sugSup, setSugSup] = useState("");
   const [sups, setSups] = useState<Supplier[]>([]);
   const [bins, setBins] = useState<Bin[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -49,7 +52,28 @@ export function StockConsole() {
     if (p?.orders) setPos(p.orders);
     if (s?.suppliers) setSups(s.suppliers);
     if (b?.bins) setBins(b.bins);
+    void loadSugs();
     setLoaded(true);
+  }
+
+  async function loadSugs() {
+    const d = await fetch("/api/stock/purchase?suggest=1").then((r) => r.json()).catch(() => null);
+    if (d?.suggestions) setSugs(d.suggestions);
+  }
+
+  async function raisePO() {
+    if (!sugSup || !sugs.length) return;
+    const res = await fetch("/api/stock/purchase", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        supplierId: Number(sugSup),
+        lines: sugs.slice(0, 50).map((s) => ({ productId: s.productId, qty: s.suggest, cost: s.cost })),
+        notes: "reorder suggestions",
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? `Draft PO #${d.id} raised ✓ — review before approving.` : (d.error ?? "failed"));
+    if (res.ok) void load();
   }
 
   useEffect(() => { void load(); }, []);
@@ -129,6 +153,35 @@ export function StockConsole() {
           <p className="mt-1 text-sm">{low.map((l) => `${l.name} (${l.qty})`).join(" · ")}</p>
         </AdminCard>
       )}
+      <AdminCard>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-bold">Reorder suggestions <span className="text-xs font-normal text-zinc-500">(velocity → cover → draft PO, never auto-order)</span></p>
+          <button onClick={() => void loadSugs()}
+            className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Refresh</button>
+        </div>
+        {sugs.length === 0 ? <p className="mt-1 text-sm text-zinc-500">Nothing below cover — or no sales history yet.</p> : (
+          <>
+            <ul className="mt-2 space-y-1 text-sm">
+              {sugs.slice(0, 12).map((s) => (
+                <li key={s.productId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                  <span className="min-w-0 flex-1 truncate">{s.name} · {s.velocity}/day · {s.cover === null ? "no cover" : `${s.cover}d left`}{s.history !== "ok" ? ` · ${s.history} history` : ""}</span>
+                  <span className="shrink-0 font-bold">+{s.suggest}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <select value={sugSup} onChange={(e) => setSugSup(e.target.value)} aria-label="Supplier for draft PO"
+                className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20">
+                <option value="">Supplier…</option>
+                {sups.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <button onClick={() => void raisePO()} disabled={!sugSup || !sugs.length}
+                className="min-h-[44px] rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">
+                Raise draft PO ({sugs.reduce((a, s) => a + s.suggest, 0)} units)</button>
+            </div>
+          </>
+        )}
+      </AdminCard>
       <AdminCard>
         <p className="font-bold">Stock move <span className="text-xs font-normal text-zinc-500">(product id + qty)</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">

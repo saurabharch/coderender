@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { billPO, createPO, getPO, listPOs, payBill, receivePO, setPOStatus } from "@/lib/inventory";
+import { billPO, createPO, getPO, listPOs, payBill, receivePO, setPOStatus, suggestReorders } from "@/lib/inventory";
 import { shopGate } from "@/lib/shop-auth";
 
 const line = z.object({ productId: z.number().int(), qty: z.number().min(0.001).max(1000000), cost: z.number().min(0).max(100000000) });
@@ -13,6 +13,15 @@ export async function GET(req: Request) {
   if (id) {
     const po = getPO(id);
     return po ? NextResponse.json(po) : NextResponse.json({ error: "no PO" }, { status: 404 });
+  }
+  if (url.searchParams.get("suggest") !== null) {
+    const q = (k: string, fb: number) => {
+      const n = Number(url.searchParams.get(k));
+      return Number.isFinite(n) && n > 0 ? n : fb;
+    };
+    return NextResponse.json({
+      suggestions: suggestReorders(q("window", 28), q("target", 21), q("safety", 7)),
+    });
   }
   return NextResponse.json({ orders: listPOs(url.searchParams.get("status") || "") });
 }
