@@ -38,4 +38,4 @@ each ticket is live-proved with chain green and CI green.
 - [Configurable fonts](218-configurable-fonts.md) — done (7 regional stacks + latin-ext live-proved)
 - [Icon packs with toggle](219-icon-packs.md) — done (soft pack + adapter live-proved)
 - [i18n foundation Hindi plus English](220-i18n-foundation.md) — done (dictionaries + chrome live-proved)
-- [Grammar basics plus LanguageTool hook](221-grammar-hook.md) — frontier
+- [Grammar basics plus LanguageTool hook](221-grammar-hook.md) — done (local checks + dormant hook live-proved)

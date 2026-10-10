@@ -21,7 +21,7 @@ export function unseal(packed: string): string {
   return Buffer.concat([d.update(Buffer.from(data, "hex")), d.final()]).toString("utf8");
 }
 
-export type ProviderName = "smtp" | "telegram" | "whatsapp" | "slack" | "razorpay" | "payu" | "easebuzz" | "google" | "media";
+export type ProviderName = "smtp" | "telegram" | "whatsapp" | "slack" | "razorpay" | "payu" | "easebuzz" | "google" | "media" | "languagetool";
 
 export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string }[]> = {
   smtp: [
@@ -63,6 +63,10 @@ export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string
   google: [
     { label: "GOOGLE_CLIENT_ID", hint: "Google Cloud → APIs & Services → Credentials → OAuth client ID" },
     { label: "GOOGLE_CLIENT_SECRET", hint: "matching client secret" },
+  ],
+  languagetool: [
+    { label: "LT_URL", hint: "https://api.languagetool.org/v2 (self-hosted URL works too)" },
+    { label: "LT_KEY", hint: "optional premium key (public tier needs none)" },
   ],
   media: [
     { label: "R2_ACCOUNT_ID", hint: "Cloudflare account ID" },

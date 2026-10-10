@@ -14,6 +14,8 @@ export function BlogEditor({ name, initial }: { name: string; initial?: string }
   const [html, setHtml] = useState(initial && initial.trim().startsWith("<") ? initial : `<p>${(initial ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>`);
   const [imgUrl, setImgUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [proof, setProof] = useState<{ local: { message: string; sample: string }[]; remote: { message: string; sample: string }[]; via: string | null } | null>(null);
+  const [proving, setProving] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -90,6 +92,32 @@ export function BlogEditor({ name, initial }: { name: string; initial?: string }
         </label>
       </div>
       <EditorContent editor={editor} />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button type="button" disabled={proving} onClick={() => void (async () => {
+          setProving(true);
+          try {
+            const res = await fetch("/api/proofread", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: editor.getText().slice(0, 20000) }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (res.ok) setProof({ local: d.local ?? [], remote: d.remote ?? [], via: d.via ?? null });
+          } catch { /* keep editing */ }
+          setProving(false);
+        })()}
+          className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold disabled:opacity-40 dark:border-white/20">
+          {proving ? "Checking…" : "Check writing"}</button>
+        {proof && <span className="text-xs text-zinc-500">{proof.local.length + proof.remote.length === 0 ? "Clean ✓" : `${proof.local.length + proof.remote.length} note(s)${proof.via ? " (incl. LanguageTool)" : ""}`}</span>}
+      </div>
+      {proof && (proof.local.length > 0 || proof.remote.length > 0) && (
+        <ul className="space-y-1 text-xs">
+          {[...proof.local.map((x) => ({ ...x, src: "local" })), ...proof.remote.map((x) => ({ ...x, src: "LanguageTool" }))].slice(0, 12).map((x, i) => (
+            <li key={i} className="rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+              <b>{x.src}:</b> {x.message}{x.sample ? <span className="font-mono text-zinc-500"> — “{x.sample}”</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
       <input type="hidden" name={name} value={html} />
     </div>
   );
