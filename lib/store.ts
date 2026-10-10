@@ -358,6 +358,12 @@ export function getDb(): DatabaseSync {
       packageId INTEGER NOT NULL, serviceId INTEGER NOT NULL, UNIQUE(packageId, serviceId))`);
     try { db.exec("ALTER TABLE ServicePackage ADD COLUMN notes TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE ServicePackage ADD COLUMN details TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN priceLabel TEXT NOT NULL DEFAULT 'price'"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN mrp INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN offerMode TEXT NOT NULL DEFAULT 'off'"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN offerValue INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN offerLabel TEXT NOT NULL DEFAULT 'offer price'"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN badge TEXT NOT NULL DEFAULT 'none'"); } catch { /* exists */ }
     seedServices(db);
     db.exec(`CREATE TABLE IF NOT EXISTS Distill (
       id INTEGER PRIMARY KEY AUTOINCREMENT, input TEXT NOT NULL,

@@ -371,6 +371,12 @@ model ServicePackage {
   notes     String   @default("")
   details   String   @default("")
   active    Boolean  @default(true)
+  priceLabel String  @default("price")
+  mrp       Int      @default(0)
+  offerMode String  @default("off")
+  offerValue Int     @default(0)
+  offerLabel String  @default("offer price")
+  badge     String   @default("none")
   createdAt DateTime @default(now())
 }
 

@@ -1,4 +1,5 @@
 import { getDb } from "./store";
+import { normBadge, normOfferMode } from "./catalog-core";
 
 export interface Service {
   id: number; slug: string; title: string; tagline: string;
@@ -9,6 +10,8 @@ export interface Plan {
   id: number; serviceSlug: string; name: string; price: number; per: string;
   timeline: string; includes: string[]; bestFor: string;
   notes: string; details: string; active: number;
+  priceLabel: string; mrp: number; offerMode: string; offerValue: number;
+  offerLabel: string; badge: string;
   services: Service[];
 }
 
@@ -73,12 +76,17 @@ export function setPlanServices(packageId: number, serviceIds: number[]): void {
 }
 
 export function getPlan(id: number): Plan | null {
-  const r = getDb().prepare("SELECT * FROM ServicePackage WHERE id=?").get(id) as
-    (Omit<Plan, "includes" | "services"> & { includes: string }) | undefined;
+  type Row = Omit<Plan, "includes" | "services" | "priceLabel" | "mrp" | "offerMode" | "offerValue" | "offerLabel" | "badge">
+    & { includes: string }
+    & Partial<Pick<Plan, "priceLabel" | "mrp" | "offerMode" | "offerValue" | "offerLabel" | "badge">>;
+  const r = getDb().prepare("SELECT * FROM ServicePackage WHERE id=?").get(id) as Row | undefined;
   if (!r) return null;
   let includes: string[] = [];
   try { includes = JSON.parse(r.includes); } catch { /* keep empty */ }
-  return { ...r, includes, services: planServices(id) };
+  return {
+    priceLabel: "price", mrp: 0, offerMode: "off", offerValue: 0,
+    offerLabel: "offer price", badge: "none", ...r, includes, services: planServices(id),
+  };
 }
 
 export function listPlans(): Plan[] {
@@ -89,17 +97,24 @@ export function listPlans(): Plan[] {
 export function createPlan(input: {
   name: string; price?: number; per?: string; timeline?: string; serviceSlug?: string;
   includes?: string[]; bestFor?: string; notes?: string; details?: string; serviceIds?: number[];
+  priceLabel?: string; mrp?: number; offerMode?: string; offerValue?: number; offerLabel?: string; badge?: string;
 }): number {
   const name = String(input.name ?? "").slice(0, 120);
   if (!name.trim()) throw new Error("name required");
   const r = getDb().prepare(
-    "INSERT INTO ServicePackage (serviceSlug, name, price, per, timeline, includes, bestFor, notes, details) VALUES (?,?,?,?,?,?,?,?,?)"
+    "INSERT INTO ServicePackage (serviceSlug, name, price, per, timeline, includes, bestFor, notes, details, priceLabel, mrp, offerMode, offerValue, offerLabel, badge) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
   ).run(
     String(input.serviceSlug ?? "custom").slice(0, 60), name,
     Math.max(0, Math.round(Number(input.price ?? 0) || 0)), String(input.per ?? "one-time").slice(0, 30),
     String(input.timeline ?? "").slice(0, 60), JSON.stringify(input.includes ?? []),
     String(input.bestFor ?? "").slice(0, 200), String(input.notes ?? "").slice(0, 2000),
-    String(input.details ?? "").slice(0, 4000));
+    String(input.details ?? "").slice(0, 4000),
+    String(input.priceLabel ?? "price").slice(0, 30),
+    Math.max(0, Math.round(Number(input.mrp ?? 0) || 0)),
+    normOfferMode(input.offerMode),
+    Math.max(0, Math.round(Number(input.offerValue ?? 0) || 0)),
+    String(input.offerLabel ?? "offer price").slice(0, 30),
+    normBadge(input.badge));
   const id = Number(r.lastInsertRowid);
   if (input.serviceIds?.length) setPlanServices(id, input.serviceIds);
   return id;
@@ -108,11 +123,12 @@ export function createPlan(input: {
 export function updatePlan(id: number, input: {
   name?: string; price?: number; per?: string; timeline?: string; serviceSlug?: string;
   includes?: string[]; bestFor?: string; notes?: string; details?: string; active?: boolean; serviceIds?: number[];
+  priceLabel?: string; mrp?: number; offerMode?: string; offerValue?: number; offerLabel?: string; badge?: string;
 }): void {
   const cur = getPlan(id);
   if (!cur) throw new Error("not found");
   getDb().prepare(
-    "UPDATE ServicePackage SET name=?, price=?, per=?, timeline=?, serviceSlug=?, includes=?, bestFor=?, notes=?, details=?, active=? WHERE id=?"
+    "UPDATE ServicePackage SET name=?, price=?, per=?, timeline=?, serviceSlug=?, includes=?, bestFor=?, notes=?, details=?, active=?, priceLabel=?, mrp=?, offerMode=?, offerValue=?, offerLabel=?, badge=? WHERE id=?"
   ).run(
     input.name !== undefined ? String(input.name).slice(0, 120) : cur.name,
     input.price !== undefined ? Math.max(0, Math.round(Number(input.price) || 0)) : cur.price,
@@ -123,7 +139,13 @@ export function updatePlan(id: number, input: {
     input.bestFor !== undefined ? String(input.bestFor).slice(0, 200) : cur.bestFor,
     input.notes !== undefined ? String(input.notes).slice(0, 2000) : cur.notes,
     input.details !== undefined ? String(input.details).slice(0, 4000) : cur.details,
-    input.active !== undefined ? (input.active ? 1 : 0) : cur.active, id);
+    input.active !== undefined ? (input.active ? 1 : 0) : cur.active,
+    input.priceLabel !== undefined ? String(input.priceLabel).slice(0, 30) : cur.priceLabel,
+    input.mrp !== undefined ? Math.max(0, Math.round(Number(input.mrp) || 0)) : cur.mrp,
+    input.offerMode !== undefined ? normOfferMode(input.offerMode) : cur.offerMode,
+    input.offerValue !== undefined ? Math.max(0, Math.round(Number(input.offerValue) || 0)) : cur.offerValue,
+    input.offerLabel !== undefined ? String(input.offerLabel).slice(0, 30) : cur.offerLabel,
+    input.badge !== undefined ? normBadge(input.badge) : cur.badge, id);
   if (input.serviceIds !== undefined) setPlanServices(id, input.serviceIds);
 }
 
