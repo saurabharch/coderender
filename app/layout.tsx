@@ -41,6 +41,13 @@ export async function generateMetadata(): Promise<Metadata> {
       title: tagline ? `${name} — ${tagline}` : name,
       description,
       siteName: name,
+      images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: name }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: tagline ? `${name} — ${tagline}` : name,
+      description,
+      images: ["/opengraph-image"],
     },
   };
 }

@@ -14,7 +14,9 @@ async function save(form: FormData) {
   const title = String(form.get("title") || "").slice(0, 160);
   if (!title) return;
   const slug = String(form.get("slug") || slugify(title));
-  const excerpt = String(form.get("excerpt") || "").slice(0, 300);
+  const rawExcerpt = String(form.get("excerpt") || "").trim();
+  const { plainExcerpt } = await import("@/lib/body-html");
+  const excerpt = (rawExcerpt || plainExcerpt(String(form.get("body") || ""), 300)).slice(0, 300);
   const body = String(form.get("body") || "").slice(0, 20000);
   const published = form.get("published") ? 1 : 0;
   const cover = String(form.get("cover") || "").slice(0, 500);

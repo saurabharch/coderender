@@ -9,9 +9,20 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const p = getDb().prepare("SELECT title, excerpt FROM Post WHERE slug=? AND published=1").get(slug) as
-    { title: string; excerpt: string } | undefined;
-  return { title: p ? `${p.title} — CodeRender Blog` : "Blog — CodeRender", description: p?.excerpt };
+  const p = getDb().prepare("SELECT title, excerpt, body FROM Post WHERE slug=? AND published=1").get(slug) as
+    { title: string; excerpt: string; body: string } | undefined;
+  const { plainExcerpt } = await import("@/lib/body-html");
+  const description = p?.excerpt || (p ? plainExcerpt(p.body, 160) : "Blog — CodeRender");
+  return {
+    title: p ? `${p.title} — CodeRender Blog` : "Blog — CodeRender",
+    description,
+    openGraph: {
+      title: p ? p.title : "Blog",
+      description,
+      images: [{ url: `/blog/${slug}/opengraph-image`, width: 1200, height: 630, alt: p?.title ?? "Blog post" }],
+    },
+    twitter: { card: "summary_large_image", description, images: [`/blog/${slug}/opengraph-image`] },
+  };
 }
 
 export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
