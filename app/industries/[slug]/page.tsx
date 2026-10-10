@@ -3,8 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CONTACT, VERTICALS } from "@/lib/site";
 import { SERVICES } from "@/lib/services";
-import { SERVICE_ICONS } from "@/lib/nav-icons";
-import { VERTICAL_ICONS } from "@/lib/nav-icons";
+import { PackIcon } from "@/components/pack-icon";
 import { IPhoneMock } from "@/components/iphone-mock";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
@@ -79,10 +78,9 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
           <div className="marquee mt-5 pb-2">
             <div className="marquee-auto">
             {[SERVICES[0], SERVICES[5], SERVICES[2], SERVICES[0], SERVICES[5], SERVICES[2]].map((s, i) => {
-              const SI = SERVICE_ICONS[s.slug];
               return (
               <article key={`${s.slug}-${i}`} className="glass w-72 rounded-2xl p-5">
-                <p className="flex items-center gap-2 text-xs font-bold text-brand-deep">{SI && <SI size={15} />}{s.n} / 06</p>
+                <p className="flex items-center gap-2 text-xs font-bold text-brand-deep"><PackIcon map="service" id={s.slug} size={15} />{s.n} / 06</p>
                 <h3 className="mt-1 font-bold">{s.title}</h3>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
                 <p className="mt-2 text-xs font-semibold">{s.timeline}</p>
@@ -100,10 +98,9 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
             <h2 className="text-2xl font-extrabold tracking-tight">Also built for</h2>
             <div className="mt-4 grid gap-3">
               {related.map((r) => {
-                const RI = VERTICAL_ICONS[r.slug];
                 return (
                   <Link key={r.slug} href={`/industries/${r.slug}`} className="glass rounded-2xl p-4 hover:border-brand">
-                    <p className="flex items-center gap-2 font-bold">{RI && <RI size={16} className="shrink-0 text-brand-deep" />}{r.label}</p>
+                    <p className="flex items-center gap-2 font-bold"><PackIcon map="vertical" id={r.slug} size={16} className="shrink-0 text-brand-deep" />{r.label}</p>
                     <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{r.blurb}</p>
                   </Link>
                 );

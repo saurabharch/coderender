@@ -2,20 +2,20 @@
 
 import Link from "next/link";
 import { SERVICES } from "@/lib/services";
-import { SERVICE_ICONS, palette } from "@/lib/nav-icons";
+import { palette } from "@/lib/nav-icons";
+import { PackIcon } from "@/components/pack-icon";
 
 // Scroll-stacking cards: each sticks below the previous with a stepped offset.
 export function StackedServices() {
   return (
     <div className="mt-6">
       {SERVICES.map((s, i) => {
-        const SI = SERVICE_ICONS[s.slug];
-        return (
+                return (
           <div key={s.slug} className="sticky" style={{ top: `${88 + i * 20}px` }}>
             <article className="mb-4 rounded-3xl border border-black/10 bg-[#fbf8f3] p-6 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950 md:p-8">
               <div className="flex items-center gap-3">
                 <span className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-white dark:bg-white/10 ${palette(i)}`}>
-                  {SI && <SI size={22} />}
+                  <PackIcon map="service" id={s.slug} size={22} />
                 </span>
                 <div>
                   <p className="text-xs font-extrabold tracking-[0.2em] text-brand-deep">{s.n} / 06</p>

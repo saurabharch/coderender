@@ -3,7 +3,8 @@ import { CONTACT, VERTICALS } from "@/lib/site";
 import { getDb } from "@/lib/store";
 import { StackedServices } from "@/components/stacked-services";
 import { CampaignCalendar } from "@/components/campaign-calendar";
-import { VERTICAL_ICONS, orb } from "@/lib/nav-icons";
+import { orb } from "@/lib/nav-icons";
+import { PackIcon } from "@/components/pack-icon";
 import { INTEGRATIONS } from "@/lib/integrations";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
@@ -91,11 +92,10 @@ export default function Home() {
           <div className="marquee mt-6 pb-2" aria-label="Business verticals we serve">
             <div className="marquee-auto">
               {[...VERTICALS, ...VERTICALS].map((v, i) => {
-                const VI = VERTICAL_ICONS[v.slug];
                 return (
                   <div key={`${v.slug}-${i}`} className="glass flex w-40 items-center gap-2.5 rounded-2xl p-3">
                     <span className="orb flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: orb(i) }}>
-                      {VI && <VI size={19} />}
+                      <PackIcon map="vertical" id={v.slug} size={19} />
                     </span>
                     <span className="text-left text-xs font-bold leading-tight">{v.label}</span>
                   </div>
@@ -224,11 +224,10 @@ export default function Home() {
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Built for businesses like yours</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {VERTICALS.map((v, i) => {
-            const VI = VERTICAL_ICONS[v.slug];
             return (
               <Link key={v.slug} href={`/industries/${v.slug}`} className="group beam glass rounded-2xl p-5 transition hover:-translate-y-1">
                 <span className="orb flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ background: orb(i) }}>
-                  {VI && <VI size={24} />}
+                  <PackIcon map="vertical" id={v.slug} size={24} />
                 </span>
                 <p className="mt-3 font-bold">{v.label} <span aria-hidden className="inline-block transition group-hover:translate-x-1">→</span></p>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{v.blurb}</p>

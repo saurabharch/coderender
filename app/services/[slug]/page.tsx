@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SERVICES } from "@/lib/services";
-import { SERVICE_ICONS } from "@/lib/nav-icons";
+import { PackIcon } from "@/components/pack-icon";
 import { LeadForm } from "@/components/lead-form";
 import { Reveal } from "@/components/reveal";
 
@@ -21,13 +21,12 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
   const s = SERVICES.find((x) => x.slug === slug);
   if (!s) notFound();
   const related = SERVICES.filter((x) => x.slug !== s.slug).slice(0, 2);
-  const HeadIcon = SERVICE_ICONS[s.slug];
   return (
     <>
       <section className="hero-glow">
         <div className="wrap pb-8 pt-12 md:pt-16">
           <Reveal>
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">{HeadIcon && <HeadIcon size={16} />}Service {s.n} / 06</p>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep"><PackIcon map="service" id={s.slug} size={16} />Service {s.n} / 06</p>
             <h1 className="mt-3 max-w-2xl text-4xl font-extrabold leading-[1.02] tracking-tight md:text-5xl">{s.title}</h1>
             <p className="mt-3 max-w-xl text-zinc-600 dark:text-zinc-400">{s.tagline}</p>
           </Reveal>
@@ -58,10 +57,9 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
             <h2 className="text-xl font-extrabold">Related services</h2>
             <div className="mt-3 grid gap-3">
               {related.map((r) => {
-                const RI = SERVICE_ICONS[r.slug];
                 return (
                   <Link key={r.slug} href={`/services/${r.slug}`} className="glass rounded-2xl p-4 hover:border-brand">
-                    <p className="flex items-center gap-2 font-bold">{RI && <RI size={16} className="shrink-0 text-brand-deep" />}{r.title}</p>
+                    <p className="flex items-center gap-2 font-bold"><PackIcon map="service" id={r.slug} size={16} className="shrink-0 text-brand-deep" />{r.title}</p>
                     <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{r.tagline}</p>
                   </Link>
                 );

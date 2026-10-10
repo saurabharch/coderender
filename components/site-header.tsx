@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
 import { CONTACT, VERTICALS } from "@/lib/site";
 import { SERVICES } from "@/lib/services";
-import { NAV_ICONS, VERTICAL_ICONS, SERVICE_ICONS, TOOL_ICONS, palette, orb } from "@/lib/nav-icons";
+import { NAV_ICONS, palette, orb } from "@/lib/nav-icons";
+import { PackIcon } from "./pack-icon";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileMenu, type MenuSection } from "./mobile-menu";
 import { BrandLogo } from "./brand-theme";
@@ -14,7 +14,7 @@ interface SubItem {
   h: string;
   l: string;
   d: string;
-  Icon: LucideIcon;
+  icon: { map: "service" | "tool" | "vertical" | "nav"; id: string };
   color: string;
 }
 
@@ -24,46 +24,45 @@ function buildMenus(): { label: string; href: string; icon: keyof typeof NAV_ICO
       label: "Services", href: "/#services", icon: "services",
       items: SERVICES.map((s, i) => ({
         h: `/services/${s.slug}`, l: s.title, d: s.tagline,
-        Icon: SERVICE_ICONS[s.slug], color: palette(i),
+        icon: { map: "service", id: s.slug }, color: palette(i),
       })),
     },
     {
       label: "Industries", href: "/#verticals", icon: "industries",
       items: VERTICALS.map((v, i) => ({
         h: `/industries/${v.slug}`, l: v.label, d: v.blurb,
-        Icon: VERTICAL_ICONS[v.slug], color: palette(i),
+        icon: { map: "vertical", id: v.slug }, color: palette(i),
       })),
     },
     {
       label: "Resources", href: "/docs", icon: "about",
       items: [
-        { h: "/docs", l: "Docs", d: "How everything here works.", Icon: NAV_ICONS.docs, color: palette(2) },
-        { h: "/tools/gbp-booster-whatsapp-ai-agent", l: "GBP Booster", d: "WhatsApp AI agent for Google calls.", Icon: TOOL_ICONS["gbp-booster-whatsapp-ai-agent"], color: palette(0) },
-        { h: "/tools/whatsapp-qr-generator", l: "QR Generator", d: "Click-to-chat links + QR codes.", Icon: TOOL_ICONS["whatsapp-qr-generator"], color: palette(4) },
-        { h: "/tools/whatsapp-template-composer", l: "Template Composer", d: "Broadcast drafts with variables.", Icon: TOOL_ICONS["whatsapp-template-composer"], color: palette(5) },
-        { h: "/tools/pricing-calculator", l: "Pricing Calculator", d: "Instant DRAFT estimates.", Icon: TOOL_ICONS["pricing-calculator"], color: palette(1) },
+        { h: "/docs", l: "Docs", d: "How everything here works.", icon: { map: "nav", id: "docs" }, color: palette(2) },
+        { h: "/tools/gbp-booster-whatsapp-ai-agent", l: "GBP Booster", d: "WhatsApp AI agent for Google calls.", icon: { map: "tool", id: "gbp-booster-whatsapp-ai-agent" }, color: palette(0) },
+        { h: "/tools/whatsapp-qr-generator", l: "QR Generator", d: "Click-to-chat links + QR codes.", icon: { map: "tool", id: "whatsapp-qr-generator" }, color: palette(4) },
+        { h: "/tools/whatsapp-template-composer", l: "Template Composer", d: "Broadcast drafts with variables.", icon: { map: "tool", id: "whatsapp-template-composer" }, color: palette(5) },
+        { h: "/tools/pricing-calculator", l: "Pricing Calculator", d: "Instant DRAFT estimates.", icon: { map: "tool", id: "pricing-calculator" }, color: palette(1) },
       ],
     },
     {
       label: "Partner", href: "/partner", icon: "partner",
       items: [
-        { h: "/partner", l: "Become a Partner", d: "Earn with every business you send.", Icon: NAV_ICONS.partner, color: palette(3) },
-        { h: "/pricing", l: "What you'll sell", d: "Ladder, catalog, DRAFT prices.", Icon: NAV_ICONS.pricing, color: palette(1) },
-        { h: "/contact", l: "Talk to sales", d: "A human replies in one business day.", Icon: NAV_ICONS.contact, color: palette(5) },
+        { h: "/partner", l: "Become a Partner", d: "Earn with every business you send.", icon: { map: "nav", id: "partner" }, color: palette(3) },
+        { h: "/pricing", l: "What you'll sell", d: "Ladder, catalog, DRAFT prices.", icon: { map: "nav", id: "pricing" }, color: palette(1) },
+        { h: "/contact", l: "Talk to sales", d: "A human replies in one business day.", icon: { map: "nav", id: "contact" }, color: palette(5) },
       ],
     },
   ];
 }
 
 function NavIcon({ of, className }: { of: keyof typeof NAV_ICONS; className?: string }) {
-  const I = NAV_ICONS[of];
-  return <I size={16} className={className} />;
+  return <PackIcon map="nav" id={of} size={16} className={className} />;
 }
 
-function OrbIcon({ xi, Icon }: { xi: number; Icon: React.ComponentType<{ size?: number; className?: string }> }) {
+function OrbIcon({ xi, map, id }: { xi: number; map: "service" | "tool" | "vertical" | "nav"; id: string }) {
   return (
     <span className="orb flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: orb(xi) }}>
-      <Icon size={15} />
+      <PackIcon map={map} id={id} size={15} />
     </span>
   );
 }
@@ -79,7 +78,7 @@ export function SiteHeader({ announcement }: { announcement?: string }) {
   const menus = buildMenus();
   const sections: MenuSection[] = menus.map((m) => ({
     title: m.label,
-    links: m.items.map((x, xi) => ({ h: x.h, l: x.l, icon: <OrbIcon xi={xi} Icon={x.Icon} /> })),
+    links: m.items.map((x, xi) => ({ h: x.h, l: x.l, icon: <OrbIcon xi={xi} map={x.icon.map} id={x.icon.id} /> })),
   }));
   sections.push({
     title: "Company",
@@ -110,7 +109,7 @@ export function SiteHeader({ announcement }: { announcement?: string }) {
                 <div className="invisible absolute left-0 top-full z-50 w-80 rounded-2xl border border-black/10 bg-white p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:border-white/10 dark:bg-zinc-900">
                   {m.items.map((x, xi) => (
                     <Link key={x.h} href={x.h} className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10">
-                      <span className="orb flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: orb(xi) }}><x.Icon size={17} /></span>
+                      <span className="orb flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: orb(xi) }}><PackIcon map={x.icon.map} id={x.icon.id} size={17} /></span>
                       <span><span className="block font-semibold">{x.l}</span><span className="block text-xs text-zinc-500">{x.d}</span></span>
                     </Link>
                   ))}

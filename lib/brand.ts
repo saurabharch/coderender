@@ -66,6 +66,15 @@ export const FONT_STACKS = [  { id: "default", label: "Default (site fonts)", bo
 
 export const BRAND_SCOPES = ["both", "public", "dashboard"] as const;
 
+export const ICON_PACKS = ["classic", "soft"] as const;
+export type IconPack = (typeof ICON_PACKS)[number];
+
+/** Icon pack id, defaulting to classic. */
+export function parseIconPack(v: unknown): IconPack {
+  const s = String(v ?? "");
+  return (ICON_PACKS as readonly string[]).includes(s) ? (s as IconPack) : "classic";
+}
+
 export const FONT_EXTS = ["woff2", "woff", "ttf", "otf"] as const;
 export const FONT_MAX = 5 * 1024 * 1024;
 
@@ -165,7 +174,7 @@ export const BRAND_KEYS = [
   "brand_favicon", "brand_loading_icon",
   "brand_logo_opacity", "brand_primary", "brand_deep", "brand_accent", "brand_ink",
   "brand_font", "brand_scope", "brand_radius", "brand_shadow", "brand_space",
-  "brand_custom_fonts", "brand_font_map",
+  "brand_custom_fonts", "brand_font_map", "brand_icon_pack",
   "site_name", "site_tagline", "site_description", "site_keywords",
 ] as const;
 
@@ -177,6 +186,7 @@ export const BRAND_DEFAULTS: Record<string, string> = {
   brand_logo_opacity: "100", brand_primary: "#0F8F83", brand_deep: "#064E46",
   brand_accent: "#D7F45A", brand_ink: "#171717", brand_font: "default", brand_scope: "both",
   brand_radius: "12", brand_shadow: "soft", brand_space: "8",
+  brand_icon_pack: "classic",
   brand_custom_fonts: "[]", brand_font_map: "{}",
   site_name: "CodeRender",
   site_tagline: "WhatsApp Automation, Google Business Profile & Local SEO",

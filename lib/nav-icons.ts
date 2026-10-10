@@ -3,8 +3,11 @@ import {
   Plane, Flower2, Hammer, LayoutGrid, Building2, MessageCircle, Tag, Mail, Info,
   Briefcase, Handshake, BookOpen, MapPin, Globe, Search, TrendingUp, Magnet, Bot,
   QrCode, Type, Calculator,
+  Sparkles, Store, HeartHandshake, MessagesSquare, PhoneCall, CalendarCheck,
+  ScanLine, Receipt, Star, Gem, Compass, Rocket, Palette, Brush, Wand2, BadgeCheck,
   type LucideIcon,
 } from "lucide-react";
+import type { IconPack } from "./brand";
 
 export const VERTICAL_ICONS: Record<string, LucideIcon> = {
   "salon-owners": Scissors,
@@ -46,6 +49,59 @@ export const TOOL_ICONS: Record<string, LucideIcon> = {
   "whatsapp-template-composer": Type,
   "pricing-calculator": Calculator,
 };
+
+// Soft pack: friendlier alternates for the same keys. Same key sets as the
+// classic maps above — packMaps() enforces parity (tested).
+const SOFT_VERTICAL: Record<string, LucideIcon> = {
+  "salon-owners": Sparkles,
+  "gym-fitness-centres": Store,
+  "bakers-cake-shops": Star,
+  "doctors-health-clinics": HeartHandshake,
+  "restaurant-bars": UtensilsCrossed,
+  "pest-control": Bug,
+  "car-garages-mechanics": Car,
+  "tours-travels": Compass,
+  "yoga-wellness": Flower2,
+  "handyman-services": Hammer,
+};
+
+const SOFT_NAV: Record<string, LucideIcon> = {
+  services: Wand2,
+  industries: Store,
+  gbp: MessagesSquare,
+  pricing: BadgeCheck,
+  contact: PhoneCall,
+  about: Sparkles,
+  careers: Rocket,
+  partner: HeartHandshake,
+  docs: BookOpen,
+};
+
+const SOFT_SERVICE: Record<string, LucideIcon> = {
+  "google-business-profile": Compass,
+  "website-development": Palette,
+  "local-seo": Rocket,
+  "seo-marketing": Gem,
+  "lead-generation": Magnet,
+  "chat-automation": MessagesSquare,
+};
+
+const SOFT_TOOL: Record<string, LucideIcon> = {
+  "gbp-booster-whatsapp-ai-agent": MessagesSquare,
+  "whatsapp-qr-generator": ScanLine,
+  "whatsapp-template-composer": Brush,
+  "pricing-calculator": Receipt,
+};
+
+export type IconMapName = "vertical" | "nav" | "service" | "tool";
+
+/** Resolve all four maps for a pack (unknown packs fall back to classic). */
+export function packMaps(pack: IconPack | string): Record<IconMapName, Record<string, LucideIcon>> {
+  if (pack === "soft") {
+    return { vertical: SOFT_VERTICAL, nav: SOFT_NAV, service: SOFT_SERVICE, tool: SOFT_TOOL };
+  }
+  return { vertical: VERTICAL_ICONS, nav: NAV_ICONS, service: SERVICE_ICONS, tool: TOOL_ICONS };
+}
 
 // Colorful submenu glyphs: light saturated-600 / dark saturated-400.
 const PALETTE = [

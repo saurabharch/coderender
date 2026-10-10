@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ImageInputField } from "@/components/media-picker";
-import { FONT_STACKS, STANDARD_PALETTES, BRAND_SCOPES, SHADOW_PRESETS, parseCustomFonts, parseRadius, parseShadow, parseSpace, fontFamilyName } from "@/lib/brand";
+import { FONT_STACKS, STANDARD_PALETTES, BRAND_SCOPES, ICON_PACKS, SHADOW_PRESETS, parseCustomFonts, parseRadius, parseShadow, parseSpace, fontFamilyName } from "@/lib/brand";
 
 export type BrandVals = Record<string, string>;
 
@@ -173,6 +173,16 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
               {stacks.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
             </select>
           </label>
+          <fieldset className="grid gap-1 text-sm">Icon pack
+            <span className="flex flex-wrap gap-1.5">
+              {(ICON_PACKS as readonly string[]).map((p) => (
+                <label key={p} className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl border border-black/15 px-3 capitalize dark:border-white/20">
+                  <input type="radio" name="brand_icon_pack" value={p} checked={(v.brand_icon_pack || "classic") === p} onChange={() => set("brand_icon_pack", p)} className="h-5 w-5" />
+                  {p}
+                </label>
+              ))}
+            </span>
+          </fieldset>
           <fieldset className="grid gap-1 text-sm">Applies to
             <span className="flex flex-wrap gap-1.5">
               {BRAND_SCOPES.map((s) => (

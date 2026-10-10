@@ -89,3 +89,23 @@ describe("custom fonts", () => {
     expect(parseFontMap("not json", ["default"])).toEqual({});
   });
 });
+
+describe("icon packs", () => {
+  it("parses pack ids with classic default", async () => {
+    const { parseIconPack, ICON_PACKS } = await import("@/lib/brand");
+    expect(ICON_PACKS).toContain("classic");
+    expect(ICON_PACKS).toContain("soft");
+    expect(parseIconPack("soft")).toBe("soft");
+    expect(parseIconPack("nope")).toBe("classic");
+  });
+
+  it("keeps soft/classic key parity across all maps", async () => {
+    const { packMaps } = await import("@/lib/nav-icons");
+    const a = packMaps("classic");
+    const b = packMaps("soft");
+    for (const k of ["vertical", "nav", "service", "tool"] as const) {
+      expect(Object.keys(b[k]).sort()).toEqual(Object.keys(a[k]).sort());
+    }
+    expect(packMaps("nope").vertical).toBe(a.vertical);
+  });
+});
