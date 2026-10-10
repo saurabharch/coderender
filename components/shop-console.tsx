@@ -295,29 +295,78 @@ export function ShopConsole() {
   }
 
   // Client WASM worker: same job id as the server job — first swap wins.
+  // Universal chain (mirrors useBgWorker): background module worker with
+  // progress, then main-thread fallback, then the poll below covers the
+  // server-side win on runtimes that run ONNX. Progress posts are hints,
+  // never final — only ok:true/false settle the attempt.
   async function runClientWorker(imageUrl: string, jobId: number) {
+    const post = async (bytes: ArrayBuffer): Promise<boolean> => {
+      try {
+        const form = new FormData();
+        form.append("jobId", String(jobId));
+        form.append("file", new Blob([bytes], { type: "image/png" }), "nobg.png");
+        const r = await fetch("/api/media/bgdone", { method: "POST", body: form });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok) setMsg(`Transparent image live ✓ (${d.url})`);
+        return r.ok;
+      } catch { return false; }
+    };
     try {
-      const worker = new Worker("/bg-worker.mjs", { type: "module" });
-      const done = new Promise<void>((resolve) => {
-        worker.onmessage = async (e: MessageEvent<{ ok: boolean; jobId: number; bytes?: ArrayBuffer; error?: string }>) => {
-          try {
-            if (e.data?.ok && e.data.bytes) {
-              const form = new FormData();
-              form.append("jobId", String(e.data.jobId));
-              form.append("file", new Blob([e.data.bytes], { type: "image/png" }), "nobg.png");
-              const r = await fetch("/api/media/bgdone", { method: "POST", body: form });
-              const d = await r.json().catch(() => ({}));
-              if (r.ok) setMsg(`Transparent image live ✓ (${d.url})`);
+      if (typeof Worker !== "undefined") {
+        const worker = new Worker("/bg-worker.mjs", { type: "module" });
+        const done = await new Promise<boolean>((resolve) => {
+          let settled = false;
+          const finish = (v: boolean) => { if (!settled) { settled = true; resolve(v); } };
+          let timer = setTimeout(() => { try { worker.terminate(); } catch { /* ignore */ } finish(false); }, 90000);
+          const poke = () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => { try { worker.terminate(); } catch { /* ignore */ } finish(false); }, 90000);
+          };
+          const cap = setTimeout(() => { try { worker.terminate(); } catch { /* ignore */ } finish(false); }, 600000);
+          worker.onmessage = async (e: MessageEvent<{ ok?: boolean; progress?: boolean; jobId: number; bytes?: ArrayBuffer; done?: number; total?: number }>) => {
+            poke();
+            if (e.data?.progress) {
+              const pct = e.data.total ? Math.min(95, Math.round(((e.data.done ?? 0) / (e.data.total || 1)) * 100)) : 0;
+              setJobprog({ done: pct, total: 100, label: `Removing background… ${pct}%` });
+              return;
             }
-          } catch { /* server job may have won — fine */ }
-          worker.terminate();
-          resolve();
-        };
-        worker.onerror = () => { worker.terminate(); resolve(); };
-      });
-      worker.postMessage({ imageUrl, jobId });
-      await done;
-    } catch { /* server job covers it */ }
+            let ok = false;
+            try {
+              if (e.data?.ok && e.data.bytes) ok = await post(e.data.bytes);
+            } catch { /* server job may have won — fine */ }
+            clearTimeout(timer);
+            clearTimeout(cap);
+            worker.terminate();
+            finish(ok);
+          };
+          worker.onerror = () => {
+            clearTimeout(timer);
+            clearTimeout(cap);
+            try { worker.terminate(); } catch { /* ignore */ }
+            finish(false);
+          };
+          try { worker.postMessage({ imageUrl, jobId }); }
+          catch { clearTimeout(timer); clearTimeout(cap); finish(false); }
+        });
+        setJobprog(null);
+        if (done) return;
+      }
+    } catch { /* fall to main-thread */ }
+    // Main-thread fallback for browsers without module workers (CDN runtime
+    // import: zero bundle cost).
+    try {
+      const ESM_URL = "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
+      const { removeBackground } = (await import(/* webpackIgnore: true */ ESM_URL)) as typeof import("@imgly/background-removal");
+      const res = await fetch(imageUrl);
+      if (res.ok) {
+        const out = await removeBackground(await res.blob(), { model: "isnet_quint8", device: "cpu" });
+        const buf = await out.arrayBuffer();
+        if (buf.byteLength >= 1024) {
+          await post(buf);
+          return;
+        }
+      }
+    } catch { /* poll covers the server win */ }
   }
 
   // Job progress: poll until the worker/swap settles, then chime + notify.

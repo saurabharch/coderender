@@ -100,7 +100,7 @@ async function loadBytes(asset: { filename: string }): Promise<Buffer> {
   return readFile(join(process.cwd(), "public", "uploads", asset.filename));
 }
 
-export async function runBgRemove(jobId: number): Promise<{ ok: boolean; url?: string }> {
+export async function runBgRemove(jobId: number): Promise<{ ok: boolean; url?: string; deferred?: boolean }> {
   bgTables();
   const job = bgJob(jobId);
   if (!job || job.status !== "queued") return { ok: false };
@@ -118,7 +118,7 @@ export async function runBgRemove(jobId: number): Promise<{ ok: boolean; url?: s
     // wins the same first-writer swap. No hosted API, no keys.
     if (process.platform === "android") {
       setJob(jobId, "queued", "browser handles it");
-      return { ok: false };
+      return { ok: true, deferred: true };
     }
     const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> =>
       Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("engine timeout")), ms))]);
@@ -138,11 +138,13 @@ export async function runBgRemove(jobId: number): Promise<{ ok: boolean; url?: s
       setJob(jobId, "failed", note);
       getDb().prepare("INSERT INTO Notification (title, body, audience, kind, target) VALUES (?,?,?,?,?)")
         .run("Background removal failed", `${note} — original image kept.`, "team", "warning", "team");
+      return { ok: false };
     } else {
       // Transient/engine-missing: back to queued so the client WASM worker
-      // (or a keyed retry) can still win the swap.
-      setJob(jobId, "queued", `engine: ${note}`);
+      // (or a keyed retry) can still win the swap. The browser is the
+      // primary path — report deferred, never a scary engine dump.
+      setJob(jobId, "queued", "browser handles it");
     }
-    return { ok: false };
+    return { ok: true, deferred: true };
   }
 }

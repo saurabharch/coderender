@@ -201,7 +201,10 @@ export const bgRemoveFn = inngest.createFunction(
     await step.run("remove", async () => {
       const { runBgRemove } = await import("./bgremove");
       const r = await runBgRemove(jobId);
-      if (!r.ok) throw new NonRetriableError("bgremove failed (original kept)");
+      // Deferred to the browser worker is success (primary path) — only
+      // permanent failures throw; the original image is always kept.
+      if (!r.ok && !r.deferred) throw new NonRetriableError("bgremove failed (original kept)");
+      return r;
     });
     return { ok: true };
   }

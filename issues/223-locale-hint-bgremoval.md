@@ -19,3 +19,4 @@ without ClipDrop?
   browser worker instead of wedging in "working" (proven live).
 
 - [Browser-first bg removal, quiet server skip](224-browser-bgremoval.md): clean skip + shared hook + gallery button, live-proved.
+- [Universal browser bg removal (all devices)](225-universal-bgremoval.md): small-model worker + progress + main-thread/CDN fallback + quiet Inngest defer, live-proved.
