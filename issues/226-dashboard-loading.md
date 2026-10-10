@@ -1,7 +1,7 @@
 # Ticket: Dashboard loading failure
 
 Labels: wayfinder:task
-Status: doing
+Status: done
 Verified: 2026-10-10
 Assignee: opencode
 
@@ -31,3 +31,15 @@ it on every device without regressing the green gate?
 - Healed per runbook: pm2 stop → `rm -rf .next` → clean build (223/223
   green) → start. All routes re-proved 200. Awaiting one scheduler tick
   to confirm the `[sla]` error is gone.
+
+## Resolution
+
+Split-brain `.next` healed per runbook (stop → wipe → clean 223/223
+build → start). Proof: all 8 dashboard routes 200 with full content,
+error log untouched since the restart (the 10-min SLA tick fired clean —
+previously it crashed every cycle), public 200. No source change, so no
+release cut; ticket-only commit. If the owner's device still spins, it is
+a stale tab holding pre-build chunk hashes: hard-refresh (or close/reopen
+the tab — ChunkRecovery self-heals at most twice, then needs a fresh
+load). Still broken after that → report the exact URL + what is seen and
+this reopens with device evidence.
