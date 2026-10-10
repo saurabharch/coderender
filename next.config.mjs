@@ -46,6 +46,14 @@ const nextConfig = {
           { key: "Cache-Control", value: "no-store, must-revalidate" },
         ],
       },
+      {
+        // Same for blog posts: publish/edit must show immediately, including
+        // the comment form and its API hint below it.
+        source: "/blog/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, must-revalidate" },
+        ],
+      },
     ];
   },
 };
