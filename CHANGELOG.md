@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.119.0] - 2026-10-10
+## [0.120.0] - 2026-10-10
+- Plan price model## [0.119.0] - 2026-10-10
 - Enterprise payment gateways## [0.118.0] - 2026-10-10
 - Universal browser background removal## [0.117.0] - 2026-10-10
 - Locale hint and imgly## [0.116.0] - 2026-10-10
