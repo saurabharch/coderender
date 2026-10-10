@@ -1,9 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { Phone, Mail, MessageCircle, QrCode, Type, Calculator, MapPin, Info, Briefcase, Handshake, HelpCircle, MessageSquare, ShieldCheck, FileText, RotateCcw, LifeBuoy, Siren, ScrollText, type LucideIcon } from "lucide-react";
 import { CONTACT } from "@/lib/site";
 import pkg from "@/package.json";
 import { BrandLogo } from "./brand-theme";
 import { NewsletterForm } from "./newsletter-form";
+import { useLocale, LocaleSwitcher } from "./locale-provider";
 
 const APP_VERSION = pkg.version;
 
@@ -16,9 +19,9 @@ function PulseDot() {
   );
 }
 
-const COLS: { title: string; links: { h: string; l: string; Icon: LucideIcon }[] }[] = [
+const COLS: { key: string; links: { h: string; l: string; Icon: LucideIcon }[] }[] = [
   {
-    title: "Features",
+    key: "nav.features",
     links: [
       { h: "/about", l: "About Us", Icon: Info },
       { h: "/contact", l: "Contact Us", Icon: Mail },
@@ -27,7 +30,7 @@ const COLS: { title: string; links: { h: string; l: string; Icon: LucideIcon }[]
     ],
   },
   {
-    title: "Free Tools",
+    key: "nav.freeTools",
     links: [
       { h: "/tools/gbp-booster-whatsapp-ai-agent", l: "GBP Booster AI Agent", Icon: MessageCircle },
       { h: "/tools/pricing-calculator", l: "Pricing Calculator", Icon: Calculator },
@@ -36,7 +39,7 @@ const COLS: { title: string; links: { h: string; l: string; Icon: LucideIcon }[]
     ],
   },
   {
-    title: "Support",
+    key: "nav.support",
     links: [
       { h: "/support", l: "Support Hub", Icon: LifeBuoy },
       { h: "/faqs", l: "FAQ's", Icon: HelpCircle },
@@ -46,7 +49,7 @@ const COLS: { title: string; links: { h: string; l: string; Icon: LucideIcon }[]
     ],
   },
   {
-    title: "Quick Links",
+    key: "nav.quickLinks",
     links: [
       { h: "/privacy", l: "Privacy Policy", Icon: ShieldCheck },
       { h: "/terms", l: "Terms & Conditions", Icon: FileText },
@@ -57,6 +60,7 @@ const COLS: { title: string; links: { h: string; l: string; Icon: LucideIcon }[]
 ];
 
 export function SiteFooter() {
+  const { tr } = useLocale();
   return (
     <footer className="relative overflow-hidden border-t border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950">
       <span aria-hidden className="pointer-events-none absolute -right-4 bottom-0 hidden select-none text-[110px] font-extrabold leading-none tracking-tighter text-black/[0.05] dark:text-white/[0.07] [writing-mode:vertical-rl] md:block">coderender</span>
@@ -65,7 +69,7 @@ export function SiteFooter() {
           <div>
             <BrandLogo />
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              Transform your business with seamless multi-channel automation solutions.
+              {tr("footer.tagline")}
             </p>
             <div className="mt-3 flex gap-2">
               <a href={CONTACT.whatsapp} aria-label="WhatsApp" className="flex h-11 w-11 items-center justify-center rounded-full border border-black/10 dark:border-white/15"><MessageCircle size={18} /></a>
@@ -78,13 +82,13 @@ export function SiteFooter() {
               <a href={`mailto:${CONTACT.email}`} className="flex items-center gap-2"><Mail size={15} />{CONTACT.email}</a>
             </p>
             <p className="mt-2 flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-400"><MapPin size={15} className="mt-0.5 shrink-0" />{CONTACT.address}</p>
-            <p className="mt-4 font-semibold">Friday growth note</p>
+            <p className="mt-4 font-semibold">{tr("footer.newsletter")}</p>
             <NewsletterForm />
           </div>
           <nav aria-label="Footer columns" className="hidden gap-8 sm:grid sm:grid-cols-2 md:hidden lg:grid lg:grid-cols-2">
             {COLS.map((c) => (
-              <div key={c.title}>
-                <p className="flex items-center gap-2 font-semibold"><PulseDot />{c.title}</p>
+              <div key={c.key}>
+                <p className="flex items-center gap-2 font-semibold"><PulseDot />{tr(c.key)}</p>
                 <ul className="mt-2 space-y-1.5 text-sm">
                   {c.links.map((x) => (
                     <li key={x.h + x.l}><Link href={x.h} className="flex items-center gap-2"><x.Icon size={15} className="shrink-0 text-zinc-500" />{x.l}</Link></li>
@@ -94,7 +98,7 @@ export function SiteFooter() {
             ))}
           </nav>
           <div className="hidden md:block lg:hidden">
-            <p className="flex items-center gap-2 font-semibold"><PulseDot />Explore</p>
+            <p className="flex items-center gap-2 font-semibold"><PulseDot /> {tr("nav.explore")}</p>
             <ul className="mt-2 space-y-1.5 text-sm">
               {COLS.flatMap((c) => c.links).slice(0, 8).map((x) => (
                 <li key={x.h + x.l}><Link href={x.h} className="flex items-center gap-2"><x.Icon size={15} className="shrink-0 text-zinc-500" />{x.l}</Link></li>
@@ -103,9 +107,9 @@ export function SiteFooter() {
           </div>
           <div className="sm:hidden">
             {COLS.map((c) => (
-              <details key={c.title} className="border-b border-black/10 py-1 dark:border-white/10">
+              <details key={c.key} className="border-b border-black/10 py-1 dark:border-white/10">
                 <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between font-semibold [&::-webkit-details-marker]:hidden">
-                  <span className="flex items-center gap-2"><PulseDot />{c.title}</span>
+                  <span className="flex items-center gap-2"><PulseDot />{tr(c.key)}</span>
                 </summary>
                 <ul className="space-y-1.5 pb-3 text-sm">
                   {c.links.map((x) => (
@@ -116,9 +120,9 @@ export function SiteFooter() {
             ))}
           </div>
           <div className="text-sm">
-            <p className="font-semibold">Contact</p>
+            <p className="font-semibold">{tr("footer.contact")}</p>
             <p className="mt-2 text-zinc-600 dark:text-zinc-400">For Sales & Support: <a href={`tel:${CONTACT.phone}`}>{CONTACT.phone}</a></p>
-            <p className="mt-4 font-semibold">Popular tools</p>            <ul className="mt-2 space-y-1.5">
+            <p className="mt-4 font-semibold">{tr("footer.popularTools")}</p>            <ul className="mt-2 space-y-1.5">
               <li><Link href="/tools/whatsapp-qr-generator" className="flex items-center gap-2"><QrCode size={15} />QR Generator</Link></li>
               <li><Link href="/tools/whatsapp-template-composer" className="flex items-center gap-2"><Type size={15} />Template Composer</Link></li>
               <li><Link href="/tools/pricing-calculator" className="flex items-center gap-2"><Calculator size={15} />Pricing Calculator</Link></li>
@@ -126,11 +130,12 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="mt-10 flex flex-col items-center justify-between gap-2 border-t border-black/10 pt-4 text-xs text-zinc-500 md:flex-row dark:border-white/10">
-          <p>© {new Date().getFullYear()} Coderender · v{APP_VERSION}. All rights reserved.</p>
-          <p className="space-x-3">
-            <Link href="/privacy">Privacy Policy</Link>
-            <Link href="/terms">Terms & Conditions</Link>
-            <Link href="/refund">Refund Policy</Link>
+          <p>© {new Date().getFullYear()} Coderender · v{APP_VERSION}. {tr("footer.rights")}</p>
+          <p className="flex flex-wrap items-center gap-3">
+            <LocaleSwitcher />
+            <Link href="/privacy">{tr("footer.privacy")}</Link>
+            <Link href="/terms">{tr("footer.terms")}</Link>
+            <Link href="/refund">{tr("footer.refund")}</Link>
           </p>
         </div>
       </div>

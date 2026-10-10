@@ -6,6 +6,7 @@ import { CONTACT, VERTICALS } from "@/lib/site";
 import { SERVICES } from "@/lib/services";
 import { NAV_ICONS, palette, orb } from "@/lib/nav-icons";
 import { PackIcon } from "./pack-icon";
+import { useLocale } from "./locale-provider";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileMenu, type MenuSection } from "./mobile-menu";
 import { BrandLogo } from "./brand-theme";
@@ -18,24 +19,24 @@ interface SubItem {
   color: string;
 }
 
-function buildMenus(): { label: string; href: string; icon: keyof typeof NAV_ICONS; items: SubItem[] }[] {
+function buildMenus(tr: (k: string) => string): { label: string; href: string; icon: keyof typeof NAV_ICONS; items: SubItem[] }[] {
   return [
     {
-      label: "Services", href: "/#services", icon: "services",
+      label: tr("nav.services"), href: "/#services", icon: "services",
       items: SERVICES.map((s, i) => ({
         h: `/services/${s.slug}`, l: s.title, d: s.tagline,
         icon: { map: "service", id: s.slug }, color: palette(i),
       })),
     },
     {
-      label: "Industries", href: "/#verticals", icon: "industries",
+      label: tr("nav.industries"), href: "/#verticals", icon: "industries",
       items: VERTICALS.map((v, i) => ({
         h: `/industries/${v.slug}`, l: v.label, d: v.blurb,
         icon: { map: "vertical", id: v.slug }, color: palette(i),
       })),
     },
     {
-      label: "Resources", href: "/docs", icon: "about",
+      label: tr("nav.resources"), href: "/docs", icon: "about",
       items: [
         { h: "/docs", l: "Docs", d: "How everything here works.", icon: { map: "nav", id: "docs" }, color: palette(2) },
         { h: "/tools/gbp-booster-whatsapp-ai-agent", l: "GBP Booster", d: "WhatsApp AI agent for Google calls.", icon: { map: "tool", id: "gbp-booster-whatsapp-ai-agent" }, color: palette(0) },
@@ -45,7 +46,7 @@ function buildMenus(): { label: string; href: string; icon: keyof typeof NAV_ICO
       ],
     },
     {
-      label: "Partner", href: "/partner", icon: "partner",
+      label: tr("nav.company"), href: "/partner", icon: "partner",
       items: [
         { h: "/partner", l: "Become a Partner", d: "Earn with every business you send.", icon: { map: "nav", id: "partner" }, color: palette(3) },
         { h: "/pricing", l: "What you'll sell", d: "Ladder, catalog, DRAFT prices.", icon: { map: "nav", id: "pricing" }, color: palette(1) },
@@ -75,7 +76,8 @@ export function SiteHeader({ announcement }: { announcement?: string }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-  const menus = buildMenus();
+    const { tr } = useLocale();
+  const menus = buildMenus(tr);
   const sections: MenuSection[] = menus.map((m) => ({
     title: m.label,
     links: m.items.map((x, xi) => ({ h: x.h, l: x.l, icon: <OrbIcon xi={xi} map={x.icon.map} id={x.icon.id} /> })),
@@ -94,7 +96,7 @@ export function SiteHeader({ announcement }: { announcement?: string }) {
         <a href={`tel:${CONTACT.phone}`} className="block px-4 py-3 text-center text-xs font-medium">
           <span className="marquee-auto items-center gap-8 whitespace-nowrap">
             {[false, true].map((hidden) => (
-              <span key={String(hidden)} aria-hidden={hidden || undefined}>{announcement || `Boost sales and customer engagement with CodeRender! Call ${CONTACT.phone} or `}<span className="underline">Request a Call</span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+              <span key={String(hidden)} aria-hidden={hidden || undefined}>{announcement || <>{tr("announcement.default")} Call {CONTACT.phone} or </>}<span className="underline">{tr("announcement.call")}</span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
             ))}
           </span>
         </a>
@@ -116,8 +118,8 @@ export function SiteHeader({ announcement }: { announcement?: string }) {
                 </div>
               </div>
             ))}
-            <Link href="/pricing" className="inline-flex min-h-[44px] items-center gap-1 rounded-xl px-1.5 hover:bg-black/5 dark:hover:bg-white/10 lg:gap-1.5 lg:px-2"><NavIcon of="pricing" />Pricing</Link>
-            <Link href="/contact" className="inline-flex min-h-[44px] items-center gap-1 rounded-xl px-1.5 hover:bg-black/5 dark:hover:bg-white/10 lg:gap-1.5 lg:px-2"><NavIcon of="contact" />Contact</Link>
+            <Link href="/pricing" className="inline-flex min-h-[44px] items-center gap-1 rounded-xl px-1.5 hover:bg-black/5 dark:hover:bg-white/10 lg:gap-1.5 lg:px-2"><NavIcon of="pricing" />{tr("nav.pricing")}</Link>
+            <Link href="/contact" className="inline-flex min-h-[44px] items-center gap-1 rounded-xl px-1.5 hover:bg-black/5 dark:hover:bg-white/10 lg:gap-1.5 lg:px-2"><NavIcon of="contact" />{tr("nav.contact")}</Link>
           </nav>
           <div className="flex items-center gap-2">
             <a

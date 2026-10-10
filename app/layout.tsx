@@ -9,9 +9,11 @@ import { Tracker } from "@/components/tracker";
 import { ChunkRecovery } from "@/components/chunk-recovery";
 import { ChatWidget } from "@/components/chat-widget";
 import { LeadCaptureModal } from "@/components/lead-capture-modal";
+import { LocaleProvider } from "@/components/locale-provider";
 import { ServiceWorker } from "@/components/service-worker";
 import { JsonLd } from "@/components/json-ld";
 import { getDb, getPref } from "@/lib/store";
+import { cookies, headers } from "next/headers";
 import { BRAND_DEFAULTS } from "@/lib/brand";
 import { activeAnnouncement } from "@/lib/cms";
 import { arabic, bengali, body, display, gujarati, indic, kannada, tamil, telugu } from "@/lib/fonts";
@@ -52,7 +54,28 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Locale: remembered cookie wins; otherwise the location hint (IN → hi),
+  // otherwise the site default. RTL applies only behind its flag.
+  const { parseLocale, dirFor, hintForCountry } = await import("@/lib/i18n");
+  const { getClientIp } = await import("@/lib/client");
+  const { lookup } = await import("@/lib/geo");
+  let initial = parseLocale(getPref("site_locale", "en"), "en");
+  let rtlOn = false;
+  try {
+    const rtlPref = getPref("rtl_enabled", "off");
+    rtlOn = rtlPref === "on";
+    const jar = await cookies();
+    const saved = jar.get("cr_locale")?.value;
+    if (saved) {
+      initial = parseLocale(saved, initial);
+    } else {
+      const h = await headers();
+      const req = new Request("http://local/", { headers: h });
+      const geo = lookup(getClientIp(req));
+      if (geo) initial = hintForCountry(geo.country);
+    }
+  } catch { /* defaults */ }
   let announcement = "";
   try {
     const hit = activeAnnouncement();
@@ -65,7 +88,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     }
   } catch { /* first boot before tables exist */ }
   return (
-    <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable} ${indic.variable} ${bengali.variable} ${tamil.variable} ${telugu.variable} ${kannada.variable} ${gujarati.variable} ${arabic.variable}`}>
+    <html lang={initial} dir={dirFor(initial, rtlOn)} suppressHydrationWarning className={`${display.variable} ${body.variable} ${indic.variable} ${bengali.variable} ${tamil.variable} ${telugu.variable} ${kannada.variable} ${gujarati.variable} ${arabic.variable}`}>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <Preloader />
@@ -74,9 +97,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <BrandTheme />
           <ServiceWorker />
           <JsonLd />
-          <SiteHeader announcement={announcement || undefined} />
-          <main className="pb-20 md:pb-0">{children}</main>
-          <SiteFooter />
+          <LocaleProvider initial={initial} rtlOn={rtlOn}>
+            <SiteHeader announcement={announcement || undefined} />
+            <main className="pb-20 md:pb-0">{children}</main>
+            <SiteFooter />
+          </LocaleProvider>
           <QuickBar />
           <ChatWidget />
           <LeadCaptureModal />

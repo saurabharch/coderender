@@ -310,6 +310,17 @@ async function savePrices(form: FormData) {  "use server";
   revalidatePath("/pricing");
 }
 
+async function saveLocale(form: FormData) {
+  "use server";
+  const me = await sessionUser();
+  if (!me || me.role !== "owner") return;
+  const loc = String(form.get("site_locale") || "en").toLowerCase();
+  setPref("site_locale", ["en", "hi"].includes(loc) ? loc : "en");
+  setPref("rtl_enabled", form.get("rtl_enabled") === "on" ? "on" : "off");
+  revalidatePath("/");
+  revalidatePath("/admin/settings");
+}
+
 async function saveDevBypass(form: FormData) {
   "use server";
   const me = await sessionUser();
@@ -403,6 +414,24 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </label>
         <p className="text-xs text-zinc-500">Default on outside production, off in production. Applies to allowlisted admin/owner addresses only — every other role always uses the mailed production link and lands on their role dashboard.</p>
         <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save access</button>
+      </form>
+      )}
+      {isOwner && (
+      <form action={saveLocale} className="mt-2 grid max-w-xl gap-2 rounded-2xl border border-black/10 p-4 text-sm dark:border-white/10">
+        <span className="font-semibold">Site language (default for new visitors)</span>
+        <span className="flex flex-wrap gap-1.5">
+          {(["en", "hi"] as const).map((l) => (
+            <label key={l} className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl border border-black/15 px-3 dark:border-white/20">
+              <input type="radio" name="site_locale" value={l} defaultChecked={getPref("site_locale", "en") === l} className="h-5 w-5" />
+              {l === "en" ? "English" : "हिंदी (Hindi)"}
+            </label>
+          ))}
+        </span>
+        <label className="flex min-h-[44px] items-center gap-2">
+          <input type="checkbox" name="rtl_enabled" value="on" defaultChecked={getPref("rtl_enabled", "off") === "on"} className="h-5 w-5" />
+          Enable right-to-left layout (flagged off until proven)
+        </label>
+        <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save language</button>
       </form>
       )}
       <form action={runReport} className="mt-3">
