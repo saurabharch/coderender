@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createHmac, createHash } from "node:crypto";
 import {
-  easebuzzRequestHash, easebuzzVerifyResponse, payuRequestHash, payuVerifyResponse,
-  rzValidWebhook, rzVerifySignature, timingEq,
+  easebuzzRequestHash, easebuzzVerifyResponse, paytmChecksum, paytmVerify,
+  payuRequestHash, payuVerifyResponse, rzValidWebhook, rzVerifySignature,
+  stripeVerifyWebhook, timingEq, wiseHost,
 } from "@/lib/gateways-core";
 
 describe("gateway hashes", () => {
@@ -33,6 +34,37 @@ describe("gateway hashes", () => {
     const respHash = createHash("sha512").update(respSeq).digest("hex");
     expect(easebuzzVerifyResponse({ ...base, status: "success", hash: respHash })).toBe(true);
     expect(easebuzzVerifyResponse({ ...base, status: "success", hash: "1".repeat(128) })).toBe(false);
+  });
+
+  it("round-trips stripe webhook signatures", () => {
+    const raw = JSON.stringify({ id: "evt_1", type: "payment_intent.succeeded" });
+    const t = Math.floor(Date.now() / 1000);
+    const v1 = createHmac("sha256", "whsec_test").update(`${t}.${raw}`).digest("hex");
+    expect(stripeVerifyWebhook(raw, `t=${t},v1=${v1}`, "whsec_test")).toBe(t);
+    expect(stripeVerifyWebhook(raw, `t=${t},v1=${"0".repeat(64)}`, "whsec_test")).toBe(null);
+    expect(stripeVerifyWebhook(raw, `t=${t},v1=${v1}`, "whsec_other")).toBe(null);
+    expect(stripeVerifyWebhook(raw, null, "whsec_test")).toBe(null);
+    // Stale replays rejected by the 5-minute tolerance.
+    const old = t - 3600;
+    const oldV1 = createHmac("sha256", "whsec_test").update(`${old}.${raw}`).digest("hex");
+    expect(stripeVerifyWebhook(raw, `t=${old},v1=${oldV1}`, "whsec_test")).toBe(null);
+  });
+
+  it("round-trips paytm checksums", () => {
+    const params = { MID: "TESTMID01", ORDERID: "cr_9_x7", TXN_AMOUNT: "499.00", CUST_ID: "C9" };
+    const sum = paytmChecksum(params, "1234567890123456");
+    expect(typeof sum).toBe("string");
+    expect(sum.length).toBeGreaterThan(16);
+    expect(paytmVerify({ ...params, CHECKSUMHASH: sum }, "1234567890123456")).toBe(true);
+    expect(paytmVerify({ ...params, TXN_AMOUNT: "500.00", CHECKSUMHASH: sum }, "1234567890123456")).toBe(false);
+    expect(paytmVerify({ ...params, CHECKSUMHASH: sum }, "otherkey12345678")).toBe(false);
+    expect(paytmVerify(params, "1234567890123456")).toBe(false);
+    expect(() => paytmChecksum(params, "")).toThrow();
+  });
+
+  it("resolves wise hosts per mode", () => {
+    expect(wiseHost("test")).toContain("sandbox");
+    expect(wiseHost("live")).toBe("https://api.wise.com");
   });
 
   it("rejects razorpay signatures without keys", () => {

@@ -22,7 +22,16 @@ export function ledgerPost(input: { kind: EntryKind; refId: number; amount: numb
 }
 
 async function autumnMirror(kind: string, refId: number, amount: number): Promise<void> {
-  const key = process.env.AUTUMN_API_KEY;
+  // Vault-first (dashboard Payments tab → third-party biller), env fallback.
+  // Missing keys = silent skip, never a crash; mirror never breaks books.
+  let key = "";
+  try {
+    const { getProvider } = await import("./providers");
+    const cfg = getProvider("autumn");
+    const mode = cfg.AUTUMN_MODE === "live" ? "live" : "test";
+    key = (mode === "live" ? cfg.AUTUMN_SECRET_KEY : cfg.AUTUMN_TEST_SECRET) || cfg.AUTUMN_SECRET_KEY || "";
+  } catch { /* vault unreadable — try env */ }
+  key = key || process.env.AUTUMN_API_KEY || "";
   if (!key) return;
   try {
     await fetch("https://api.useautumn.com/v1/events", {

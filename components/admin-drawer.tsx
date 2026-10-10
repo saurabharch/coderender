@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, KanbanSquare, ShoppingCart, UtensilsCrossed, CookingPot, FileText, ClipboardList,
-  Blocks, Image, Mail, Bell, Handshake, KeyRound, ShieldCheck, Route, Settings, CalendarClock, Activity, Workflow, Plug, Menu, X, LogOut, Star, Package, GraduationCap, MessageSquare, MessageCircle, LayoutTemplate, Ticket, Trello, ListChecks, IndianRupee, Megaphone, Contact,
+  Blocks, Image, Mail, Bell, Handshake, KeyRound, ShieldCheck, Route, Settings, CalendarClock, Activity, Workflow, Plug, Menu, X, LogOut, Star, Package, GraduationCap, MessageSquare, MessageCircle, LayoutTemplate, Ticket, Trello, ListChecks, IndianRupee, CreditCard, Megaphone, Contact,
 } from "lucide-react";
 
 import { hasPerm } from "@/lib/scale-core";
@@ -23,6 +23,7 @@ const ICONS: Record<string, IconType> = {
   "/admin/pos": ShoppingCart,
   "/admin/shop": ShoppingCart,
   "/admin/billing": IndianRupee,
+  "/admin/payments": CreditCard,
   "/admin/retail": Megaphone,
   "/admin/stock": Package,
   "/admin/packages": Package,

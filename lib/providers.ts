@@ -21,7 +21,7 @@ export function unseal(packed: string): string {
   return Buffer.concat([d.update(Buffer.from(data, "hex")), d.final()]).toString("utf8");
 }
 
-export type ProviderName = "smtp" | "telegram" | "whatsapp" | "slack" | "razorpay" | "payu" | "easebuzz" | "google" | "media" | "languagetool";
+export type ProviderName = "smtp" | "telegram" | "whatsapp" | "slack" | "razorpay" | "payu" | "easebuzz" | "stripe" | "paytm" | "wise" | "autumn" | "google" | "media" | "languagetool";
 
 export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string }[]> = {
   smtp: [
@@ -48,17 +48,57 @@ export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string
     { label: "SLACK_WEBHOOK_URL", hint: "incoming webhook URL" },
   ],
   razorpay: [
-    { label: "RAZORPAY_KEY_ID", hint: "rzp_live_* / rzp_test_*" },
-    { label: "RAZORPAY_KEY_SECRET", hint: "key secret" },
-    { label: "RAZORPAY_WEBHOOK_SECRET", hint: "webhook secret (Dashboard → Webhooks)" },
+    { label: "RAZORPAY_MODE", hint: "test or live (default test)" },
+    { label: "RAZORPAY_KEY_ID", hint: "rzp_live_* production key" },
+    { label: "RAZORPAY_KEY_SECRET", hint: "production key secret" },
+    { label: "RAZORPAY_TEST_KEY_ID", hint: "rzp_test_* test key" },
+    { label: "RAZORPAY_TEST_KEY_SECRET", hint: "test key secret" },
+    { label: "RAZORPAY_WEBHOOK_SECRET", hint: "live webhook secret (Dashboard → Webhooks)" },
+    { label: "RAZORPAY_TEST_WEBHOOK_SECRET", hint: "test webhook secret" },
   ],
   payu: [
-    { label: "PAYU_MERCHANT_KEY", hint: "merchant key" },
-    { label: "PAYU_MERCHANT_SALT", hint: "merchant salt" },
+    { label: "PAYU_MODE", hint: "test or live (default test)" },
+    { label: "PAYU_MERCHANT_KEY", hint: "live merchant key" },
+    { label: "PAYU_MERCHANT_SALT", hint: "live merchant salt" },
+    { label: "PAYU_TEST_KEY", hint: "test merchant key" },
+    { label: "PAYU_TEST_SALT", hint: "test merchant salt" },
   ],
   easebuzz: [
-    { label: "EASEBUZZ_MERCHANT_KEY", hint: "merchant key" },
-    { label: "EASEBUZZ_SALT", hint: "salt" },
+    { label: "EASEBUZZ_MODE", hint: "test or live (default test)" },
+    { label: "EASEBUZZ_MERCHANT_KEY", hint: "live merchant key" },
+    { label: "EASEBUZZ_SALT", hint: "live salt" },
+    { label: "EASEBUZZ_TEST_KEY", hint: "test merchant key" },
+    { label: "EASEBUZZ_TEST_SALT", hint: "test salt" },
+  ],
+  stripe: [
+    { label: "STRIPE_MODE", hint: "test or live (default test)" },
+    { label: "STRIPE_TEST_SECRET_KEY", hint: "sk_test_* (Dashboard → Developers → API keys)" },
+    { label: "STRIPE_TEST_PUBLISHABLE_KEY", hint: "pk_test_* (client checkout)" },
+    { label: "STRIPE_TEST_WEBHOOK_SECRET", hint: "whsec_* test webhook signing secret" },
+    { label: "STRIPE_LIVE_SECRET_KEY", hint: "sk_live_* production" },
+    { label: "STRIPE_LIVE_PUBLISHABLE_KEY", hint: "pk_live_* production" },
+    { label: "STRIPE_LIVE_WEBHOOK_SECRET", hint: "whsec_* live webhook signing secret" },
+  ],
+  paytm: [
+    { label: "PAYTM_MODE", hint: "test (staging) or live (default test)" },
+    { label: "PAYTM_TEST_MID", hint: "staging merchant id" },
+    { label: "PAYTM_TEST_KEY", hint: "staging merchant key" },
+    { label: "PAYTM_TEST_WEBSITE", hint: "staging website name (e.g. WEBSTAGING)" },
+    { label: "PAYTM_LIVE_MID", hint: "production merchant id" },
+    { label: "PAYTM_LIVE_KEY", hint: "production merchant key" },
+    { label: "PAYTM_LIVE_WEBSITE", hint: "production website name" },
+  ],
+  wise: [
+    { label: "WISE_MODE", hint: "test (sandbox) or live (default test)" },
+    { label: "WISE_TEST_API_TOKEN", hint: "sandbox API token (wise.com sandbox)" },
+    { label: "WISE_TEST_PROFILE_ID", hint: "sandbox profile id" },
+    { label: "WISE_LIVE_API_TOKEN", hint: "production API token" },
+    { label: "WISE_LIVE_PROFILE_ID", hint: "production profile id" },
+  ],
+  autumn: [
+    { label: "AUTUMN_MODE", hint: "test or live (default test)" },
+    { label: "AUTUMN_TEST_SECRET", hint: "Autumn test secret (useautumn dashboard)" },
+    { label: "AUTUMN_SECRET_KEY", hint: "Autumn live secret (event mirror only — ledger stays truth)" },
   ],
   google: [
     { label: "GOOGLE_CLIENT_ID", hint: "Google Cloud → APIs & Services → Credentials → OAuth client ID" },
@@ -123,6 +163,15 @@ export function saveProvider(name: ProviderName, values: Record<string, string>)
 
 export function clearProvider(name: ProviderName): void {
   getDb().prepare("DELETE FROM ProviderCred WHERE name=?").run(name);
+}
+
+// ---- payment gateway modes (test default; live only when MODE=live) ----
+
+export type GatewayMode = "test" | "live";
+
+export function gatewayMode(name: "razorpay" | "payu" | "easebuzz" | "stripe" | "paytm" | "wise"): GatewayMode {
+  const cfg = getProvider(name);
+  return cfg[`${name.toUpperCase()}_MODE`] === "live" ? "live" : "test";
 }
 
 // ---- senders (single chokepoint per channel) ----

@@ -26,6 +26,12 @@ export function vyaparTables(): void {
 }
 
 // ---- idempotent intents ----
+export function findIntent(ikey: string): { id: number; orderId: number; billId: number; amount: number; status: string } | null {
+  vyaparTables();
+  return (getDb().prepare("SELECT id, orderId, billId, amount, status FROM PayIntent WHERE ikey=?").get(ikey.slice(0, 80)) as
+    { id: number; orderId: number; billId: number; amount: number; status: string } | undefined) ?? null;
+}
+
 export function createIntent(input: { orderId?: number; billId?: number; amount: number; method?: string; ikey: string }): { id: number; status: string } {
   vyaparTables();
   const db = getDb();

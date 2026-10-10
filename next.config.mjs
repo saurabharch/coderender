@@ -10,6 +10,13 @@ const nextConfig = {
     optimizePackageImports: ["@mantine/core", "@mantine/hooks", "@mantine/dates", "@mantine/charts", "@mantine/form"],
   },
   webpack: (config, { dev, isServer }) => {
+    // Termux/Android FS cannot snapshot resolve dependencies, so the
+    // persistent pack cache always warns (PackFileCacheStrategy) without
+    // helping. Memory cache on-device prod builds: warning-free, same
+    // output. Linux/prod keeps the filesystem cache (fast rebuilds).
+    if (!dev && process.platform === "android") {
+      config.cache = { type: "memory" };
+    }
     // Client-only: the device react dist is a CJS stub (`module.exports =
     // require(...)`) that webpack cannot statically analyze from strict ESM
     // (.mjs) importers. Point client builds at the real CJS files so Mantine

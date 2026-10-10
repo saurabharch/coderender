@@ -28,6 +28,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "POS", href: "/admin/pos", perm: "sell" },
       { label: "Inventory", href: "/admin/shop", perm: "sell" },
       { label: "Billing", href: "/admin/billing", perm: "billing" },
+      { label: "Payments", href: "/admin/payments", perm: "billing" },
       { label: "Retail", href: "/admin/retail", perm: "retail" },
       { label: "Stock", href: "/admin/stock", perm: "stock" },
       { label: "Packages", href: "/admin/packages", perm: "sell" },

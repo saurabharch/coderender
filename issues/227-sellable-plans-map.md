@@ -2,6 +2,7 @@
 
 Labels: wayfinder:map
 Status: doing
+Override: owner ordered full gateway implementation — executed 234+235 in this turn, recorded here.
 
 ## Destination
 
@@ -34,13 +35,14 @@ details form — totals, tax, coupons posting into the existing accounting
 
 <!-- one line per closed ticket, gist + link -->
 
-- (none yet — frontier is Plan price model + Checkout field requirements)
+- [Gateway platform](234-gateway-platform.md): test/live vault + idempotent subscribe, live-proved.
+- [Provider adapters](235-provider-adapters.md): Stripe/Paytm/Wise + mode-aware India stack, live-proved.
 
 ## Not yet specified
 
 - Guest vs logged-in cart identity; cart merge on login.
 - Retainer (`/mo`) plans at checkout: one-time first charge vs BizSub minting.
-- Gateway capture (PayIntent/PayLink) vs manual UPI/COD for plan orders.
+- Gateway capture: done for orders via /api/pay + /api/pay/subscribe (manual UPI/COD remain as fallback).
 - Package-specific coupons vs shared coupon pool; HSN/GST rate per plan.
 - `site_prices` ladder vs `ServicePackage` — converge or keep both.
 

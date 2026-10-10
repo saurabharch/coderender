@@ -8,9 +8,11 @@ import { sendDailyReport } from "@/lib/reporter";
 import { sessionUser } from "@/lib/auth";
 import { requireTeam } from "@/lib/auth";
 import { SubTabs } from "@/components/admin-ui";
+import { NoSsr } from "@/components/no-ssr";
+import { ProviderTabs } from "@/components/provider-tabs";
 import { QUICKBAR_ACTIONS, QUICKBAR_ROLES, quickbarCustom } from "@/lib/quickbar";
 import { QuickbarEditor } from "@/components/quickbar-editor";
-import { AtSign, Ban, Calculator, DatabaseBackup, Flag, IndianRupee, Mail, MonitorSmartphone, Palette, Phone, Puzzle, ReceiptText, ShieldCheck, SlidersHorizontal, Store, Timer, Users, Zap } from "lucide-react";
+import { AtSign, Ban, Calculator, CreditCard, DatabaseBackup, Flag, IndianRupee, Mail, MonitorSmartphone, Palette, Phone, Puzzle, ReceiptText, ShieldCheck, SlidersHorizontal, Store, Timer, Users, Zap } from "lucide-react";
 import { BRAND_DEFAULTS } from "@/lib/brand";
 import { BrandingFields } from "@/components/branding-form";
 import { DASHBOARD_ROUTES, businessIndustry, businessMode, listIndustries, saveIndustry, setIndustryActive, setIndustryRoutes, setModeRoutes, visibleForMode, visibleRoutes } from "@/lib/industry";
@@ -329,7 +331,7 @@ async function saveDevBypass(form: FormData) {
   revalidatePath("/admin/settings");
 }
 
-const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices", "quickbar", "branding"] as const;
+const SETTING_TABS = ["general", "team", "sessions", "business", "tax", "flags", "prices", "payments", "quickbar", "branding"] as const;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; saved?: string }> }) {
   const sp = await searchParams;
@@ -364,6 +366,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         { id: "tax", label: "Tax", Icon: ReceiptText, href: "/admin/settings?tab=tax" },
         { id: "flags", label: "Flags", Icon: Flag, href: "/admin/settings?tab=flags" },
         { id: "prices", label: "Prices", Icon: IndianRupee, href: "/admin/settings?tab=prices" },
+        { id: "payments", label: "Payments", Icon: CreditCard, href: "/admin/settings?tab=payments" },
         { id: "quickbar", label: "Quick bar", Icon: Zap, href: "/admin/settings?tab=quickbar" },
         ...(isOwner ? [{ id: "branding", label: "Branding", Icon: Palette, href: "/admin/settings?tab=branding" }] : []),
       ]} />
@@ -641,6 +644,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         ))}
         <button className="min-h-[44px] w-fit rounded-xl bg-brand px-5 text-sm font-semibold text-white">Save flags</button>
       </form>
+      </>)}
+      {tab === "payments" && (<>
+      <h2 className="mt-6 font-bold">Payment gateways <span className="text-xs font-normal text-zinc-500">(AES-sealed vault · test is default — set MODE to live per provider to go live)</span></h2>
+      <div className="mt-2 rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4 text-sm">
+        <p><b>India:</b> Razorpay · PayU · Paytm (UPI/cards/netbanking). <b>International:</b> Stripe (cards, Apple/Google Pay). <b>Payouts:</b> Wise (refunds & partner payouts abroad — not customer checkout).</p>
+        <p className="mt-1 text-zinc-500">Setup: paste <b>test</b> keys first → Test button → take a test payment → flip that provider&apos;s MODE to <b>live</b> → paste live keys → Test again. Webhook secrets come from each provider&apos;s dashboard (Webhooks → add <span className="font-mono">APP_URL/api/pay/callback</span>).</p>
+      </div>
+      <div className="mt-3"><NoSsr><ProviderTabs only={["razorpay", "payu", "easebuzz", "stripe", "paytm", "wise", "autumn"]} /></NoSsr></div>
       </>)}
       {tab === "quickbar" && (<>
       {saved && <p role="status" className="mb-2 rounded-xl bg-emerald-500/15 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">Quick bar saved ✓ — staff bars update on next focus.</p>}
