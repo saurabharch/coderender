@@ -111,25 +111,17 @@ export async function runBgRemove(jobId: number): Promise<{ ok: boolean; url?: s
       { filename: string; mime: string } | undefined;
     if (!asset) throw new Error("asset gone");
     const bytes = await loadBytes(asset);
-    // Engine order: hosted API when keyed (works everywhere) → local WASM
-    // (Linux/prod Node; this Android Node cannot run onnxruntime-web).
-    let outBytes: Buffer;
-    const { getProvider } = await import("./providers");
-    const clipKey = getProvider("media").CLIPDROP_API_KEY || "";
-    if (clipKey) {
-      const form = new FormData();
-      form.append("image_file", new Blob([new Uint8Array(bytes)], { type: asset.mime || "image/png" }), "src.png");
-      const res = await fetch("https://clipdrop-api.co/remove-background/v1", {
-        method: "POST", headers: { "x-api-key": clipKey }, body: form,
-        signal: AbortSignal.timeout(90000),
-      });
-      if (!res.ok) throw new Error(`provider http ${res.status}`);
-      outBytes = Buffer.from(await res.arrayBuffer());
-    } else {
-      const { removeBackground } = await import("@imgly/background-removal");
-      const out = await removeBackground(new Blob([new Uint8Array(bytes)], { type: asset.mime || "image/png" }));
-      outBytes = Buffer.from(await out.arrayBuffer());
-    }
+    // Single engine: @imgly/background-removal (WASM) everywhere — server
+    // side where the runtime allows, otherwise the browser client worker
+    // wins the same swap. No hosted API, no keys. Bounded: a hung runtime
+    // (model fetch / WASM init with no progress) must never wedge the job
+    // in "working" — it falls back to queued for the client worker.
+    const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> =>
+      Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("engine timeout")), ms))]);
+    const { removeBackground } = await withTimeout(import("@imgly/background-removal"), 20000);
+    const out = await withTimeout(
+      removeBackground(new Blob([new Uint8Array(bytes)], { type: asset.mime || "image/png" })), 120000);
+    const outBytes = Buffer.from(await out.arrayBuffer());
     if (outBytes.length < 1024) throw new Error("empty result");
     const r = await swapTransparent(jobId, outBytes, "job");
     if (!r.swapped) return { ok: false };

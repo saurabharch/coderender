@@ -42,12 +42,10 @@ export async function POST(req: Request) {
     if (name === "media") {
       const { r2Config } = await import("@/lib/r2");
       const cfg = r2Config();
-      const { getProvider } = await import("@/lib/providers");
-      const clip = !!getProvider("media").CLIPDROP_API_KEY;
-      if (!cfg && !clip) return NextResponse.json({ ok: false, detail: "save R2 and/or ClipDrop keys first (dashboard Providers → media)" });
+      if (!cfg) return NextResponse.json({ ok: true, detail: "R2 unset — local storage; bg-removal runs on the imgly WASM engine (no keys)" });
       return NextResponse.json({
         ok: true,
-        detail: [`R2 ${cfg ? `ready (${cfg.source}, ${cfg.bucket})` : "unset"}`, `bg-removal ${clip ? "keyed" : "local-engine"}`].join(" · "),
+        detail: `R2 ready (${cfg.source}, ${cfg.bucket}) · bg-removal imgly WASM engine (no keys)`,
       });
     }
     if (name === "razorpay") {

@@ -74,7 +74,6 @@ export const PROVIDER_FIELDS: Record<ProviderName, { label: string; hint: string
     { label: "R2_SECRET_ACCESS_KEY", hint: "R2 API token secret" },
     { label: "R2_BUCKET", hint: "bucket name (e.g. coderender-media)" },
     { label: "R2_PUBLIC_URL", hint: "public base (custom domain or r2.dev URL)" },
-    { label: "CLIPDROP_API_KEY", hint: "background removal API (server jobs; optional)" },
   ],
 };
 

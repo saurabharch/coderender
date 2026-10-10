@@ -55,13 +55,17 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Locale: remembered cookie wins; otherwise the location hint (IN → hi),
-  // otherwise the site default. RTL applies only behind its flag.
+  // Locale: remembered cookie wins, else the site default. Location is a
+  // hint only: when it disagrees and nothing is remembered, the UI offers a
+  // one-time switch pill instead of forcing the language. RTL applies only
+  // behind its flag.
   const { parseLocale, dirFor, hintForCountry } = await import("@/lib/i18n");
   const { getClientIp } = await import("@/lib/client");
   const { lookup } = await import("@/lib/geo");
   let initial = parseLocale(getPref("site_locale", "en"), "en");
   let rtlOn = false;
+  let hint: string | null = null;
+  let hasCookie = false;
   try {
     const rtlPref = getPref("rtl_enabled", "off");
     rtlOn = rtlPref === "on";
@@ -69,11 +73,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     const saved = jar.get("cr_locale")?.value;
     if (saved) {
       initial = parseLocale(saved, initial);
+      hasCookie = true;
     } else {
       const h = await headers();
       const req = new Request("http://local/", { headers: h });
       const geo = lookup(getClientIp(req));
-      if (geo) initial = hintForCountry(geo.country);
+      const g = hintForCountry(geo?.country ?? "");
+      if (g !== initial) hint = g;
     }
   } catch { /* defaults */ }
   let announcement = "";
@@ -97,7 +103,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <BrandTheme />
           <ServiceWorker />
           <JsonLd />
-          <LocaleProvider initial={initial} rtlOn={rtlOn}>
+          <LocaleProvider initial={initial} rtlOn={rtlOn} hint={hint} hasCookie={hasCookie}>
             <SiteHeader announcement={announcement || undefined} />
             <main className="pb-20 md:pb-0">{children}</main>
             <SiteFooter />
