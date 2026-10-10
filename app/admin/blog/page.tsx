@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/store";
 import { requireTeam } from "@/lib/auth";
 import { CoverField } from "@/components/media-picker";
+import { BlogEditor } from "@/components/blog-editor";
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || `post-${Date.now()}`;
 
@@ -80,7 +81,7 @@ export default async function BlogAdmin({ searchParams }: { searchParams: Promis
           <input name="slug" placeholder="slug (auto)" defaultValue={editing?.slug ?? ""} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
         </div>
         <input name="excerpt" placeholder="Excerpt" defaultValue={editing?.excerpt ?? ""} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
-        <textarea name="body" rows={6} placeholder="Body (plain text, paragraphs kept)" defaultValue={editing?.body ?? ""} className="rounded-xl border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20" />
+        <BlogEditor name="body" initial={editing?.body ?? ""} />
         <CoverField name="cover" initial={editing?.cover} />
         <label className="flex min-h-[44px] items-center gap-2 text-sm"><input type="checkbox" name="published" value="1" defaultChecked={!!editing?.published} className="h-5 w-5" /> Published (uncheck to un-publish)</label>
         <span className="flex flex-wrap gap-2">
