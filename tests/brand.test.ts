@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hexToTuple, shadeTriplet, BRAND_DEFAULTS, BRAND_KEYS, parseRadius, parseShadow, parseSpace, SHADOW_PRESETS } from "@/lib/brand";
+import { hexToTuple, shadeTriplet, BRAND_DEFAULTS, BRAND_KEYS, parseRadius, parseShadow, parseSpace, SHADOW_PRESETS, checkFontUpload, fontFamilyName, fontUrlOk, parseCustomFonts, parseFontMap } from "@/lib/brand";
 
 describe("brand theme math", () => {
   it("builds a 10-step tuple anchored at index 6", () => {
@@ -65,5 +65,27 @@ describe("regional font stacks", () => {
       expect(s, id).toBeDefined();
       expect(s!.body).toContain(`--font-${id}`);
     }
+  });
+});
+
+describe("custom fonts", () => {
+  const woff2 = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0, 0]);
+  it("validates by extension, size, and magic", () => {
+    expect(checkFontUpload("a.woff2", 1000, woff2)).toEqual({ ok: true });
+    expect(checkFontUpload("a.exe", 1000, woff2).ok).toBe(false);
+    expect(checkFontUpload("a.ttf", 9 * 1024 * 1024, woff2).ok).toBe(false);
+    expect(checkFontUpload("a.ttf", 1000, new Uint8Array([1, 2, 3, 4, 5])).ok).toBe(false);
+  });
+
+  it("cleans families, urls, lists, and maps", () => {
+    expect(fontFamilyName("  My Font!@#  ")).toBe("My Font");
+    expect(fontUrlOk("/uploads/fonts/a.woff2")).toBe(true);
+    expect(fontUrlOk("https://x.test/a.woff2")).toBe(true);
+    expect(fontUrlOk("javascript:evil")).toBe(false);
+    expect(parseCustomFonts([{ family: "X", url: "/uploads/f.woff2", weight: "700" }, { family: "", url: "javascript:z" }]))
+      .toEqual([{ family: "X", url: "/uploads/f.woff2", weight: "700" }]);
+    expect(parseFontMap({ hi: "indic", xx: "nope" }, ["indic", "tamil", "default"]))
+      .toEqual({ hi: "indic" });
+    expect(parseFontMap("not json", ["default"])).toEqual({});
   });
 });

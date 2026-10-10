@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ImageInputField } from "@/components/media-picker";
-import { FONT_STACKS, STANDARD_PALETTES, BRAND_SCOPES, SHADOW_PRESETS, parseRadius, parseShadow, parseSpace } from "@/lib/brand";
+import { FONT_STACKS, STANDARD_PALETTES, BRAND_SCOPES, SHADOW_PRESETS, parseCustomFonts, parseRadius, parseShadow, parseSpace, fontFamilyName } from "@/lib/brand";
 
 export type BrandVals = Record<string, string>;
 
@@ -34,6 +34,16 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
   const opacity = Math.min(100, Math.max(10, Number(v.brand_logo_opacity) || 100));
   const font = FONT_STACKS.find((f) => f.id === v.brand_font) ?? FONT_STACKS[0];
   const radius = parseRadius(v.brand_radius ?? "12");
+  const customFonts = parseCustomFonts(v.brand_custom_fonts ?? "[]");
+  const stacks = [...FONT_STACKS, ...customFonts.map((c) => ({
+    id: `custom:${c.family}`, label: `${c.family} (uploaded)`,
+    body: `"${c.family}", system-ui, sans-serif`, display: `"${c.family}", system-ui, sans-serif`,
+  }))];
+  const [upName, setUpName] = useState("");
+  const [upBusy, setUpBusy] = useState(false);
+  const [upErr, setUpErr] = useState("");
+  const [mapLocale, setMapLocale] = useState("");
+  const [mapStack, setMapStack] = useState("default");
   const shadowKey = parseShadow(v.brand_shadow ?? "soft");
   const space = parseSpace(v.brand_space ?? "8");
   const logoLight = v.brand_logo_light || "";
@@ -158,9 +168,9 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
         </div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           <label className="grid gap-1 text-sm">Headings & text
-            <select name="brand_font" value={v.brand_font} onChange={(e) => set("brand_font", e.target.value)}
-              className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 dark:border-white/20">
-              {FONT_STACKS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+            <select name="brand_font" value={stacks.some((f) => f.id === v.brand_font) ? v.brand_font : "default"} onChange={(e) => set("brand_font", e.target.value)}
+              className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20">
+              {stacks.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
             </select>
           </label>
           <fieldset className="grid gap-1 text-sm">Applies to
@@ -174,6 +184,71 @@ export function BrandingFields({ initial }: { initial: BrandVals }) {
             </span>
           </fieldset>
         </div>
+        <input type="hidden" name="brand_custom_fonts" value={JSON.stringify(customFonts)} />
+        <input type="hidden" name="brand_font_map" value={v.brand_font_map ?? "{}"} />
+      </section>
+
+      <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10" aria-label="Uploaded fonts">
+        <p className="font-bold">Uploaded fonts <span className="text-xs font-normal text-zinc-500">(woff2/woff/ttf/otf, ≤5MB, applied instantly)</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <input value={upName} onChange={(e) => setUpName(e.target.value)} placeholder="Family name (Shelf Bold)" maxLength={60}
+            className="min-h-[44px] min-w-[140px] flex-1 rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <label className="flex min-h-[44px] cursor-pointer items-center rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">
+            {upBusy ? "Uploading…" : "Choose file"}
+            <input type="file" accept=".woff2,.woff,.ttf,.otf" className="sr-only" disabled={upBusy} onChange={(e) => void (async () => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (!f) return;
+              const family = fontFamilyName(upName);
+              if (!family) { setUpErr("Name the family first."); return; }
+              setUpErr("");
+              setUpBusy(true);
+              try {
+                const form = new FormData();
+                form.append("file", f);
+                form.append("folder", "fonts");
+                const res = await fetch("/api/media/upload", { method: "POST", body: form });
+                const d = await res.json().catch(() => ({}));
+                if (!d.url) throw new Error(d?.error || "upload failed");
+                set("brand_custom_fonts", JSON.stringify([...customFonts.filter((c) => c.family !== family), { family, url: d.url, weight: "400" }]));
+                setUpName("");
+              } catch (err) { setUpErr(err instanceof Error ? err.message : "Upload failed."); }
+              setUpBusy(false);
+            })()} />
+          </label>
+        </div>
+        {upErr ? <p role="alert" className="mt-1 text-xs font-semibold text-red-600">{upErr}</p> : null}
+        {customFonts.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {customFonts.map((c) => (
+              <li key={c.family} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 px-3 py-2 dark:border-white/10">
+                <span style={{ fontFamily: `"${c.family}", system-ui, sans-serif` }}><b>{c.family}</b> <span className="font-mono text-xs text-zinc-500">{c.url.split("/").pop()}</span></span>
+                <button type="button" onClick={() => {
+                  set("brand_custom_fonts", JSON.stringify(customFonts.filter((x) => x.family !== c.family)));
+                  if (v.brand_font === `custom:${c.family}`) set("brand_font", "default");
+                }} aria-label={`Remove font ${c.family}`}
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-black/15 dark:border-white/20">✕</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-2 grid gap-1.5 min-[420px]:grid-cols-[1fr_1fr_auto]">
+          <input value={mapLocale} onChange={(e) => setMapLocale(e.target.value.toLowerCase())} placeholder="Locale (hi, ta, ar…)" maxLength={12}
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+          <select value={mapStack} onChange={(e) => setMapStack(e.target.value)} aria-label="Stack for locale"
+            className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20">
+            {stacks.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+          </select>
+          <button type="button" onClick={() => {
+            const loc = mapLocale.trim().toLowerCase().replace(/[^a-z-]/g, "");
+            if (!loc) return;
+            let map: Record<string, string> = {};
+            try { map = JSON.parse(v.brand_font_map ?? "{}"); } catch { map = {}; }
+            set("brand_font_map", JSON.stringify({ ...map, [loc]: mapStack }));
+            setMapLocale("");
+          }} className="min-h-[44px] rounded-xl border border-black/15 px-4 text-sm font-semibold dark:border-white/20">Map locale</button>
+        </div>
+        <p className="mt-1 font-mono text-xs text-zinc-500">{v.brand_font_map ?? "{}"}</p>
       </section>
 
       <section className="rounded-2xl border border-black/10 p-3 dark:border-white/10" aria-label="Shape and depth">

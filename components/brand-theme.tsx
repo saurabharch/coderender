@@ -85,10 +85,47 @@ export function BrandTheme({ admin = false }: { admin?: boolean }) {
         serif: { body: "Georgia, 'Times New Roman', serif", display: "Georgia, 'Times New Roman', serif" },
         round: { body: "ui-rounded, 'SF Pro Rounded', system-ui, sans-serif", display: "ui-rounded, 'SF Pro Rounded', system-ui, sans-serif" },
       };
+      try {
+        const raw = d.brand_custom_fonts;
+        const list = typeof raw === "string" ? JSON.parse(raw) : [];
+        if (Array.isArray(list)) {
+          const faces = list
+            .filter((x) => x && typeof x.family === "string" && typeof x.url === "string"
+              && (x.url.startsWith("/uploads/") || /^https:\/\//i.test(x.url)))
+            .slice(0, 20)
+            .map((x) => `@font-face{font-family:"${x.family.replace(/"/g, "")}";src:url("${x.url}");font-weight:${[400, 500, 600, 700].includes(Number(x.weight)) ? x.weight : 400};font-display:swap;}`)
+            .join("\n");
+          let tag = document.getElementById("brand-font-faces") as HTMLStyleElement | null;
+          if (!tag) {
+            tag = document.createElement("style");
+            tag.id = "brand-font-faces";
+            document.head.appendChild(tag);
+          }
+          tag.textContent = faces;
+        }
+      } catch { /* custom fonts never break theming */ }
       const f = fonts[d.brand_font] ?? fonts.default;
-      root.style.setProperty("--brand-body-override", f.body);
-      root.style.setProperty("--brand-display-override", f.display);
-      document.body.style.fontFamily = f.body;
+      try {
+        const raw = d.brand_custom_fonts;
+        const list = typeof raw === "string" ? JSON.parse(raw) : [];
+        const hit = Array.isArray(list) && typeof d.brand_font === "string"
+          ? list.find((x) => x && `custom:${x.family}` === d.brand_font)
+          : null;
+        if (hit) {
+          const stack = `"${String(hit.family).replace(/"/g, "")}", system-ui, sans-serif`;
+          root.style.setProperty("--brand-body-override", stack);
+          root.style.setProperty("--brand-display-override", stack);
+          document.body.style.fontFamily = stack;
+        } else {
+          root.style.setProperty("--brand-body-override", f.body);
+          root.style.setProperty("--brand-display-override", f.display);
+          document.body.style.fontFamily = f.body;
+        }
+      } catch {
+        root.style.setProperty("--brand-body-override", f.body);
+        root.style.setProperty("--brand-display-override", f.display);
+        document.body.style.fontFamily = f.body;
+      }
     }).catch(() => {});
   }, [admin]);
   return null;

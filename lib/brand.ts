@@ -66,6 +66,70 @@ export const FONT_STACKS = [  { id: "default", label: "Default (site fonts)", bo
 
 export const BRAND_SCOPES = ["both", "public", "dashboard"] as const;
 
+export const FONT_EXTS = ["woff2", "woff", "ttf", "otf"] as const;
+export const FONT_MAX = 5 * 1024 * 1024;
+
+// Font magic numbers: wOF2 / wOFX / OTTO / true / \0\x01\0\0.
+function fontMagicOk(bytes: Uint8Array): boolean {
+  if (bytes.length < 5) return false;
+  const head = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
+  if (head === "wOF2" || head === "wOFX" || head === "OTTO" || head === "true") return true;
+  return bytes[0] === 0 && bytes[1] === 1 && bytes[2] === 0 && bytes[3] === 0;
+}
+
+export interface FontUploadCheck { ok: boolean; error?: string }
+
+/** Validate an uploaded font before storage (extension + size + magic). */
+export function checkFontUpload(name: string, size: number, head: Uint8Array): FontUploadCheck {
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  if (!(FONT_EXTS as readonly string[]).includes(ext)) return { ok: false, error: "woff2, woff, ttf or otf only" };
+  if (!(size > 0) || size > FONT_MAX) return { ok: false, error: "font must be 1 byte – 5MB" };
+  if (!fontMagicOk(head)) return { ok: false, error: "not a real font file" };
+  return { ok: true };
+}
+
+/** Canonical family name for @font-face (letters, digits, spaces, dashes). */
+export function fontFamilyName(v: unknown): string {
+  return String(v ?? "").trim().replace(/[^a-zA-Z0-9 \-]/g, "").replace(/\s+/g, " ").slice(0, 60);
+}
+
+/** @font-face URLs may only point at site uploads or https (never code). */
+export function fontUrlOk(url: string): boolean {
+  const u = String(url || "");
+  return u.startsWith("/uploads/") || /^https:\/\/[^\s]+$/i.test(u);
+}
+
+export interface CustomFont { family: string; url: string; weight: string }
+
+/** Parse the stored custom-font list, dropping anything malformed. */
+export function parseCustomFonts(raw: unknown): CustomFont[] {
+  let arr: unknown;
+  try { arr = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { return []; }
+  if (!Array.isArray(arr)) return [];
+  const out: CustomFont[] = [];
+  for (const x of arr.slice(0, 20)) {
+    const o = x as Record<string, unknown>;
+    const family = fontFamilyName(o?.family);
+    const url = String(o?.url ?? "");
+    const weight = ["400", "500", "600", "700"].includes(String(o?.weight)) ? String(o.weight) : "400";
+    if (family && fontUrlOk(url)) out.push({ family, url, weight });
+  }
+  return out;
+}
+
+/** Locale → stack map (i18n consumes; unknown locales fall back to default). */
+export function parseFontMap(raw: unknown, stackIds: string[]): Record<string, string> {
+  let obj: unknown;
+  try { obj = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { return {}; }
+  if (!obj || typeof obj !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    const locale = String(k).toLowerCase().replace(/[^a-z-]/g, "").slice(0, 12);
+    if (locale && stackIds.includes(String(v))) out[locale] = String(v);
+  }
+  return Object.fromEntries(Object.entries(out).slice(0, 30));
+}
+
 export const SHADOW_PRESETS = {
   none: "none",
   soft: "0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.08)",
@@ -101,6 +165,7 @@ export const BRAND_KEYS = [
   "brand_favicon", "brand_loading_icon",
   "brand_logo_opacity", "brand_primary", "brand_deep", "brand_accent", "brand_ink",
   "brand_font", "brand_scope", "brand_radius", "brand_shadow", "brand_space",
+  "brand_custom_fonts", "brand_font_map",
   "site_name", "site_tagline", "site_description", "site_keywords",
 ] as const;
 
@@ -112,6 +177,7 @@ export const BRAND_DEFAULTS: Record<string, string> = {
   brand_logo_opacity: "100", brand_primary: "#0F8F83", brand_deep: "#064E46",
   brand_accent: "#D7F45A", brand_ink: "#171717", brand_font: "default", brand_scope: "both",
   brand_radius: "12", brand_shadow: "soft", brand_space: "8",
+  brand_custom_fonts: "[]", brand_font_map: "{}",
   site_name: "CodeRender",
   site_tagline: "WhatsApp Automation, Google Business Profile & Local SEO",
   site_description:

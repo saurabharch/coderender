@@ -215,11 +215,16 @@ async function saveBrand(form: FormData) {  "use server";
     const h = get(k);
     out[k] = /^#[0-9a-f]{6}$/i.test(h) ? h.toLowerCase() : fb;
   }
-  const { FONT_STACKS, BRAND_SCOPES, parseRadius, parseShadow, parseSpace } = await import("@/lib/brand");
+  const { FONT_STACKS, BRAND_SCOPES, parseRadius, parseShadow, parseSpace, parseCustomFonts, parseFontMap } = await import("@/lib/brand");
+  const custom = parseCustomFonts(form.get("brand_custom_fonts"));
+  const customIds = new Set(custom.map((c) => `custom:${c.family}`));
+  const stackIds = [...FONT_STACKS.map((f) => f.id), ...customIds];
+  out.brand_custom_fonts = JSON.stringify(custom);
+  out.brand_font_map = JSON.stringify(parseFontMap(form.get("brand_font_map"), [...FONT_STACKS.map((f) => f.id), ...customIds]));
   out.brand_radius = String(parseRadius(form.get("brand_radius")));
   out.brand_shadow = parseShadow(form.get("brand_shadow"));
   out.brand_space = String(parseSpace(form.get("brand_space")));
-  out.brand_font = FONT_STACKS.some((f) => f.id === form.get("brand_font")) ? String(form.get("brand_font")) : "default";
+  out.brand_font = stackIds.includes(String(form.get("brand_font"))) ? String(form.get("brand_font")) : "default";
   const scope = String(form.get("brand_scope") || "both");
   out.brand_scope = (BRAND_SCOPES as readonly string[]).includes(scope) ? scope : "both";
   out.site_name = String(form.get("site_name") ?? "").slice(0, 120).trim() || "CodeRender";

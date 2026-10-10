@@ -15,8 +15,16 @@ export async function POST(req: Request) {
   const file = form?.get("file") as File | null;
   const isVideo = file ? VIDEO_MIME.includes(file.type) : false;
   const cap = isVideo ? VIDEO_MAX : MAX_BYTES;
-  if (!file || (!ALLOWED_MIME.includes(file.type) && !isVideo) || file.size > cap)
-    return NextResponse.json({ error: "png/jpg/webp/gif/svg up to 2MB, mp4/webm up to 25MB" }, { status: 422 });
+  const ext0 = (file?.name.split(".").pop() || "").toLowerCase();
+  const isFont = !!file && ["woff2", "woff", "ttf", "otf"].includes(ext0);
+  if (isFont) {
+    const { checkFontUpload } = await import("@/lib/brand");
+    const buf0 = Buffer.from(await file.arrayBuffer());
+    const chk = checkFontUpload(file.name, file.size, new Uint8Array(buf0.slice(0, 8)));
+    if (!chk.ok) return NextResponse.json({ error: chk.error }, { status: 422 });
+  }
+  if (!file || (!ALLOWED_MIME.includes(file.type) && !isVideo && !isFont) || file.size > (isFont ? 5 * 1024 * 1024 : cap))
+    return NextResponse.json({ error: "png/jpg/webp/gif/svg up to 2MB, mp4/webm up to 25MB, fonts up to 5MB" }, { status: 422 });
   const folder = String(form?.get("folder") ?? "").slice(0, 80);
   const alt = String(form?.get("alt") ?? "").slice(0, 160);
   const ext = (file.name.split(".").pop() || "bin").slice(0, 8).replace(/[^a-z0-9]/gi, "");
