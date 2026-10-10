@@ -1,7 +1,7 @@
 # Ticket: Locale hint honesty + imgly-only bg removal
 
 Labels: wayfinder:task
-Status: doing
+Status: done
 Assignee: opencode
 
 ## Question
@@ -17,3 +17,5 @@ without ClipDrop?
 - ClipDrop branch removed (vault field + provider test updated); imgly is
   the single engine with a 20s/120s timeout guard so jobs requeue for the
   browser worker instead of wedging in "working" (proven live).
+
+- [Browser-first bg removal, quiet server skip](224-browser-bgremoval.md): clean skip + shared hook + gallery button, live-proved.

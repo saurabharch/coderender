@@ -111,11 +111,15 @@ export async function runBgRemove(jobId: number): Promise<{ ok: boolean; url?: s
       { filename: string; mime: string } | undefined;
     if (!asset) throw new Error("asset gone");
     const bytes = await loadBytes(asset);
-    // Single engine: @imgly/background-removal (WASM) everywhere — server
-    // side where the runtime allows, otherwise the browser client worker
-    // wins the same swap. No hosted API, no keys. Bounded: a hung runtime
-    // (model fetch / WASM init with no progress) must never wedge the job
-    // in "working" — it falls back to queued for the client worker.
+    // Single engine: @imgly/background-removal (WASM), browser-first like
+    // the barcode/QR scanners. The server only attempts where the runtime
+    // can load ONNX (never this Android Node — skip fast, no scary errors);
+    // otherwise the job waits cleanly for the browser client worker, which
+    // wins the same first-writer swap. No hosted API, no keys.
+    if (process.platform === "android") {
+      setJob(jobId, "queued", "browser handles it");
+      return { ok: false };
+    }
     const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> =>
       Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("engine timeout")), ms))]);
     const { removeBackground } = await withTimeout(import("@imgly/background-removal"), 20000);
@@ -127,7 +131,8 @@ export async function runBgRemove(jobId: number): Promise<{ ok: boolean; url?: s
     if (!r.swapped) return { ok: false };
     return { ok: true, url: r.url };
   } catch (e) {
-    const note = e instanceof Error ? e.message : "failed";
+    const raw = e instanceof Error ? e.message : "failed";
+    const note = /onnx|wasm|blob:|backend|session/i.test(raw) ? "browser handles it" : raw;
     if (note === "asset gone" || note === "R2 gone") {
       // Permanent: nothing will ever succeed.
       setJob(jobId, "failed", note);

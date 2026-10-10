@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useBgWorker } from "./use-bg-worker";
 import { useRouter } from "next/navigation";
 import { Carousel } from "@mantine/carousel";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
@@ -46,6 +47,7 @@ export function MediaGallery({ items, remove, saveAlt }: {
   saveAlt: (form: FormData) => void;
 }) {
   const [open, setOpen] = useState<number | null>(null);
+  const bg = useBgWorker();
   const withSrc = items.filter((i) => i.src);
   const slides = withSrc.map((m) => ({ type: "image" as const, src: m.src, title: m.alt }));
   const zoom = (id: number) => setOpen(Math.max(0, withSrc.findIndex((w) => w.id === id)));
@@ -80,13 +82,22 @@ export function MediaGallery({ items, remove, saveAlt }: {
               </form>
               <div className="flex items-center justify-between gap-1">
                 <span className="font-mono text-[11px] text-zinc-500">{m.folder || "—"}</span>
-                <form action={remove}><input type="hidden" name="id" value={m.id} />
-                  <button className="min-h-[44px] rounded-lg border border-black/15 px-2 text-xs dark:border-white/20">Del</button></form>
+                <span className="flex gap-1">
+                  {m.src && /\.(png|jpe?g|webp)$/i.test(m.src) && (
+                    <button onClick={() => void bg.run(m.src, m.id)} disabled={bg.busyId === m.id}
+                      aria-label={`Remove background from ${m.alt || m.filename}`}
+                      className="min-h-[44px] rounded-lg border border-black/15 px-2 text-xs font-semibold disabled:opacity-40 dark:border-white/20">
+                      {bg.busyId === m.id ? "…" : "BG✂"}</button>
+                  )}
+                  <form action={remove}><input type="hidden" name="id" value={m.id} />
+                    <button className="min-h-[44px] rounded-lg border border-black/15 px-2 text-xs dark:border-white/20">Del</button></form>
+                </span>
               </div>
             </div>
           </div>
         ))}
       </div>
+      {bg.note && <p role="status" className="mt-2 text-xs text-zinc-500">{bg.note}</p>}
       <Lightbox opened={open !== null} onClose={() => setOpen(null)} slides={slides}
         currentIndex={open ?? 0} onIndexChange={setOpen} />
     </>
