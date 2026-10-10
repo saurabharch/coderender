@@ -56,3 +56,14 @@ describe("design tokens", () => {
     }
   });
 });
+
+describe("regional font stacks", () => {
+  it("registers indic, regional, and arabic stacks", async () => {
+    const { FONT_STACKS } = await import("@/lib/brand");
+    for (const id of ["indic", "bengali", "tamil", "telugu", "kannada", "gujarati", "arabic"]) {
+      const s = FONT_STACKS.find((f) => f.id === id);
+      expect(s, id).toBeDefined();
+      expect(s!.body).toContain(`--font-${id}`);
+    }
+  });
+});

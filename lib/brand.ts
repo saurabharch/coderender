@@ -52,6 +52,13 @@ export function shadeTriplet(hex: string, t: number): string | null {
 }
 
 export const FONT_STACKS = [  { id: "default", label: "Default (site fonts)", body: "var(--font-body), system-ui, sans-serif", display: "var(--font-display), system-ui, sans-serif" },
+  { id: "indic", label: "Indic Sans — Hindi, Marathi", body: "var(--font-indic), var(--font-body), system-ui, sans-serif", display: "var(--font-indic), var(--font-display), system-ui, sans-serif" },
+  { id: "bengali", label: "Bengali — Bangla", body: "var(--font-bengali), var(--font-body), system-ui, sans-serif", display: "var(--font-bengali), var(--font-display), system-ui, sans-serif" },
+  { id: "tamil", label: "Tamil", body: "var(--font-tamil), var(--font-body), system-ui, sans-serif", display: "var(--font-tamil), var(--font-display), system-ui, sans-serif" },
+  { id: "telugu", label: "Telugu", body: "var(--font-telugu), var(--font-body), system-ui, sans-serif", display: "var(--font-telugu), var(--font-display), system-ui, sans-serif" },
+  { id: "kannada", label: "Kannada", body: "var(--font-kannada), var(--font-body), system-ui, sans-serif", display: "var(--font-kannada), var(--font-display), system-ui, sans-serif" },
+  { id: "gujarati", label: "Gujarati", body: "var(--font-gujarati), var(--font-body), system-ui, sans-serif", display: "var(--font-gujarati), var(--font-display), system-ui, sans-serif" },
+  { id: "arabic", label: "Arabic — Urdu, Arabic", body: "var(--font-arabic), var(--font-body), system-ui, sans-serif", display: "var(--font-arabic), var(--font-display), system-ui, sans-serif" },
   { id: "system", label: "System clean", body: "system-ui, -apple-system, sans-serif", display: "system-ui, -apple-system, sans-serif" },
   { id: "serif", label: "Editorial serif", body: "Georgia, 'Times New Roman', serif", display: "Georgia, 'Times New Roman', serif" },
   { id: "round", label: "Rounded friendly", body: "ui-rounded, 'SF Pro Rounded', system-ui, sans-serif", display: "ui-rounded, 'SF Pro Rounded', system-ui, sans-serif" },

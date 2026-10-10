@@ -14,7 +14,7 @@ import { JsonLd } from "@/components/json-ld";
 import { getDb, getPref } from "@/lib/store";
 import { BRAND_DEFAULTS } from "@/lib/brand";
 import { activeAnnouncement } from "@/lib/cms";
-import { display, body } from "@/lib/fonts";
+import { arabic, bengali, body, display, gujarati, indic, kannada, tamil, telugu } from "@/lib/fonts";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -65,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     }
   } catch { /* first boot before tables exist */ }
   return (
-    <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable} ${indic.variable} ${bengali.variable} ${tamil.variable} ${telugu.variable} ${kannada.variable} ${gujarati.variable} ${arabic.variable}`}>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <Preloader />

@@ -35,7 +35,7 @@ each ticket is live-proved with chain green and CI green.
 ## Children
 
 - [Auto SEO, OG images, blog fields](217-auto-seo-og.md) — done
-- [Configurable fonts](218-configurable-fonts.md) — frontier
+- [Configurable fonts](218-configurable-fonts.md) — done (7 regional stacks + latin-ext live-proved)
 - [Icon packs with toggle](219-icon-packs.md) — frontier
 - [i18n foundation Hindi plus English](220-i18n-foundation.md) — frontier
 - [Grammar basics plus LanguageTool hook](221-grammar-hook.md) — frontier

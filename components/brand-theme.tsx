@@ -74,6 +74,13 @@ export function BrandTheme({ admin = false }: { admin?: boolean }) {
       if (space !== null) root.style.setProperty("--brand-space", `${space}px`);
       const fonts: Record<string, { body: string; display: string }> = {
         default: { body: "var(--font-body), system-ui, sans-serif", display: "var(--font-display), system-ui, sans-serif" },
+        indic: { body: "var(--font-indic), var(--font-body), system-ui, sans-serif", display: "var(--font-indic), var(--font-display), system-ui, sans-serif" },
+        bengali: { body: "var(--font-bengali), var(--font-body), system-ui, sans-serif", display: "var(--font-bengali), var(--font-display), system-ui, sans-serif" },
+        tamil: { body: "var(--font-tamil), var(--font-body), system-ui, sans-serif", display: "var(--font-tamil), var(--font-display), system-ui, sans-serif" },
+        telugu: { body: "var(--font-telugu), var(--font-body), system-ui, sans-serif", display: "var(--font-telugu), var(--font-display), system-ui, sans-serif" },
+        kannada: { body: "var(--font-kannada), var(--font-body), system-ui, sans-serif", display: "var(--font-kannada), var(--font-display), system-ui, sans-serif" },
+        gujarati: { body: "var(--font-gujarati), var(--font-body), system-ui, sans-serif", display: "var(--font-gujarati), var(--font-display), system-ui, sans-serif" },
+        arabic: { body: "var(--font-arabic), var(--font-body), system-ui, sans-serif", display: "var(--font-arabic), var(--font-display), system-ui, sans-serif" },
         system: { body: "system-ui, -apple-system, sans-serif", display: "system-ui, -apple-system, sans-serif" },
         serif: { body: "Georgia, 'Times New Roman', serif", display: "Georgia, 'Times New Roman', serif" },
         round: { body: "ui-rounded, 'SF Pro Rounded', system-ui, sans-serif", display: "ui-rounded, 'SF Pro Rounded', system-ui, sans-serif" },
