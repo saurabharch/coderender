@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { categories, createPlan, createService, deletePlan, deleteService, listPlans, listServices, updatePlan, updateService } from "@/lib/catalog";
+import { normBadge, normOfferMode } from "@/lib/catalog-core";
 import { requireTeam } from "@/lib/auth";
 import { ServicePicker } from "@/components/service-picker";
+import { PlanOfferFields } from "@/components/plan-offer-fields";
 
 const R = "/admin/packages";
 
@@ -45,6 +47,12 @@ async function planCreate(form: FormData) {
     notes: String(form.get("notes") || ""), details: String(form.get("details") || ""),
     includes: String(form.get("includes") || "").split("\n").map((s) => s.trim()).filter(Boolean),
     serviceIds: form.getAll("serviceIds").map(Number).filter((n) => n > 0),
+    priceLabel: String(form.get("priceLabel") || "price"),
+    mrp: Number(form.get("mrp") || 0),
+    offerMode: normOfferMode(String(form.get("offerMode") || "off")),
+    offerValue: Number(form.get("offerValue") || 0),
+    offerLabel: String(form.get("offerLabel") || "offer price"),
+    badge: normBadge(String(form.get("badge") || "none")),
   });
   revalidatePath(R);
 }
@@ -60,6 +68,12 @@ async function planUpdate(form: FormData) {
     includes: String(form.get("includes") || "").split("\n").map((s) => s.trim()).filter(Boolean),
     active: !!form.get("active"),
     serviceIds: form.getAll("serviceIds").map(Number).filter((n) => n > 0),
+    priceLabel: String(form.get("priceLabel") || "price"),
+    mrp: Number(form.get("mrp") || 0),
+    offerMode: normOfferMode(String(form.get("offerMode") || "off")),
+    offerValue: Number(form.get("offerValue") || 0),
+    offerLabel: String(form.get("offerLabel") || "offer price"),
+    badge: normBadge(String(form.get("badge") || "none")),
   });
   revalidatePath(R);
 }
@@ -141,10 +155,11 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
               <input name="serviceSlug" placeholder="service slug (e.g. local-seo)" maxLength={60} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <input name="price" inputMode="numeric" placeholder="₹ price" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
+              <input id="plan-new-price" name="price" inputMode="numeric" placeholder="₹ price" className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
               <input name="per" placeholder="per (one-time, /mo)" maxLength={30} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
               <input name="timeline" placeholder="timeline" maxLength={60} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             </div>
+            <PlanOfferFields priceInputId="plan-new-price" />
             <textarea name="includes" rows={2} placeholder="Includes (one per line)" className="rounded-xl border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20" />
             <input name="bestFor" placeholder="Best for" maxLength={200} className="min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20" />
             <textarea name="details" rows={2} placeholder="Detailing" className="rounded-xl border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20" />
@@ -159,9 +174,11 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
                   <input type="hidden" name="id" value={p.id} />
                   <div className="grid gap-1 md:grid-cols-3">
                     <input name="name" defaultValue={p.name} maxLength={120} className="min-h-[44px] rounded-lg border border-black/15 bg-transparent px-2 dark:border-white/20" />
-                    <input name="price" inputMode="numeric" defaultValue={p.price} className="min-h-[44px] rounded-lg border border-black/15 bg-transparent px-2 dark:border-white/20" />
+                    <input id={`plan-${p.id}-price`} name="price" inputMode="numeric" defaultValue={p.price} className="min-h-[44px] rounded-lg border border-black/15 bg-transparent px-2 dark:border-white/20" />
                     <label className="flex min-h-[44px] items-center gap-1 text-xs"><input type="checkbox" name="active" value="1" defaultChecked={!!p.active} className="h-4 w-4" /> live</label>
                   </div>
+                  <PlanOfferFields priceInputId={`plan-${p.id}-price`}
+                    initial={{ price: p.price, priceLabel: p.priceLabel, mrp: p.mrp, offerMode: p.offerMode, offerValue: p.offerValue, offerLabel: p.offerLabel, badge: p.badge }} />
                   <div className="flex flex-wrap gap-1">
                     {p.services.map((s) => <span key={s.id} className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-bold text-brand-deep">{s.title}</span>)}
                     {p.services.length === 0 && <span className="text-xs text-zinc-500">no linked services</span>}
