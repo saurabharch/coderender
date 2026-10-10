@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.107.3] - 2026-10-10
+## [0.108.0] - 2026-10-10
+- Blog lifecycle## [0.107.3] - 2026-10-10
 - Blog freshness## [0.107.2] - 2026-10-10
 - Prod auth hardening## [0.107.1] - 2026-10-10
 - Admin cache freshness## [0.107.0] - 2026-10-10
