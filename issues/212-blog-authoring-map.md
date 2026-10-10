@@ -33,4 +33,4 @@ counts). Done when each ticket is live-proved with chain green and CI green.
 
 - [Post lifecycle: edit, draft default, toggles, preview](213-blog-lifecycle.md) — done
 - [Tiptap editor with images](214-blog-tiptap.md) — done (sanitizer + bundle proven; toolbar is client-rendered)
-- [Rich list cards with counters](215-blog-cards.md) — frontier
+- [Rich list cards with counters](215-blog-cards.md) — done (counters + dynamic index live-proved)
