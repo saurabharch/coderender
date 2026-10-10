@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { sitePrices, fmt } from "@/lib/pricing";
 import { listPlans } from "@/lib/catalog";
+import { planEffective } from "@/lib/catalog-core";
+import { PlanPrice } from "@/components/plan-price";
 
 export const metadata: Metadata = {
   title: "Pricing — CodeRender",
@@ -41,10 +43,12 @@ export default function PricingPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-deep">Configured packs</p>
           <h2 className="mt-2 text-2xl font-extrabold tracking-tight">Pick a fixed scope</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {packs.map((k) => (
-              <div key={k.id} className="glass rounded-2xl p-6">
+            {packs.map((k) => {
+              const onOffer = planEffective({ price: k.price, mrp: k.mrp, offerMode: k.offerMode, offerValue: k.offerValue }).onOffer;
+              return (
+              <div key={k.id} className={`${onOffer ? "beam " : ""}glass rounded-2xl p-6`}>
                 <p className="font-bold">{k.name}</p>
-                <p className="mt-1 text-2xl font-extrabold">₹{k.price}{k.per && k.per !== "one-time" ? <span className="text-sm font-semibold"> {k.per}</span> : null}</p>
+                <PlanPrice p={k} />
                 {k.bestFor ? <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Best for {k.bestFor}</p> : null}
                 {k.timeline ? <p className="mt-1 text-xs text-zinc-500">{k.timeline}</p> : null}
                 {(k.services ?? []).length > 0 && (
@@ -61,7 +65,8 @@ export default function PricingPage() {
                 )}
                 <a href="/contact" className="btn-glass mt-4 inline-flex min-h-[44px] items-center rounded-full px-5 text-sm font-semibold">Enquire →</a>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
