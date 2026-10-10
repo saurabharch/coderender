@@ -1,7 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-## [0.116.0] - 2026-10-10
+## [0.117.0] - 2026-10-10
+- Locale hint and imgly## [0.116.0] - 2026-10-10
 - Grammar hook## [0.115.0] - 2026-10-10
 - Hindi foundation## [0.114.0] - 2026-10-10
 - Icon packs## [0.113.0] - 2026-10-10
