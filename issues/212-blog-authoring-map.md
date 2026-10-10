@@ -1,7 +1,7 @@
 # Wayfinder map: Blog authoring overhaul
 
 Labels: wayfinder:map
-Status: doing
+Status: done
 
 ## Destination
 
@@ -20,6 +20,8 @@ counts). Done when each ticket is live-proved with chain green and CI green.
 ## Decisions so far
 
 - [Post lifecycle](213-blog-lifecycle.md): edit/draft-default/toggles/author preview live-proved.
+- [Tiptap editor with images](214-blog-tiptap.md): sanitizer + bundle proven; toolbar client-rendered.
+- [Rich list cards with counters](215-blog-cards.md): counters + dynamic index live-proved.
 
 ## Not yet specified
 
