@@ -53,6 +53,8 @@ async function planCreate(form: FormData) {
     offerValue: Number(form.get("offerValue") || 0),
     offerLabel: String(form.get("offerLabel") || "offer price"),
     badge: normBadge(String(form.get("badge") || "none")),
+    offerStartsAt: String(form.get("offerStartsAt") || ""),
+    offerEndsAt: String(form.get("offerEndsAt") || ""),
   });
   revalidatePath(R);
 }
@@ -74,6 +76,8 @@ async function planUpdate(form: FormData) {
     offerValue: Number(form.get("offerValue") || 0),
     offerLabel: String(form.get("offerLabel") || "offer price"),
     badge: normBadge(String(form.get("badge") || "none")),
+    offerStartsAt: String(form.get("offerStartsAt") || ""),
+    offerEndsAt: String(form.get("offerEndsAt") || ""),
   });
   revalidatePath(R);
 }
@@ -178,7 +182,7 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
                     <label className="flex min-h-[44px] items-center gap-1 text-xs"><input type="checkbox" name="active" value="1" defaultChecked={!!p.active} className="h-4 w-4" /> live</label>
                   </div>
                   <PlanOfferFields priceInputId={`plan-${p.id}-price`}
-                    initial={{ price: p.price, priceLabel: p.priceLabel, mrp: p.mrp, offerMode: p.offerMode, offerValue: p.offerValue, offerLabel: p.offerLabel, badge: p.badge }} />
+                    initial={{ price: p.price, priceLabel: p.priceLabel, mrp: p.mrp, offerMode: p.offerMode, offerValue: p.offerValue, offerLabel: p.offerLabel, badge: p.badge, offerStartsAt: p.offerStartsAt, offerEndsAt: p.offerEndsAt }} />
                   <div className="flex flex-wrap gap-1">
                     {p.services.map((s) => <span key={s.id} className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-bold text-brand-deep">{s.title}</span>)}
                     {p.services.length === 0 && <span className="text-xs text-zinc-500">no linked services</span>}

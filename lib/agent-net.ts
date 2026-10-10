@@ -27,6 +27,20 @@ const tools: Record<string, Tool> = {
       return s ? `${s.title}: ${s.tagline} Includes: ${s.includes.join("; ")}. ${s.timeline}. ${s.priceHint}.` : "No matching service.";
     },
   },
+  plan_search: {
+    name: "plan_search",
+    desc: "Search configured packs by keyword (live schedule-aware prices)",
+    run: async (_ctx, args) => {
+      const { searchPlans } = await import("./catalog");
+      const hits = searchPlans(String(args.q || ""));
+      if (!hits.length) return "No matching pack.";
+      return hits.map((h) => {
+        const when = h.status === "live" ? " (offer live now)"
+          : h.status === "upcoming" ? " (offer upcoming)" : h.status === "expired" ? " (offer ended)" : "";
+        return `${h.name}: ₹${h.charge}${h.struck > 0 ? ` (was ₹${h.struck})` : ""}${h.per && h.per !== "one-time" ? ` ${h.per}` : ""}${when}${h.bestFor ? ` — best for ${h.bestFor}` : ""}`;
+      }).join("\n");
+    },
+  },
   pricing_estimate: {
     name: "pricing_estimate",
     desc: "DRAFT ladder prices (live from site settings + configured packs + offers)",

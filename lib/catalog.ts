@@ -1,5 +1,5 @@
 import { getDb } from "./store";
-import { normBadge, normOfferMode } from "./catalog-core";
+import { normBadge, normOfferMode, offerStatus, planEffective } from "./catalog-core";
 
 export interface Service {
   id: number; slug: string; title: string; tagline: string;
@@ -11,7 +11,7 @@ export interface Plan {
   timeline: string; includes: string[]; bestFor: string;
   notes: string; details: string; active: number;
   priceLabel: string; mrp: number; offerMode: string; offerValue: number;
-  offerLabel: string; badge: string;
+  offerLabel: string; badge: string; offerStartsAt: string; offerEndsAt: string;
   services: Service[];
 }
 
@@ -76,16 +76,17 @@ export function setPlanServices(packageId: number, serviceIds: number[]): void {
 }
 
 export function getPlan(id: number): Plan | null {
-  type Row = Omit<Plan, "includes" | "services" | "priceLabel" | "mrp" | "offerMode" | "offerValue" | "offerLabel" | "badge">
+  type Row = Omit<Plan, "includes" | "services" | "priceLabel" | "mrp" | "offerMode" | "offerValue" | "offerLabel" | "badge" | "offerStartsAt" | "offerEndsAt">
     & { includes: string }
-    & Partial<Pick<Plan, "priceLabel" | "mrp" | "offerMode" | "offerValue" | "offerLabel" | "badge">>;
+    & Partial<Pick<Plan, "priceLabel" | "mrp" | "offerMode" | "offerValue" | "offerLabel" | "badge" | "offerStartsAt" | "offerEndsAt">>;
   const r = getDb().prepare("SELECT * FROM ServicePackage WHERE id=?").get(id) as Row | undefined;
   if (!r) return null;
   let includes: string[] = [];
   try { includes = JSON.parse(r.includes); } catch { /* keep empty */ }
   return {
     priceLabel: "price", mrp: 0, offerMode: "off", offerValue: 0,
-    offerLabel: "offer price", badge: "none", ...r, includes, services: planServices(id),
+    offerLabel: "offer price", badge: "none", offerStartsAt: "", offerEndsAt: "",
+    ...r, includes, services: planServices(id),
   };
 }
 
@@ -98,11 +99,12 @@ export function createPlan(input: {
   name: string; price?: number; per?: string; timeline?: string; serviceSlug?: string;
   includes?: string[]; bestFor?: string; notes?: string; details?: string; serviceIds?: number[];
   priceLabel?: string; mrp?: number; offerMode?: string; offerValue?: number; offerLabel?: string; badge?: string;
+  offerStartsAt?: string; offerEndsAt?: string;
 }): number {
   const name = String(input.name ?? "").slice(0, 120);
   if (!name.trim()) throw new Error("name required");
   const r = getDb().prepare(
-    "INSERT INTO ServicePackage (serviceSlug, name, price, per, timeline, includes, bestFor, notes, details, priceLabel, mrp, offerMode, offerValue, offerLabel, badge) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    "INSERT INTO ServicePackage (serviceSlug, name, price, per, timeline, includes, bestFor, notes, details, priceLabel, mrp, offerMode, offerValue, offerLabel, badge, offerStartsAt, offerEndsAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
   ).run(
     String(input.serviceSlug ?? "custom").slice(0, 60), name,
     Math.max(0, Math.round(Number(input.price ?? 0) || 0)), String(input.per ?? "one-time").slice(0, 30),
@@ -114,21 +116,30 @@ export function createPlan(input: {
     normOfferMode(input.offerMode),
     Math.max(0, Math.round(Number(input.offerValue ?? 0) || 0)),
     String(input.offerLabel ?? "offer price").slice(0, 30),
-    normBadge(input.badge));
+    normBadge(input.badge),
+    cleanISO(input.offerStartsAt), cleanISO(input.offerEndsAt));
   const id = Number(r.lastInsertRowid);
   if (input.serviceIds?.length) setPlanServices(id, input.serviceIds);
   return id;
+}
+
+// Schedule bounds: valid ISO date-times only, else unbounded ("").
+
+function cleanISO(v: unknown): string {
+  const s = String(v ?? "").slice(0, 30);
+  return Number.isFinite(Date.parse(s)) ? s : "";
 }
 
 export function updatePlan(id: number, input: {
   name?: string; price?: number; per?: string; timeline?: string; serviceSlug?: string;
   includes?: string[]; bestFor?: string; notes?: string; details?: string; active?: boolean; serviceIds?: number[];
   priceLabel?: string; mrp?: number; offerMode?: string; offerValue?: number; offerLabel?: string; badge?: string;
+  offerStartsAt?: string; offerEndsAt?: string;
 }): void {
   const cur = getPlan(id);
   if (!cur) throw new Error("not found");
   getDb().prepare(
-    "UPDATE ServicePackage SET name=?, price=?, per=?, timeline=?, serviceSlug=?, includes=?, bestFor=?, notes=?, details=?, active=?, priceLabel=?, mrp=?, offerMode=?, offerValue=?, offerLabel=?, badge=? WHERE id=?"
+    "UPDATE ServicePackage SET name=?, price=?, per=?, timeline=?, serviceSlug=?, includes=?, bestFor=?, notes=?, details=?, active=?, priceLabel=?, mrp=?, offerMode=?, offerValue=?, offerLabel=?, badge=?, offerStartsAt=?, offerEndsAt=? WHERE id=?"
   ).run(
     input.name !== undefined ? String(input.name).slice(0, 120) : cur.name,
     input.price !== undefined ? Math.max(0, Math.round(Number(input.price) || 0)) : cur.price,
@@ -145,7 +156,9 @@ export function updatePlan(id: number, input: {
     input.offerMode !== undefined ? normOfferMode(input.offerMode) : cur.offerMode,
     input.offerValue !== undefined ? Math.max(0, Math.round(Number(input.offerValue) || 0)) : cur.offerValue,
     input.offerLabel !== undefined ? String(input.offerLabel).slice(0, 30) : cur.offerLabel,
-    input.badge !== undefined ? normBadge(input.badge) : cur.badge, id);
+    input.badge !== undefined ? normBadge(input.badge) : cur.badge,
+    input.offerStartsAt !== undefined ? cleanISO(input.offerStartsAt) : cur.offerStartsAt,
+    input.offerEndsAt !== undefined ? cleanISO(input.offerEndsAt) : cur.offerEndsAt, id);
   if (input.serviceIds !== undefined) setPlanServices(id, input.serviceIds);
 }
 
@@ -156,15 +169,50 @@ export function deletePlan(id: number): void {
 
 // Agent/storefront-ready text: active plans with live prices, linked
 // services and includes. Empty when nothing is configured (callers fall back
-// to the static ladder — never invent packs).
+// to the static ladder — never invent packs). Offer lines reflect the live
+// schedule: only currently-valid offers print with their end date.
 export function plansBriefing(): string {
   const live = listPlans().filter((p) => p.active);
   if (live.length === 0) return "";
   return live.map((p) => {
     const svcs = (p.services ?? []).map((s) => s.title).join(", ");
     const inc = (p.includes ?? []).slice(0, 6).join("; ");
-    return `${p.name}: DRAFT ₹${p.price}${p.per && p.per !== "one-time" ? ` ${p.per}` : ""}`
+    const eff = planEffective({
+      price: p.price, mrp: p.mrp, offerMode: p.offerMode,
+      offerValue: p.offerValue, startsAt: p.offerStartsAt, endsAt: p.offerEndsAt,
+    });
+    const priceBit = eff.onOffer
+      ? `offer ₹${eff.charge}${p.per && p.per !== "one-time" ? ` ${p.per}` : ""} (was ₹${eff.struck || p.price}${p.offerEndsAt ? `, ends ${p.offerEndsAt.slice(0, 10)}` : ""})`
+      : `DRAFT ₹${p.price}${p.per && p.per !== "one-time" ? ` ${p.per}` : ""}`;
+    return `${p.name}: ${priceBit}`
       + `${p.bestFor ? ` — best for ${p.bestFor}` : ""}`
       + `${svcs ? `. Services: ${svcs}` : ""}${inc ? `. Includes: ${inc}` : ""}`;
   }).join("\n");
+}
+
+// Bot plan search: active packs matching a keyword across name, bestFor,
+// slug, and linked service titles — with the live (schedule-aware) price.
+
+export function searchPlans(q: string, limit = 5): { id: number; name: string; charge: number; per: string; struck: number; status: string; bestFor: string }[] {
+  const needle = q.trim().toLowerCase().slice(0, 60);
+  if (!needle) return [];
+  return listPlans()
+    .filter((p) => p.active)
+    .filter((p) => [p.name, p.bestFor, p.serviceSlug, ...(p.services ?? []).map((s) => s.title)]
+      .join(" ").toLowerCase().includes(needle))
+    .slice(0, Math.max(1, Math.min(10, limit)))
+    .map((p) => {
+      const eff = planEffective({
+        price: p.price, mrp: p.mrp, offerMode: p.offerMode,
+        offerValue: p.offerValue, startsAt: p.offerStartsAt, endsAt: p.offerEndsAt,
+      });
+      return {
+        id: p.id, name: p.name, charge: eff.charge, per: p.per,
+        struck: eff.struck, bestFor: p.bestFor,
+        status: offerStatus({
+          offerMode: p.offerMode, offerValue: p.offerValue,
+          startsAt: p.offerStartsAt, endsAt: p.offerEndsAt,
+        }),
+      };
+    });
 }

@@ -10,6 +10,8 @@ const STATES: { label: string; p: PriceBlock }[] = [
   { label: "3 · MRP strike + flat offer + badge", p: { price: 14999, per: "one-time", priceLabel: "total price", mrp: 19999, offerMode: "flat", offerValue: 2000, offerLabel: "discount price", badge: "offer" } },
   { label: "4 · % offer + new-price badge + /mo", p: { price: 11999, per: "/mo", mrp: 15999, offerMode: "pct", offerValue: 25, offerLabel: "offer price", badge: "new-price" } },
   { label: "5 · badge only (new, no price change)", p: { price: 7999, per: "one-time", badge: "new" } },
+  { label: "6 · scheduled upcoming (renders plain until 2099)", p: { price: 9999, per: "one-time", mrp: 12999, offerMode: "pct", offerValue: 20, offerLabel: "offer price", badge: "offer", offerStartsAt: "2099-01-01T00:00:00Z" } },
+  { label: "7 · scheduled expired (renders plain after end)", p: { price: 9999, per: "one-time", mrp: 12999, offerMode: "pct", offerValue: 20, offerLabel: "offer price", badge: "offer", offerStartsAt: "2020-01-01T00:00:00Z", offerEndsAt: "2020-02-01T00:00:00Z" } },
 ];
 
 export default async function PreviewCardsPage() {

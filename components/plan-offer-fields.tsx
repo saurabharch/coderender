@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Badge, SegmentedControl, Text } from "@mantine/core";
-import { planEffective } from "@/lib/catalog-core";
+import { DateTimePicker } from "@mantine/dates";
+import { offerStatus, planEffective } from "@/lib/catalog-core";
 import { NoSsr } from "@/components/no-ssr";
 
 export interface OfferInitial {
   price: number; priceLabel: string; mrp: number; offerMode: string;
   offerValue: number; offerLabel: string; badge: string;
+  offerStartsAt: string; offerEndsAt: string;
 }
 
 // Offer block for plan create/update forms (server actions submit the
@@ -29,7 +31,7 @@ function num(v: string, fb: number): number {
 }
 
 function OfferNative({ initial }: { initial?: Partial<OfferInitial> }) {
-  const i = { price: 0, priceLabel: "price", mrp: 0, offerMode: "off", offerValue: 0, offerLabel: "offer price", badge: "none", ...initial };
+  const i = { price: 0, priceLabel: "price", mrp: 0, offerMode: "off", offerValue: 0, offerLabel: "offer price", badge: "none", offerStartsAt: "", offerEndsAt: "", ...initial };
   const inp = "min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20";
   return (
     <div className="grid gap-2 rounded-2xl border border-dashed border-black/15 p-3 dark:border-white/20">
@@ -58,12 +60,28 @@ function OfferNative({ initial }: { initial?: Partial<OfferInitial> }) {
             <option value="new-price">new price</option>
           </select></label>
       </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="grid gap-0.5 text-xs">Offer starts (blank = now)
+          <input type="datetime-local" name="offerStartsAt" defaultValue={toLocalInput(i.offerStartsAt)} className={inp} /></label>
+        <label className="grid gap-0.5 text-xs">Offer ends (blank = no expiry)
+          <input type="datetime-local" name="offerEndsAt" defaultValue={toLocalInput(i.offerEndsAt)} className={inp} /></label>
+      </div>
     </div>
   );
 }
 
+// datetime-local wants "YYYY-MM-DDTHH:mm"; stored values are ISO UTC.
+
+function toLocalInput(iso: string): string {
+  const t = Date.parse(iso || "");
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function OfferLive({ initial, priceInputId }: { initial?: Partial<OfferInitial>; priceInputId?: string }) {
-  const i = { price: 0, priceLabel: "price", mrp: 0, offerMode: "off", offerValue: 0, offerLabel: "offer price", badge: "none", ...initial };
+  const i = { price: 0, priceLabel: "price", mrp: 0, offerMode: "off", offerValue: 0, offerLabel: "offer price", badge: "none", offerStartsAt: "", offerEndsAt: "", ...initial };
   const [priceLabel, setPriceLabel] = useState(i.priceLabel);
   const [mrp, setMrp] = useState(String(i.mrp || ""));
   const [mode, setMode] = useState(i.offerMode === "flat" || i.offerMode === "pct" ? i.offerMode : "off");
@@ -71,6 +89,8 @@ function OfferLive({ initial, priceInputId }: { initial?: Partial<OfferInitial>;
   const [offerLabel, setOfferLabel] = useState(i.offerLabel);
   const [badge, setBadge] = useState(i.badge);
   const [price, setPrice] = useState(String(i.price || ""));
+  const [startsAt, setStartsAt] = useState<Date | null>(toDate(i.offerStartsAt));
+  const [endsAt, setEndsAt] = useState<Date | null>(toDate(i.offerEndsAt));
   useEffect(() => {
     if (!priceInputId) return;
     const el = document.getElementById(priceInputId) as HTMLInputElement | null;
@@ -80,7 +100,14 @@ function OfferLive({ initial, priceInputId }: { initial?: Partial<OfferInitial>;
     el.addEventListener("input", sync);
     return () => el.removeEventListener("input", sync);
   }, [priceInputId]);
-  const eff = planEffective({ price: num(price, i.price), mrp: num(mrp, 0), offerMode: mode, offerValue: num(value, 0) });
+  const eff = planEffective({
+    price: num(price, i.price), mrp: num(mrp, 0), offerMode: mode, offerValue: num(value, 0),
+    startsAt: startsAt ? startsAt.toISOString() : "", endsAt: endsAt ? endsAt.toISOString() : "",
+  });
+  const sched = offerStatus({
+    offerMode: mode, offerValue: num(value, 0),
+    startsAt: startsAt ? startsAt.toISOString() : "", endsAt: endsAt ? endsAt.toISOString() : "",
+  });
   const inp = "min-h-[44px] rounded-xl border border-black/15 bg-transparent px-3 text-sm dark:border-white/20";
   return (
     <div className="grid gap-2 rounded-2xl border border-dashed border-black/15 p-3 dark:border-white/20">
@@ -129,8 +156,42 @@ function OfferLive({ initial, priceInputId }: { initial?: Partial<OfferInitial>;
               {badge === "new-price" ? "new price" : badge === "offer" ? "offer price" : "new"}
             </Badge>
           )}
+          {sched !== "off" && (
+            <Badge color={sched === "live" ? "teal" : sched === "upcoming" ? "blue" : "gray"} variant="outline" size="sm">
+              {sched}
+            </Badge>
+          )}
+        </div>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <div>
+          <Text size="xs" fw={600} mb={4}>Offer starts (blank = now)</Text>
+          <DateTimePicker
+            placeholder="Now"
+            value={startsAt}
+            onChange={(v) => setStartsAt(Array.isArray(v) ? v[0] : v)}
+            valueFormat="DD/MM/YYYY HH:mm"
+            clearable
+          />
+          <input type="hidden" name="offerStartsAt" value={startsAt ? startsAt.toISOString() : ""} />
+        </div>
+        <div>
+          <Text size="xs" fw={600} mb={4}>Offer ends (blank = no expiry)</Text>
+          <DateTimePicker
+            placeholder="No expiry"
+            value={endsAt}
+            onChange={(v) => setEndsAt(Array.isArray(v) ? v[0] : v)}
+            valueFormat="DD/MM/YYYY HH:mm"
+            clearable
+          />
+          <input type="hidden" name="offerEndsAt" value={endsAt ? endsAt.toISOString() : ""} />
         </div>
       </div>
     </div>
   );
+}
+
+function toDate(iso: string): Date | null {
+  const t = Date.parse(iso || "");
+  return Number.isFinite(t) ? new Date(t) : null;
 }

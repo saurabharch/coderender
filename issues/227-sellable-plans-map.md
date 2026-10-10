@@ -49,3 +49,4 @@ details form — totals, tax, coupons posting into the existing accounting
 ## Out of scope
 
 - (none ruled out yet)
+- [Offer schedule](236-offer-schedule.md): start/end auto-expiry + bot search wiring, live-proved.

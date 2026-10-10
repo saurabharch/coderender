@@ -364,6 +364,8 @@ export function getDb(): DatabaseSync {
     try { db.exec("ALTER TABLE ServicePackage ADD COLUMN offerValue INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE ServicePackage ADD COLUMN offerLabel TEXT NOT NULL DEFAULT 'offer price'"); } catch { /* exists */ }
     try { db.exec("ALTER TABLE ServicePackage ADD COLUMN badge TEXT NOT NULL DEFAULT 'none'"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN offerStartsAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
+    try { db.exec("ALTER TABLE ServicePackage ADD COLUMN offerEndsAt TEXT NOT NULL DEFAULT ''"); } catch { /* exists */ }
     seedServices(db);
     db.exec(`CREATE TABLE IF NOT EXISTS Distill (
       id INTEGER PRIMARY KEY AUTOINCREMENT, input TEXT NOT NULL,

@@ -44,7 +44,10 @@ export default function PricingPage() {
           <h2 className="mt-2 text-2xl font-extrabold tracking-tight">Pick a fixed scope</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {packs.map((k) => {
-              const onOffer = planEffective({ price: k.price, mrp: k.mrp, offerMode: k.offerMode, offerValue: k.offerValue }).onOffer;
+              const onOffer = planEffective({
+                price: k.price, mrp: k.mrp, offerMode: k.offerMode, offerValue: k.offerValue,
+                startsAt: k.offerStartsAt, endsAt: k.offerEndsAt,
+              }).onOffer;
               return (
               <div key={k.id} className={`${onOffer ? "beam " : ""}glass rounded-2xl p-6`}>
                 <p className="font-bold">{k.name}</p>

@@ -3,6 +3,7 @@ import { planEffective } from "@/lib/catalog-core";
 export interface PriceBlock {
   price: number; per?: string; priceLabel?: string; mrp?: number;
   offerMode?: string; offerValue?: number; offerLabel?: string; badge?: string;
+  offerStartsAt?: string; offerEndsAt?: string;
 }
 
 const BADGE_TEXT: Record<string, string> = { new: "new", offer: "offer price", "new-price": "new price" };
@@ -11,7 +12,10 @@ const BADGE_TEXT: Record<string, string> = { new: "new", offer: "offer price", "
 // public pages stay shadcn/Radix + beam/glass). No offer → today's plain
 // price. Offer → struck MRP sub-text, shimmer charge, badges.
 export function PlanPrice({ p }: { p: PriceBlock }) {
-  const eff = planEffective({ price: p.price, mrp: p.mrp, offerMode: p.offerMode, offerValue: p.offerValue });
+  const eff = planEffective({
+    price: p.price, mrp: p.mrp, offerMode: p.offerMode, offerValue: p.offerValue,
+    startsAt: p.offerStartsAt, endsAt: p.offerEndsAt,
+  });
   const label = (p.priceLabel || "price").toLowerCase() === "price" ? null : p.priceLabel;
   const badge = BADGE_TEXT[p.badge || ""] ?? null;
   const per = p.per && p.per !== "one-time" ? ` ${p.per}` : "";

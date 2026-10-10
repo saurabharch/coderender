@@ -23,7 +23,12 @@ export async function POST(req: Request) {
   const d = parsed.data;
   const plan = getPlan(d.packageId);
   if (!plan || !plan.active) return NextResponse.json({ error: "plan unavailable" }, { status: 404 });
-  const amount = Math.max(1, Math.round(plan.price));
+  // Scheduled offers price the order: expired/upcoming offers charge list.
+  const { planEffective } = await import("@/lib/catalog-core");
+  const amount = Math.max(1, planEffective({
+    price: plan.price, mrp: plan.mrp, offerMode: plan.offerMode,
+    offerValue: plan.offerValue, startsAt: plan.offerStartsAt, endsAt: plan.offerEndsAt,
+  }).charge);
   const period = /\/mo/i.test(plan.per || "") ? new Date().toISOString().slice(0, 7) : "once";
 
   const db = getDb();
