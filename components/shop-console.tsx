@@ -297,7 +297,7 @@ export function ShopConsole() {
   // Client WASM worker: same job id as the server job — first swap wins.
   async function runClientWorker(imageUrl: string, jobId: number) {
     try {
-      const worker = new Worker(new URL("./bg.worker.ts", import.meta.url));
+      const worker = new Worker("/bg-worker.mjs", { type: "module" });
       const done = new Promise<void>((resolve) => {
         worker.onmessage = async (e: MessageEvent<{ ok: boolean; jobId: number; bytes?: ArrayBuffer; error?: string }>) => {
           try {

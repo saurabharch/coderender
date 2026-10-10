@@ -26,7 +26,7 @@ export function useBgWorker() {
       const jobId = q.id as number;
       setNote("Removing background on this device…");
       try {
-        const worker = new Worker(new URL("./bg.worker.ts", import.meta.url));
+      const worker = new Worker("/bg-worker.mjs", { type: "module" });
         const done = await new Promise<boolean>((resolve) => {
           worker.onmessage = async (e: MessageEvent<{ ok: boolean; jobId: number; bytes?: ArrayBuffer }>) => {
             try {

@@ -28,3 +28,12 @@ Browser-first, same as barcode/QR scanners:
   new BG button on every media-library image, not just shop uploads.
 Live proof: job lands queued with the clean note instantly; worker bundle
 present in served chunks. Probes cleaned by captured ids.
+
+## Follow-up fix (same turn): the worker never ran in production
+
+Proved from the build output: Next compiles `new Worker(new URL(...))`
+into a 2KB webpack loader stub, not a runnable worker — so the browser
+path silently died and only the doomed server attempt ran. Fixed by
+shipping `public/bg-worker.mjs` (static module worker, pinned CDN ESM,
+same message protocol) with both call sites switched and the dead
+bundled worker deleted. Served as application/javascript, syntax-checked.
